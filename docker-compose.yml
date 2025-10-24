@@ -1,0 +1,166 @@
+version: '3.8'
+
+# --- NETWORKS ---
+# Define a network for all services to communicate internally
+networks:
+  foe_rbs_network:
+    driver: bridge
+
+# --- SERVICES ---
+services:
+
+  # 1-3. POSTGRESQL DATABASES (One for each service with data)
+  # ----------------------------------------------------------------
+
+  db_auth:
+    image: postgres:15-alpine
+    container_name: foe_rbs_db_auth
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    volumes:
+      - auth_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432" # Host: 5432 is used by auth-service
+    networks:
+      - foe_rbs_network
+
+  db_resource:
+    image: postgres:15-alpine
+    container_name: foe_rbs_db_resource
+    environment:
+      POSTGRES_DB: resource_db
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    volumes:
+      - resource_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432" # Host: 5433 is used by resource-service
+    networks:
+      - foe_rbs_network
+
+  db_booking:
+    image: postgres:15-alpine
+    container_name: foe_rbs_db_booking
+    environment:
+      POSTGRES_DB: booking_db
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    volumes:
+      - booking_data:/var/lib/postgresql/data
+    ports:
+      - "5434:5432" # Host: 5434 is used by booking-service
+    networks:
+      - foe_rbs_network
+
+
+  # 4. API GATEWAY (The single entry point)
+  # ----------------------------------------------------------------
+
+  api_gateway:
+    build:
+      context: ./api-gateway/  # Assuming you have a Dockerfile in api-gateway
+      dockerfile: Dockerfile
+    container_name: foe_rbs_api_gateway
+    # Mounts the application code into the container
+    volumes:
+      - ./api-gateway:/var/www/html
+    ports:
+      - "8000:80"              # Expose Gateway on host port 8000
+    networks:
+      - foe_rbs_network
+    depends_on:
+      # Gateway depends on all databases and services being ready
+      - db_auth
+      - db_resource
+      - db_booking
+      - auth_service
+      # ... add other services here as you build them
+    restart: unless-stopped
+
+
+  # 5. FRONTEND (Vue.js Development)
+  # ----------------------------------------------------------------
+
+  frontend:
+    build:
+      context: ./frontend/
+      dockerfile: Dockerfile.dev # Use a separate Dockerfile for dev mode
+    container_name: foe_rbs_frontend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules        # Keep node_modules external for performance
+    ports:
+      - "3000:3000"              # Expose Vue dev server on host port 3000
+    networks:
+      - foe_rbs_network
+    environment:
+      # Tell Vue where the API Gateway is located
+      VITE_API_BASE_URL: http://localhost:8000/api
+    restart: unless-stopped
+
+
+  # 6-9. MICROSERVICES (The backend logic)
+  # ----------------------------------------------------------------
+
+  auth_service:
+    build:
+      context: ./services/auth-service/
+      dockerfile: Dockerfile
+    container_name: foe_rbs_auth_service
+    volumes:
+      - ./services/auth-service:/var/www/html
+    # Microservices don't need ports exposed unless debugging.
+    # They communicate internally with the gateway.
+    environment:
+      DB_HOST: db_auth            # Hostname is the service name of the DB
+      DB_PORT: 5432
+      DB_DATABASE: auth_db
+    networks:
+      - foe_rbs_network
+    depends_on:
+      - db_auth
+    restart: unless-stopped
+
+  booking_service:
+    build:
+      context: ./services/booking-service/
+      dockerfile: Dockerfile
+    container_name: foe_rbs_booking_service
+    volumes:
+      - ./services/booking-service:/var/www/html
+    environment:
+      DB_HOST: db_booking
+      DB_PORT: 5432
+      DB_DATABASE: booking_db
+    networks:
+      - foe_rbs_network
+    depends_on:
+      - db_booking
+    restart: unless-stopped
+
+  resource_service:
+    build:
+      context: ./services/resource-service/
+      dockerfile: Dockerfile
+    container_name: foe_rbs_resource_service
+    volumes:
+      - ./services/resource-service:/var/www/html
+    environment:
+      DB_HOST: db_resource
+      DB_PORT: 5432
+      DB_DATABASE: resource_db
+    networks:
+      - foe_rbs_network
+    depends_on:
+      - db_resource
+    restart: unless-stopped
+
+  # Add report_service and notification_service similarly here...
+
+# --- VOLUMES (Data Persistence) ---
+volumes:
+  auth_data:
+  resource_data:
+  booking_data:
