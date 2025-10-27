@@ -2,13 +2,24 @@
   <div class="auth-container">
     <div class="auth-card">
       <div class="text-center mb-4">
-      <img src="../assets/logo.png" alt="University Logo" class="auth-logo mb-3">
+         <img src="../assets/logo.png" alt="University Logo" class="auth-logo mb-3">
         <h2 class="auth-title">FOE</h2>
         <h4 class="auth-title">Resource Booking System</h4>
-        <p class="text-muted">Sign in to your account</p>
       </div>
 
-      <form @submit.prevent="handleLogin">
+      <form @submit.prevent="handleRegister">
+        <div class="mb-3">
+          <label for="fullName" class="form-label">Full Name</label>
+          <input
+            type="text"
+            class="form-control"
+            id="fullName"
+            v-model="fullName"
+            required
+            placeholder="Enter your full name"
+          >
+        </div>
+
         <div class="mb-3">
           <label for="email" class="form-label">Email Address</label>
           <input
@@ -29,26 +40,34 @@
             id="password"
             v-model="password"
             required
-            placeholder="Enter your password"
-            
+            placeholder="Create a password"
           >
         </div>
 
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <div class="form-check">
-            <input class="form-check-input" type="checkbox" id="remember" v-model="rememberMe">
-            <label class="form-check-label" for="remember">
-              Remember me
-            </label>
-          </div>
-          <router-link to="/forgot-password" class="text-decoration-none">Forgot Password?</router-link>
+        <div class="mb-3">
+          <label for="confirmPassword" class="form-label">Confirm Password</label>
+          <input
+            type="password"
+            class="form-control"
+            id="confirmPassword"
+            v-model="confirmPassword"
+            required
+            placeholder="Confirm your password"
+          >
         </div>
 
-        <button type="submit" class="btn btn-primary w-100 mb-3">Sign In</button>
+        <div class="mb-3 form-check">
+          <input class="form-check-input" type="checkbox" id="terms" v-model="acceptTerms" required>
+          <label class="form-check-label" for="terms">
+            I agree to the terms and conditions
+          </label>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100 mb-3">Create Account</button>
 
         <div class="text-center">
-          <span class="text-muted">Don't have an account? </span>
-          <router-link to="/register" class="text-decoration-none">Register</router-link>
+          <span class="text-muted">Already have an account? </span>
+          <router-link to="/login" class="text-decoration-none">Sign In</router-link>
         </div>
       </form>
     </div>
@@ -60,27 +79,20 @@ import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 const router = useRouter();
+const fullName = ref('');
 const email = ref('');
 const password = ref('');
-const rememberMe = ref(false);
+const confirmPassword = ref('');
+const acceptTerms = ref(false);
 
-const handleLogin = () => {
-  if (email.value === 'masteradmin@university.edu') {
-    localStorage.setItem('isAuthenticated', 'true');
-    localStorage.setItem('userRole', 'master-admin');
-    localStorage.setItem('userName', 'Master Admin');
-    router.push('/master-admin');
-  } else if (email.value === 'admin@university.edu') {
-    localStorage.setItem('isAuthenticated', 'true');
-    localStorage.setItem('userRole', 'admin');
-    localStorage.setItem('userName', 'Admin User');
-    router.push('/admin');
-  } else {
-    localStorage.setItem('isAuthenticated', 'true');
-    localStorage.setItem('userRole', 'user');
-    localStorage.setItem('userName', 'Regular User');
-    router.push('/user');
+const handleRegister = () => {
+  if (password.value !== confirmPassword.value) {
+    alert('Passwords do not match');
+    return;
   }
+
+  alert('Registration successful! Please login.');
+  router.push('/login');
 };
 </script>
 
@@ -110,15 +122,15 @@ const handleLogin = () => {
 }
 
 .btn-primary {
-  background-color: #4BB66D;
-  border-color: #4BB66D;
+  background-color: #26d516;
+  border-color: #26d516;
   font-weight: 500;
   padding: 12px;
 }
 
 .btn-primary:hover {
-  background-color: #3f975b;
-  border-color: #3f975b;
+  background-color: #22b913;
+  border-color: #22b913;
 }
 
 .form-control:focus {
@@ -133,7 +145,6 @@ a {
 a:hover {
   color: #26d516;
 }
-
 
 .auth-logo {
     max-height: 120px; /* You can change this value (e.g., 80px, 150px) */
