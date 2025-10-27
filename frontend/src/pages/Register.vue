@@ -122,19 +122,20 @@ const handleRegister = () => {
 }
 
 .btn-primary {
-  background-color: #26d516;
-  border-color: #26d516;
+  background-color:#4BB66D;
+  border-color: #4BB66D;
   font-weight: 500;
   padding: 12px;
+  
 }
 
 .btn-primary:hover {
-  background-color: #22b913;
-  border-color: #22b913;
+  background-color: #3f975b;
+  border-color: #3f975b;
 }
 
 .form-control:focus {
-  border-color: #26d516;
+  border-color: #4BB66D;
   box-shadow: 0 0 0 0.2rem rgba(38, 213, 22, 0.25);
 }
 

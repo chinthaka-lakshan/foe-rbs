@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
 import Login from '../pages/Login.vue';
 import Register from '../pages/Register.vue';
+import ForgotPassword from '../pages/ForgotPassword.vue';
 
 const routes: Array<RouteRecordRaw> = [
   {
@@ -22,7 +23,18 @@ const routes: Array<RouteRecordRaw> = [
     path:'/register',
     name: 'Register',
     component: Register
-  }
+  },
+  
+  {
+    path:'/',
+    redirect: '/forgot-password',
+    
+  },
+  {
+    path:'/forgot-password',
+    name: 'forgot-password',
+    component: ForgotPassword
+  },
   
 ];
 
