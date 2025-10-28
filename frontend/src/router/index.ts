@@ -1,7 +1,9 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
-import Login from '../pages/Login.vue';
-import Register from '../pages/Register.vue';
-import ForgotPassword from '../pages/ForgotPassword.vue';
+import Login from '../views/Login.vue';
+import Register from '../views/Register.vue';
+import ForgotPassword from '../views/ForgotPassword.vue';
+import Dashboard from '../views/MasterAdmin/Dashboard.vue';
+import MasterAdminDashboard from '../views/MasterAdmin/MasterAdminDashboard.vue';
 
 
 const routes: Array<RouteRecordRaw> = [
@@ -35,6 +37,12 @@ const routes: Array<RouteRecordRaw> = [
     path:'/forgot-password',
     name: 'forgot-password',
     component: ForgotPassword
+  },
+  {
+    path: '/master-admin',
+    name: 'MasterAdminDashboard',
+    component: MasterAdminDashboard,
+    meta: { requiresAuth: true, role: 'master-admin' }
   },
   
 
