@@ -1,15 +1,14 @@
 version: '3.8'
 
 # --- NETWORKS ---
-# Define a network for all services to communicate internally
 networks:
   foe_rbs_network:
     driver: bridge
 
 # --- SERVICES ---
-services:
+services: # <--- This is the correct, singular 'services' key.
 
-  # 1-3. POSTGRESQL DATABASES (One for each service with data)
+  # 1. POSTGRESQL DATABASES (One for each service with data)
   # ----------------------------------------------------------------
 
   db_auth:
@@ -55,29 +54,31 @@ services:
       - foe_rbs_network
 
 
-  # 4. API GATEWAY (The single entry point)
+  # 4. API GATEWAY (Fixed to use Laravel Artisan Serve)
   # ----------------------------------------------------------------
 
   api_gateway:
     build:
-      context: ./api-gateway/  # Assuming you have a Dockerfile in api-gateway
+      context: ./api-gateway/
       dockerfile: Dockerfile
     container_name: foe_rbs_api_gateway
-    # Mounts the application code into the container
     volumes:
       - ./api-gateway:/var/www/html
     ports:
-      - "8000:80"              # Expose Gateway on host port 8000
+      # Map host 8000 to container 8000 for Artisan server
+      - "8000:8000"
     networks:
       - foe_rbs_network
     depends_on:
-      # Gateway depends on all databases and services being ready
       - db_auth
       - db_resource
       - db_booking
       - auth_service
-      # ... add other services here as you build them
+      - booking_service
+      - resource_service
     restart: unless-stopped
+    # Use Laravel's built-in server for development on port 8000
+    command: php artisan serve --host=0.0.0.0 --port=8000
 
 
   # 5. FRONTEND (Vue.js Development)
@@ -86,22 +87,21 @@ services:
   frontend:
     build:
       context: ./frontend/
-      dockerfile: Dockerfile.dev # Use a separate Dockerfile for dev mode
+      dockerfile: Dockerfile.dev
     container_name: foe_rbs_frontend
     volumes:
       - ./frontend:/app
-      - /app/node_modules        # Keep node_modules external for performance
+      - /app/node_modules
     ports:
-      - "3000:3000"              # Expose Vue dev server on host port 3000
+      - "3000:3000"
     networks:
       - foe_rbs_network
     environment:
-      # Tell Vue where the API Gateway is located
       VITE_API_BASE_URL: http://localhost:8000/api
     restart: unless-stopped
 
 
-  # 6-9. MICROSERVICES (The backend logic)
+  # 6-8. MICROSERVICES (The backend logic - PHP-FPM containers)
   # ----------------------------------------------------------------
 
   auth_service:
@@ -111,10 +111,8 @@ services:
     container_name: foe_rbs_auth_service
     volumes:
       - ./services/auth-service:/var/www/html
-    # Microservices don't need ports exposed unless debugging.
-    # They communicate internally with the gateway.
     environment:
-      DB_HOST: db_auth            # Hostname is the service name of the DB
+      DB_HOST: db_auth
       DB_PORT: 5432
       DB_DATABASE: auth_db
     networks:
@@ -156,8 +154,6 @@ services:
     depends_on:
       - db_resource
     restart: unless-stopped
-
-  # Add report_service and notification_service similarly here...
 
 # --- VOLUMES (Data Persistence) ---
 volumes:
