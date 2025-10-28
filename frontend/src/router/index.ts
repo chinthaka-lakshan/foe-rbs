@@ -3,6 +3,7 @@ import Login from '../pages/Login.vue';
 import Register from '../pages/Register.vue';
 import ForgotPassword from '../pages/ForgotPassword.vue';
 
+
 const routes: Array<RouteRecordRaw> = [
   {
     path: '/',
@@ -36,6 +37,7 @@ const routes: Array<RouteRecordRaw> = [
     component: ForgotPassword
   },
   
+
 ];
 
 const router = createRouter({
