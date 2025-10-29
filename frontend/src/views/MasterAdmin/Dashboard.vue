@@ -1,6 +1,9 @@
 <template>
   <div class="section">
-    <h2 class="section-title">Dashboard Overview</h2>
+    <div class="dashboard-header">
+       <h2 class="section-title">Welcome Master Admin Dashboard</h2>
+    </div>
+   
 
     <div class="row g-4 mb-4">
       <div class="col-md-3">
@@ -55,11 +58,17 @@
           <h5 class="mb-3">Total Bookings</h5>
           <div class="total-bookings">
             <h2>{{ stats.totalBookings }}</h2>
-            <div class="booking-percentages">
-              <div><span class="badge bg-success">65%</span> Approved</div>
-              <div><span class="badge bg-warning">25%</span> Pending</div>
-              <div><span class="badge bg-danger">10%</span> Rejected</div>
-            </div>
+              <div class="booking-boxes">
+                <div class="booking-box approved"> 
+                  <span class="badge bg-success">65%</span> <p>Approved</p>
+                </div>
+                <div class="booking-box pending">
+                  <span class="badge bg-warning text-dark">25%</span> <p>Pending</p>
+                </div>
+                <div class="booking-box rejected">
+                  <span class="badge bg-danger">10%</span> <p>Rejected</p>
+                </div>
+             </div>
           </div>
         </div>
       </div>
@@ -86,6 +95,24 @@ const stats = ref({
   animation: fadeIn 0.3s ease;
 }
 
+.dashboard-header {
+  background-color:#e5f4de; /* green box */
+  color: white;
+  text-align: center;
+  padding: 30px 0;
+  border-radius: 10px;
+  margin-bottom: 40px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.dashboard-header .section-title {
+  margin: 0;
+  font-size: 32px; /* size of Dashboard Overview text */
+  font-weight: 600;
+  color:#1e4449; /* ensure text is visible on green */
+}
+
+
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -107,11 +134,12 @@ const stats = ref({
   background: white;
   border-radius: 8px;
   padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px rgba(114, 38, 38, 0.08);
+
 }
 
 .pie-chart-container {
-  height: 300px;
+  height: 350px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -120,7 +148,9 @@ const stats = ref({
 
 .total-bookings {
   text-align: center;
-  padding: 20px;
+  /* padding: 42px; */
+   height: 350px;
+  
 }
 
 .total-bookings h2 {
@@ -134,5 +164,57 @@ const stats = ref({
   justify-content: space-around;
   flex-wrap: wrap;
   gap: 15px;
+  font-size: 24px;
+  /* background: rgb(249, 252, 246);
+  border-radius: 8px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(114, 38, 38, 0.08); */
 }
+
+.booking-boxes {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.booking-box {
+  flex: 1;
+  min-width: 100px;
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(30, 68, 73, 0.15);
+  transition: transform 0.2s ease;
+}
+
+.booking-box:hover {
+  transform: translateY(-4px);
+}
+
+.booking-box p {
+  margin: 10px 0 0;
+  font-weight: 500;
+  color: #1e4449;
+  font-size: 20px;
+}
+
+.booking-box.approved {
+  border-top: 4px solid white;
+}
+
+.booking-box.pending {
+  border-top: 4px solid white;
+}
+
+.booking-box.rejected {
+  border-top: 4px solid white;
+}
+
+.booking-box .badge {
+  font-size: 16px; /* increase or decrease this value */
+  padding: 18px 24px; /* optional: adjust padding for better look */
+}
+
+
 </style>
