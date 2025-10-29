@@ -135,6 +135,7 @@ const stats = ref({
   border-radius: 8px;
   padding: 24px;
   box-shadow: 0 2px 8px rgba(114, 38, 38, 0.08);
+  min-height: 440px;
 
 }
 
@@ -148,8 +149,8 @@ const stats = ref({
 
 .total-bookings {
   text-align: center;
-  /* padding: 42px; */
-   height: 350px;
+  padding-top: 42px;
+   /* height: 350px; */
   
 }
 
