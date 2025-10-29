@@ -77,7 +77,8 @@ const resources = ref([
   { id: 3, name: 'Library Study Room', category: 'Academic Space', status: 'inactive', image: 'https://images.pexels.com/photos/2041540/pexels-photo-2041540.jpeg?auto=compress&cs=tinysrgb&w=300' },
   { id: 4, name: 'Medical Lab', category: 'Medical & Health', status: 'active', image: 'https://images.pexels.com/photos/356040/pexels-photo-356040.jpeg?auto=compress&cs=tinysrgb&w=300' },
   { id: 5, name: 'Basketball Court', category: 'Sports & Recreational', status: 'active', image: 'https://images.pexels.com/photos/1752757/pexels-photo-1752757.jpeg?auto=compress&cs=tinysrgb&w=300' },
-  { id: 6, name: 'Lecture Hall B', category: 'Academic Space', status: 'active', image: 'https://images.pexels.com/photos/267885/pexels-photo-267885.jpeg?auto=compress&cs=tinysrgb&w=300' }
+  { id: 6, name: 'Lecture Hall B', category: 'Academic Space', status: 'active', image: 'https://images.pexels.com/photos/267885/pexels-photo-267885.jpeg?auto=compress&cs=tinysrgb&w=300' },
+  
 ]);
 
 const filteredResources = computed(() => {

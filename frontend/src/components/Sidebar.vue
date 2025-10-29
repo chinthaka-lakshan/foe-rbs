@@ -43,14 +43,22 @@ const selectSection = (section: string) => {
 .sidebar {
   width: 250px;
   background: #1e4449;
-  min-height: calc(100vh - 56px);
+  height: calc(100vh - 56px);
   color: white;
+  flex-shrink: 0;
+  overflow-y: auto;
+  position: sticky;
+  top: 56px;
 }
 
 .sidebar-header {
   padding: 20px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   color: #fcc300;
+  position: sticky;
+  top: 0;
+  background: #1e4449;
+  z-index: 10;
 }
 
 .sidebar-menu {
