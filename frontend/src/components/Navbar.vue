@@ -31,6 +31,9 @@ const handleLogout = () => {
 <style scoped>
 .navbar {
   border-bottom: 1px solid #e0e0e0;
+  position: sticky;
+  top: 0;
+  z-index: 1020;
 }
 
 .brand-text {
