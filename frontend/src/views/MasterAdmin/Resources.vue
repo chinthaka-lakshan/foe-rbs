@@ -3,10 +3,16 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
       <h2 class="section-title mb-0">Resources</h2>
       <div class="d-flex gap-2">
-        <button class="btn btn-outline-primary btn-sm">
+        <button
+         class="btn btn-outline-primary btn-sm"
+         @click="navigateToCategories"
+        >
           <i class="bi bi-list-ul me-1"></i>Categories
         </button>
-        <button class="btn btn-outline-primary btn-sm">
+        <button
+         class="btn btn-outline-primary btn-sm"
+         @click="navigateToTemplates"
+        >
           <i class="bi bi-file-text me-1"></i>Templates
         </button>
         <button class="btn btn-success btn-sm">
@@ -67,9 +73,11 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import { useRouter } from 'vue-router';
 
 const searchQuery = ref('');
 const selectedCategory = ref('');
+const router = useRouter();
 
 const resources = ref([
   { id: 1, name: 'Conference Room A', category: 'Academic Space', status: 'active', image: 'https://images.pexels.com/photos/1181406/pexels-photo-1181406.jpeg?auto=compress&cs=tinysrgb&w=300' },
@@ -94,6 +102,14 @@ const toggleResourceStatus = (id: number) => {
   if (resource) {
     resource.status = resource.status === 'active' ? 'inactive' : 'active';
   }
+};
+
+const navigateToCategories = () =>{
+  router.push('/categories');
+};
+
+const navigateToTemplates = () =>{
+  router.push('/templates');
 };
 </script>
 
