@@ -70,3 +70,13 @@ const chartOptions: ChartOptions<'pie'> = {
   }
 };
 </script>
+
+<style>
+  .pie-chart-container {
+  height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+</style>
