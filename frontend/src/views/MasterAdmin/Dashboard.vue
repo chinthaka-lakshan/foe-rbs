@@ -139,13 +139,14 @@ const stats = ref({
 
 }
 
-.pie-chart-container {
+/* .pie-chart-container {
   height: 350px;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px;
-}
+  
+} */
 
 .total-bookings {
   text-align: center;
