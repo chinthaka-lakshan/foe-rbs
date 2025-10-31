@@ -8,7 +8,7 @@
       <li
         v-for="item in menuItems"
         :key="item.name"
-        :class="{ active: activeSection === item.name }"
+        :class="{ active: modelValue === item.name }"
         @click="selectSection(item.name)"
       >
         <i :class="item.icon" class="me-2"></i>
@@ -19,8 +19,6 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-
 interface MenuItem {
   name: string;
   label: string;
@@ -33,13 +31,10 @@ interface Props {
   modelValue: string;
 }
 
-const props = defineProps<Props>();
+defineProps<Props>();
 const emit = defineEmits(['update:modelValue']);
 
-const activeSection = ref(props.modelValue);
-
 const selectSection = (section: string) => {
-  activeSection.value = section;
   emit('update:modelValue', section);
 };
 </script>
@@ -48,14 +43,22 @@ const selectSection = (section: string) => {
 .sidebar {
   width: 250px;
   background: #1e4449;
-  min-height: calc(100vh - 56px);
+  height: calc(100vh - 56px);
   color: white;
+  flex-shrink: 0;
+  overflow-y: auto;
+  position: sticky;
+  top: 56px;
 }
 
 .sidebar-header {
   padding: 20px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   color: #fcc300;
+  position: sticky;
+  top: 0;
+  background: #1e4449;
+  z-index: 10;
 }
 
 .sidebar-menu {

@@ -1,7 +1,10 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
-import Login from '../pages/Login.vue';
-import Register from '../pages/Register.vue';
-import ForgotPassword from '../pages/ForgotPassword.vue';
+import Login from '../views/Login.vue';
+import Register from '../views/Register.vue';
+import ForgotPassword from '../views/ForgotPassword.vue';
+import MasterAdminDashboard from '../views/MasterAdmin/MasterAdminDashboard.vue';
+import Categories from '../views/MasterAdmin/Categories.vue';
+import Templates from '../views/MasterAdmin/Templates.vue';
 
 
 const routes: Array<RouteRecordRaw> = [
@@ -35,6 +38,30 @@ const routes: Array<RouteRecordRaw> = [
     path:'/forgot-password',
     name: 'forgot-password',
     component: ForgotPassword
+  },
+  {
+    path:'/',
+    redirect: '/categories'
+  },
+  {
+    path:'/categories',
+    name: 'categories',
+    component:Categories
+  },
+  {
+    path:'/',
+    redirect: '/templates'
+  },
+  {
+    path: '/templates',
+    name: 'tepmlates',
+    component:Templates
+  },
+  {
+    path: '/master-admin',
+    name: 'MasterAdminDashboard',
+    component: MasterAdminDashboard,
+    meta: { requiresAuth: true, role: 'master-admin' }
   },
   
 
