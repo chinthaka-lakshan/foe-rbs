@@ -16,5 +16,6 @@ Route::middleware('auth:sanctum')->post('/logout', [AuthController::class, 'logo
 Route::post('/users', [UserController::class, 'store']);
 
 Route::middleware(['auth:sanctum', 'role:Master Admin,Admin'])->group(function () {
+    // Route::post('/users', [UserController::class, 'store']);
     Route::put('/users/{user}', [UserController::class, 'update']);
 });
