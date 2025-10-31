@@ -39,9 +39,9 @@ Route::post('/users', function (Request $request) {
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
     // Get authenticated user details
-    Route::get('/user', function (Request $request) {
+    Route::get('/users', function (Request $request) {
         $response = Http::withToken($request->bearerToken())
-            ->get('http://auth_service/api/user');
+            ->get('http://auth_service/api/users');
             
         return $response->successful() 
             ? $response->json() 
@@ -65,5 +65,14 @@ Route::middleware('auth:sanctum')->group(function () {
         return $response->successful() 
             ? $response->json() 
             : response()->json(['message' => 'User update failed'], $response->status());
+    });
+    // Delete user route (Admin, Master Admin)
+    Route::delete('/users/{user}', function (Request $request, $user) {
+        $response = Http::withToken($request->bearerToken())
+            ->delete("http://auth_service/api/users/{$user}");
+            
+        return $response->successful() 
+            ? $response->json() 
+            : response()->json(['message' => 'User deletion failed'], $response->status());
     });
 });

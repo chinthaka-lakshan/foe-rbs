@@ -9,6 +9,12 @@ use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
+    // index
+    public function index()
+    {
+        return User::with('roles')->get();
+    }
+
     //store
     public function store(Request $request)
     {
@@ -56,4 +62,11 @@ class UserController extends Controller
         }
         return response()->json($user->load('roles'));
     }
+
+    // destroy
+    public function destroy(User $user)
+    {
+        $user->delete();
+        return response()->json(['message' => 'User deleted successfully']);
+    }       
 }
