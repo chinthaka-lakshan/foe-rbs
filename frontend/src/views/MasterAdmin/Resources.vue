@@ -1,4 +1,6 @@
 <template>
+  <navbar/>
+  <master-admin-sidebar/>
   <div class="section">
     <div class="d-flex justify-content-between align-items-center mb-4">
       <h2 class="section-title mb-0">Resources</h2>
@@ -74,6 +76,8 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
+import Navbar from '../../components/Navbar.vue';
+import MasterAdminSidebar from '../../components/Sidebar/MasterAdminSidebar.vue';
 
 const searchQuery = ref('');
 const selectedCategory = ref('');
