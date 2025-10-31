@@ -65,21 +65,32 @@ services: # <--- This is the correct, singular 'services' key.
     volumes:
       - ./api-gateway:/var/www/html
     ports:
-      # Map host 8000 to container 8000 for Artisan server
-      - "8000:8000"
+      - "8000:80"
     networks:
       - foe_rbs_network
     depends_on:
       - db_auth
-      - db_resource
-      - db_booking
       - auth_service
-      - booking_service
-      - resource_service
     restart: unless-stopped
-    # Use Laravel's built-in server for development on port 8000
-    command: php artisan serve --host=0.0.0.0 --port=8000
+    # REMOVE the command line completely - let Apache handle it
 
+
+
+  # api_gateway:
+  #   build:
+  #     context: ./api-gateway/
+  #     dockerfile: Dockerfile
+  #   container_name: foe_rbs_api_gateway
+  #   volumes:
+  #     - ./api-gateway:/var/www/html
+  #   ports:
+  #     - "8000:80"
+  #   networks:
+  #     - foe_rbs_network
+  #   depends_on:
+  #     - db_auth
+  #     - auth_service
+  #   restart: unless-stopped
 
   # 5. FRONTEND (Vue.js Development)
   # ----------------------------------------------------------------
@@ -106,11 +117,13 @@ services: # <--- This is the correct, singular 'services' key.
 
   auth_service:
     build:
-      context: ./services/auth-service/
+      context: ./services/auth_service/
       dockerfile: Dockerfile
     container_name: foe_rbs_auth_service
     volumes:
-      - ./services/auth-service:/var/www/html
+      - ./services/auth_service:/var/www/html
+    ports:
+      - "8001:80"  # Add this line for direct testing
     environment:
       DB_HOST: db_auth
       DB_PORT: 5432
@@ -123,11 +136,11 @@ services: # <--- This is the correct, singular 'services' key.
 
   booking_service:
     build:
-      context: ./services/booking-service/
+      context: ./services/booking_service/
       dockerfile: Dockerfile
     container_name: foe_rbs_booking_service
     volumes:
-      - ./services/booking-service:/var/www/html
+      - ./services/booking_service:/var/www/html
     environment:
       DB_HOST: db_booking
       DB_PORT: 5432
@@ -140,11 +153,11 @@ services: # <--- This is the correct, singular 'services' key.
 
   resource_service:
     build:
-      context: ./services/resource-service/
+      context: ./services/resource_service/
       dockerfile: Dockerfile
     container_name: foe_rbs_resource_service
     volumes:
-      - ./services/resource-service:/var/www/html
+      - ./services/resource_service:/var/www/html
     environment:
       DB_HOST: db_resource
       DB_PORT: 5432
