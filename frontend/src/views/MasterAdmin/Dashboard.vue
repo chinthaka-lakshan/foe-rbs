@@ -1,12 +1,16 @@
 <template>
+    <Navbar/>
+    <MasterAdminSidebar/>
   <div class="section">
-    <div class="dashboard-header">
+  
+    
+    <div class="dashboard-header mb-4">
        <h2 class="section-title">Welcome Master Admin Dashboard</h2>
     </div>
    
 
     <div class="row g-4 mb-4">
-      <div class="col-md-3">
+      <div class="col-sm-6 col-md-3">
         <StatCard
           icon="bi bi-people-fill"
           :value="stats.totalUsers"
@@ -14,7 +18,7 @@
           color="#4BB66D"
         />
       </div>
-      <div class="col-md-3">
+      <div class="col-sm-6 col-md-3">
         <StatCard
           icon="bi bi-box-fill"
           :value="stats.totalResources"
@@ -22,7 +26,7 @@
           color="#26d516"
         />
       </div>
-      <div class="col-md-3">
+      <div class="col-sm-6 col-md-3">
         <StatCard
           icon="bi bi-clock-fill"
           :value="stats.pendingBookings"
@@ -30,7 +34,7 @@
           color="#fcc300"
         />
       </div>
-      <div class="col-md-3">
+      <div class="col-sm-6 col-md-3">
         <StatCard
           icon="bi bi-check-circle-fill"
           :value="stats.approvedBookings"
@@ -80,6 +84,8 @@
 import { ref } from 'vue';
 import StatCard from '../../components/StatCard.vue';
 import PieChart from '../../components/PieChart.vue';
+import Navbar from '../../components/Navbar.vue';
+import MasterAdminSidebar from '../../components/Sidebar/MasterAdminSidebar.vue';
 
 const stats = ref({
   totalUsers: 265,
@@ -91,27 +97,28 @@ const stats = ref({
 </script>
 
 <style scoped>
+/* ================================================= */
+/* FIX: ADJUSTED .section FOR FIXED SIDEBAR          */
+/* ================================================= */
+
 .section {
+  /* Pushes the entire dashboard content to the right by 250px (Sidebar Width) */
+  margin-left: 250px; 
+  padding: 20px; /* Add overall padding */
   animation: fadeIn 0.3s ease;
+  margin-top: 20px;
 }
 
-.dashboard-header {
-  background-color:#e5f4de; /* green box */
-  color: white;
-  text-align: center;
-  padding: 30px 0;
-  border-radius: 10px;
-  margin-bottom: 40px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+@media (max-width: 768px) {
+  /* When the sidebar collapses, reduce the margin to 70px (Collapsed Sidebar Width) */
+  .section {
+    margin-left: 70px;
+  }
 }
 
-.dashboard-header .section-title {
-  margin: 0;
-  font-size: 32px; /* size of Dashboard Overview text */
-  font-weight: 600;
-  color:#1e4449; /* ensure text is visible on green */
-}
-
+/* ================================================= */
+/* RESPONSIVE CSS STYLES START                       */
+/* ================================================= */
 
 @keyframes fadeIn {
   from {
@@ -124,10 +131,34 @@ const stats = ref({
   }
 }
 
+/* --- Dashboard Header --- */
+.dashboard-header {
+  background-color: #e5f4de; 
+  color: #1e4449; 
+  text-align: center;
+  padding: 30px 15px; 
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.dashboard-header .section-title {
+  margin: 0;
+  font-weight: 600;
+  color: #1e4449;
+  font-size: 24px; 
+}
+
+@media (min-width: 768px) {
+  .dashboard-header .section-title {
+    font-size: 32px; 
+  }
+}
+
+/* --- General Card & Title Styles --- */
 .section-title {
   color: #1e4449;
   font-weight: 600;
-  margin-bottom: 24px;
+  margin-bottom: 24px; 
 }
 
 .chart-card {
@@ -135,59 +166,57 @@ const stats = ref({
   border-radius: 8px;
   padding: 24px;
   box-shadow: 0 2px 8px rgba(114, 38, 38, 0.08);
-  min-height: 440px;
-
+  height: 100%; 
+  margin-top: 20px;
 }
 
-/* .pie-chart-container {
-  height: 350px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  
-} */
-
+/* --- Total Bookings Section --- */
 .total-bookings {
   text-align: center;
-  padding-top: 42px;
-   /* height: 350px; */
-  
+  padding-top: 20px; 
+}
+
+@media (min-width: 768px) {
+  .total-bookings {
+    padding-top: 42px; 
+  }
 }
 
 .total-bookings h2 {
-  font-size: 48px;
+  font-size: 40px; 
   color: #1e4449;
   margin-bottom: 20px;
 }
 
-.booking-percentages {
-  display: flex;
-  justify-content: space-around;
-  flex-wrap: wrap;
-  gap: 15px;
-  font-size: 24px;
-  /* background: rgb(249, 252, 246);
-  border-radius: 8px;
-  padding: 24px;
-  box-shadow: 0 2px 8px rgba(114, 38, 38, 0.08); */
+@media (min-width: 768px) {
+  .total-bookings h2 {
+    font-size: 48px; 
+  }
 }
 
+/* --- Booking Percentage Boxes --- */
 .booking-boxes {
   display: flex;
+  flex-wrap: wrap; 
   justify-content: space-between;
   gap: 16px;
-  flex-wrap: wrap;
 }
 
 .booking-box {
-  flex: 1;
-  min-width: 100px;
+  flex: 1 1 30%; 
+  min-width: 90px; 
   background: white;
   border-radius: 8px;
-  padding: 20px;
+  padding: 15px; 
   box-shadow: 0 2px 8px rgba(30, 68, 73, 0.15);
   transition: transform 0.2s ease;
+  text-align: center;
+}
+
+@media (min-width: 576px) {
+  .booking-box {
+    padding: 20px; 
+  }
 }
 
 .booking-box:hover {
@@ -198,24 +227,38 @@ const stats = ref({
   margin: 10px 0 0;
   font-weight: 500;
   color: #1e4449;
-  font-size: 20px;
+  font-size: 16px; 
 }
 
-.booking-box.approved {
-  border-top: 4px solid white;
-}
-
-.booking-box.pending {
-  border-top: 4px solid white;
-}
-
-.booking-box.rejected {
-  border-top: 4px solid white;
+@media (min-width: 768px) {
+  .booking-box p {
+    font-size: 20px; 
+  }
 }
 
 .booking-box .badge {
-  font-size: 16px; /* increase or decrease this value */
-  padding: 18px 24px; /* optional: adjust padding for better look */
+  font-size: 14px; 
+  padding: 10px 15px; 
+  display: inline-block; 
+}
+
+@media (min-width: 768px) {
+  .booking-box .badge {
+    font-size: 16px; 
+    padding: 18px 24px; 
+  }
+}
+
+.booking-box.approved { border-top: 4px solid white; }
+.booking-box.pending { border-top: 4px solid white; }
+.booking-box.rejected { border-top: 4px solid white; }
+
+/* --- Pie Chart Container --- */
+.pie-chart-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 0;
 }
 
 
