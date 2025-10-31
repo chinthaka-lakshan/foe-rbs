@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Auth;
 
 class AuthController extends Controller
 {
+    // login
     public function login(Request $request)
     {
         $credentials = $request->validate([
@@ -34,6 +35,7 @@ class AuthController extends Controller
         return response()->json(['message' => 'Invalid credentials'], 401);
     }
 
+    // logout
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();

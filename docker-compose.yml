@@ -1,16 +1,14 @@
 version: '3.8'
 
-# --- NETWORKS ---
+#NETWORKS
 networks:
   foe_rbs_network:
     driver: bridge
 
-# --- SERVICES ---
-services: # <--- This is the correct, singular 'services' key.
+#SERVICES
+services:
 
-  # 1. POSTGRESQL DATABASES (One for each service with data)
-  # ----------------------------------------------------------------
-
+  #POSTGRESQL DATABASES (One for each service with data)
   db_auth:
     image: postgres:15-alpine
     container_name: foe_rbs_db_auth
@@ -21,7 +19,7 @@ services: # <--- This is the correct, singular 'services' key.
     volumes:
       - auth_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432" # Host: 5432 is used by auth-service
+      - "5432:5432"
     networks:
       - foe_rbs_network
 
@@ -35,7 +33,7 @@ services: # <--- This is the correct, singular 'services' key.
     volumes:
       - resource_data:/var/lib/postgresql/data
     ports:
-      - "5433:5432" # Host: 5433 is used by resource-service
+      - "5433:5432"
     networks:
       - foe_rbs_network
 
@@ -49,14 +47,12 @@ services: # <--- This is the correct, singular 'services' key.
     volumes:
       - booking_data:/var/lib/postgresql/data
     ports:
-      - "5434:5432" # Host: 5434 is used by booking-service
+      - "5434:5432"
     networks:
       - foe_rbs_network
 
 
-  # 4. API GATEWAY (Fixed to use Laravel Artisan Serve)
-  # ----------------------------------------------------------------
-
+  #API GATEWAY (Fixed to use Laravel Artisan Serve)
   api_gateway:
     build:
       context: ./api-gateway/
@@ -72,28 +68,6 @@ services: # <--- This is the correct, singular 'services' key.
       - db_auth
       - auth_service
     restart: unless-stopped
-    # REMOVE the command line completely - let Apache handle it
-
-
-
-  # api_gateway:
-  #   build:
-  #     context: ./api-gateway/
-  #     dockerfile: Dockerfile
-  #   container_name: foe_rbs_api_gateway
-  #   volumes:
-  #     - ./api-gateway:/var/www/html
-  #   ports:
-  #     - "8000:80"
-  #   networks:
-  #     - foe_rbs_network
-  #   depends_on:
-  #     - db_auth
-  #     - auth_service
-  #   restart: unless-stopped
-
-  # 5. FRONTEND (Vue.js Development)
-  # ----------------------------------------------------------------
 
   frontend:
     build:
@@ -112,9 +86,7 @@ services: # <--- This is the correct, singular 'services' key.
     restart: unless-stopped
 
 
-  # 6-8. MICROSERVICES (The backend logic - PHP-FPM containers)
-  # ----------------------------------------------------------------
-
+  #MICROSERVICES (The backend logic - PHP-FPM containers)
   auth_service:
     build:
       context: ./services/auth_service/
@@ -123,7 +95,7 @@ services: # <--- This is the correct, singular 'services' key.
     volumes:
       - ./services/auth_service:/var/www/html
     ports:
-      - "8001:80"  # Add this line for direct testing
+      - "8001:80"
     environment:
       DB_HOST: db_auth
       DB_PORT: 5432
@@ -168,7 +140,7 @@ services: # <--- This is the correct, singular 'services' key.
       - db_resource
     restart: unless-stopped
 
-# --- VOLUMES (Data Persistence) ---
+#VOLUMES (Data Persistence)
 volumes:
   auth_data:
   resource_data:
