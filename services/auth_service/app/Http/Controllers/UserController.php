@@ -9,25 +9,26 @@ use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
+    // index
+    public function index()
+    {
+        return User::with('roles')->get();
+    }
+
     //store
     public function store(Request $request)
     {
-        //Validation logic
         $validated = $request->validate([
             'name' => 'required|string',
             'email' => 'required|email|unique:users',
             'password' => 'required|string|min:6',
         ]);
-
-        //User creation logic (status defaults to 'active')
         $user = User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
             'status' => 'active',
         ]);
-
-        //Default Role Assignment
         $role = Role::where('name', 'User')->first();
         if ($role) {
             $user->roles()->attach($role);
@@ -39,21 +40,33 @@ class UserController extends Controller
     //update
     public function update(Request $request, User $user)
     {
-        // Validation logic
         $validated = $request->validate([
+            'name' => 'nullable|string',
+            'email' => 'nullable|email|unique:users,email,' . $user->id, 
+            'password' => 'nullable|string|min:6',
             'status' => 'nullable|in:active,inactive',
             'role' => 'nullable|string|exists:roles,name',
         ]);
+        $dataToUpdate = $validated;
 
-        if (isset($validated['status'])) {
-            $user->update(['status' => $validated['status']]);
+        if (isset($dataToUpdate['password'])) {
+            $dataToUpdate['password'] = Hash::make($dataToUpdate['password']);
         }
+
+        unset($dataToUpdate['role']); 
+        $user->update($dataToUpdate);
 
         if (isset($validated['role'])) {
             $role = Role::where('name', $validated['role'])->first();
             $user->roles()->sync([$role->id]);
         }
-
         return response()->json($user->load('roles'));
     }
+
+    // destroy
+    public function destroy(User $user)
+    {
+        $user->delete();
+        return response()->json(['message' => 'User deleted successfully']);
+    }       
 }
