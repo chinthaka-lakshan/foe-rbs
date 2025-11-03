@@ -2,7 +2,7 @@
   <div class="auth-container">
     <div class="auth-card">
       <div class="text-center mb-4">
-      <img src="../assets/logo.png" alt="University Logo" class="auth-logo mb-3">
+        <img src="../assets/logo.png" alt="University Logo" class="auth-logo mb-3">
         <h2 class="auth-title">FOE</h2>
         <h4 class="auth-title">Resource Booking System</h4>
         <p class="text-muted">Sign in to your account</p>
@@ -30,7 +30,6 @@
             v-model="password"
             required
             placeholder="Enter your password"
-            
           >
         </div>
 
@@ -44,7 +43,11 @@
           <router-link to="/forgot-password" class="text-decoration-none">Forgot Password?</router-link>
         </div>
 
-        <button type="submit" class="btn btn-primary w-100 mb-3">Sign In</button>
+        <button type="submit" class="btn btn-primary w-100 mb-3" :disabled="!email || !password">Sign In</button>
+
+        <div v-if="loginError" class="alert alert-danger text-center" role="alert">
+            {{ loginError }}
+        </div>
 
         <div class="text-center">
           <span class="text-muted">Don't have an account? </span>
@@ -63,24 +66,44 @@ const router = useRouter();
 const email = ref('');
 const password = ref('');
 const rememberMe = ref(false);
+const loginError = ref(''); // State to hold login error messages
+
+// Define a common placeholder password for demonstration
+const TEST_PASSWORD = 'password123';
 
 const handleLogin = () => {
-  if (email.value === 'masteradmin@university.edu') {
-    localStorage.setItem('isAuthenticated', 'true');
-    localStorage.setItem('userRole', 'master-admin');
-    localStorage.setItem('userName', 'Master Admin');
-    router.push('/master-admin');
-  } else if (email.value === 'admin@university.edu') {
-    localStorage.setItem('isAuthenticated', 'true');
-    localStorage.setItem('userRole', 'admin');
-    localStorage.setItem('userName', 'Admin User');
-    router.push('/admin');
-  } else {
-    localStorage.setItem('isAuthenticated', 'true');
-    localStorage.setItem('userRole', 'user');
-    localStorage.setItem('userName', 'Regular User');
-    router.push('/user');
-  }
+    loginError.value = ''; // Clear previous errors
+
+    // 1. Master Admin Login
+    if (email.value === 'masteradmin@university.edu' && password.value === TEST_PASSWORD) {
+        localStorage.setItem('isAuthenticated', 'true');
+        localStorage.setItem('userRole', 'master-admin');
+        localStorage.setItem('userName', 'Master Admin');
+        // Navigate to the Master Admin dashboard route
+        router.push('/master-admin/dashboard'); 
+        
+    // 2. Regular Admin Login
+    } else if (email.value === 'admin@university.edu' && password.value === TEST_PASSWORD) {
+        localStorage.setItem('isAuthenticated', 'true');
+        localStorage.setItem('userRole', 'admin');
+        localStorage.setItem('userName', 'Admin User');
+        // Navigate to the Regular Admin dashboard route
+        router.push('/admin/dashboard'); 
+        
+    // 3. Regular User Login
+    } else if (email.value === 'user@university.edu' && password.value === TEST_PASSWORD) {
+        localStorage.setItem('isAuthenticated', 'true');
+        localStorage.setItem('userRole', 'user');
+        localStorage.setItem('userName', 'Regular User');
+        // Navigate to the Regular User dashboard route
+        router.push('/user/dashboard'); 
+
+    // 4. Failed Login
+    } else {
+        localStorage.setItem('isAuthenticated', 'false');
+        localStorage.removeItem('userRole');
+        loginError.value = 'Invalid email or password.';
+    }
 };
 </script>
 
@@ -136,7 +159,17 @@ a:hover {
 
 
 .auth-logo {
-    max-height: 120px; /* You can change this value (e.g., 80px, 150px) */
+    max-height: 120px; 
     width: auto;
+}
+/* Style for the error message */
+.alert-danger {
+    color: #842029;
+    background-color: #f8d7da;
+    border-color: #f5c2c7;
+    padding: 1rem 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid transparent;
+    border-radius: 0.25rem;
 }
 </style>
