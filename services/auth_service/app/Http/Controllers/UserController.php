@@ -52,6 +52,9 @@ class UserController extends Controller
         if (isset($dataToUpdate['password'])) {
             $dataToUpdate['password'] = Hash::make($dataToUpdate['password']);
         }
+        if (isset($request['status'])) {
+            $user->update(['status' => $request['status']]);
+        }
 
         unset($dataToUpdate['role']); 
         $user->update($dataToUpdate);
