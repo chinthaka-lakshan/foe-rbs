@@ -2,14 +2,13 @@ import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
 import Login from '../views/Login.vue';
 import Register from '../views/Register.vue';
 import ForgotPassword from '../views/ForgotPassword.vue';
-import Categories from '../views/MasterAdmin/Categories.vue';
-import Templates from '../views/MasterAdmin/Templates.vue';
 import Dashboard from '../views/MasterAdmin/Dashboard.vue';
 import Resources from '../views/MasterAdmin/Resources.vue';
 import Booking from '../views/MasterAdmin/Booking.vue';
 import Users from '../views/MasterAdmin/Users.vue';
 import Reports from '../views/MasterAdmin/Reports.vue';
 import Setting from '../views/MasterAdmin/Setting.vue';
+import Categories from '../../../frontend/src/views/MasterAdmin/Categories.vue';
 
 
 const routes: Array<RouteRecordRaw> = [
@@ -46,21 +45,12 @@ const routes: Array<RouteRecordRaw> = [
   },
   {
     path:'/',
-    redirect: '/categories'
+    redirect:'/categories'
   },
   {
     path:'/categories',
-    name: 'categories',
+    name:'categories',
     component:Categories
-  },
-  {
-    path:'/',
-    redirect: '/templates'
-  },
-  {
-    path: '/templates',
-    name: 'tepmlates',
-    component:Templates
   },
 
   {
