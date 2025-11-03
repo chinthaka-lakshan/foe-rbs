@@ -1,4 +1,6 @@
 <template>
+  <navbar/>
+  <master-admin-sidebar/>
   <div class="section">
     <h2 class="section-title">Bookings</h2>
 
@@ -88,6 +90,8 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import Navbar from '../../components/Navbar.vue';
+import MasterAdminSidebar from '../../components/Sidebar/MasterAdminSidebar.vue';
 
 const selectedResource = ref('');
 const selectedStatus = ref('');
@@ -137,6 +141,14 @@ const deleteBooking = (id: number) => {
 <style scoped>
 .section {
   animation: fadeIn 0.3s ease;
+  margin-left: 260px;
+}
+
+@media (max-width: 768px) {
+  /* When the sidebar collapses, reduce the margin to 70px (Collapsed Sidebar Width) */
+  .section {
+    margin-left: 80px;
+  }
 }
 
 @keyframes fadeIn {
