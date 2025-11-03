@@ -6,6 +6,10 @@ import Categories from '../views/MasterAdmin/Categories.vue';
 import Templates from '../views/MasterAdmin/Templates.vue';
 import Dashboard from '../views/MasterAdmin/Dashboard.vue';
 import Resources from '../views/MasterAdmin/Resources.vue';
+import Booking from '../views/MasterAdmin/Booking.vue';
+import Users from '../views/MasterAdmin/Users.vue';
+import Reports from '../views/MasterAdmin/Reports.vue';
+import Setting from '../views/MasterAdmin/Setting.vue';
 
 
 const routes: Array<RouteRecordRaw> = [
@@ -59,7 +63,7 @@ const routes: Array<RouteRecordRaw> = [
     component:Templates
   },
 
-   {
+  {
     path:'/',
     redirect: '/master-admin/resource'
   },
@@ -67,6 +71,45 @@ const routes: Array<RouteRecordRaw> = [
     path: '/master-admin/resource',
     name: 'master-admin-resource',
     component:Resources
+  },
+
+  {
+    path:'/',
+    redirect: '/master-admin/booking'
+  },
+  {
+    path: '/master-admin/booking',
+    name: 'master-admin-booking',
+    component:Booking
+  },
+
+  {
+    path:'/',
+    redirect: '/master-admin/users'
+  },
+  {
+    path: '/master-admin/users',
+    name: 'master-admin-users',
+    component:Users
+  },
+
+  {
+    path:'/',
+    redirect: '/master-admin/reports'
+  },
+  {
+    path: '/master-admin/reports',
+    name: 'master-admin-reports',
+    component:Reports
+  },
+  {
+    path:'/',
+    redirect:'/master-admin/setting'
+  },
+  {
+    path:'/master-admin/setting',
+    name:'master-admin-setting',
+    component:Setting
   },
   {
     path: '/master-admin/dashboard',
