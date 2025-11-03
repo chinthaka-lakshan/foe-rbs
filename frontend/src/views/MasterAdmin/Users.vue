@@ -1,4 +1,6 @@
 <template>
+  <navbar/>
+  <master-admin-sidebar/>
   <div class="section">
     <div class="d-flex justify-content-between align-items-center mb-4">
       <h2 class="section-title mb-0">Users</h2>
@@ -98,6 +100,8 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import Navbar from '../../components/Navbar.vue';
+import MasterAdminSidebar from '../../components/Sidebar/MasterAdminSidebar.vue';
 
 const searchQuery = ref('');
 const selectedRole = ref('');
@@ -129,6 +133,13 @@ const filteredUsers = computed(() => {
 <style scoped>
 .section {
   animation: fadeIn 0.3s ease;
+  margin-left: 260px;
+}
+@media (max-width: 768px) {
+  /* When the sidebar collapses, reduce the margin to 70px (Collapsed Sidebar Width) */
+  .section {
+    margin-left: 80px;
+  }
 }
 
 @keyframes fadeIn {

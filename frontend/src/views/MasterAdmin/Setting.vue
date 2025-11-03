@@ -1,4 +1,7 @@
 <template>
+
+  <navbar/>
+  <master-admin-sidebar/>
   <div class="section">
     <h2 class="section-title">System Settings</h2>
 
@@ -148,6 +151,8 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import Navbar from '../../components/Navbar.vue';
+import MasterAdminSidebar from '../../components/Sidebar/MasterAdminSidebar.vue';
 
 const settings = ref({
   systemName: 'University Resources Booking System',
@@ -180,6 +185,13 @@ const saveSettings = () => {
 <style scoped>
 .section {
   animation: fadeIn 0.3s ease;
+  margin-left: 260px;
+}
+@media (max-width: 768px) {
+  /* When the sidebar collapses, reduce the margin to 70px (Collapsed Sidebar Width) */
+  .section {
+    margin-left: 80px;
+  }
 }
 
 @keyframes fadeIn {
