@@ -120,6 +120,14 @@ const navigateToTemplates = () =>{
 <style scoped>
 .section {
   animation: fadeIn 0.3s ease;
+  margin-left: 260px
+}
+
+@media (max-width: 768px) {
+  /* When the sidebar collapses, reduce the margin to 70px (Collapsed Sidebar Width) */
+  .section {
+    margin-left: 80px;
+  }
 }
 
 @keyframes fadeIn {
@@ -137,6 +145,7 @@ const navigateToTemplates = () =>{
   color: #1e4449;
   font-weight: 600;
   margin-bottom: 24px;
+  
 }
 
 .resource-card {
