@@ -254,12 +254,12 @@ const stats = ref({
 .booking-box.rejected { border-top: 4px solid white; }
 
 /* --- Pie Chart Container --- */
-.pie-chart-container {
+/* .pie-chart-container {
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px 0;
-}
+} */
 
 
 </style>
