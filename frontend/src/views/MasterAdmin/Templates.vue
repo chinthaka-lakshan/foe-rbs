@@ -105,7 +105,7 @@
               </div>
               <div class="col-md-6">
                 <select class="form-select" v-model="formData.categoryName" required>
-                  <option value="" disabled>Select Category *</option>
+                  <option value="" disabled>Select Category </option>
                   <option v-for="cat in categories" :key="cat" :value="cat">
                     {{ cat }}
                   </option>
