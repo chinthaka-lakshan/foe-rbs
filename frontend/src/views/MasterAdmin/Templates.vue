@@ -132,7 +132,7 @@
                       <input
                         type="text"
                         class="form-control"
-                        placeholder="Example value will go here"
+                        placeholder="Enter value"
                         disabled
                       />
                     </div>
@@ -196,7 +196,7 @@
 
 
     <div class="modal fade" id="deleteConfirmationModal" tabindex="-1" aria-labelledby="deleteConfirmationModalLabel" aria-hidden="true" ref="deleteModalRef">
-      <div class="modal-dialog modal-dialog-centered"> 
+      <div class="modal-dialog delete-modal-top"> 
         <div class="modal-content">
 
           <template v-if="deleteStep === 'confirm'">
@@ -487,11 +487,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/*
-|--------------------------------------------------------------------------
-| Layout & Page Title Styles 
-|--------------------------------------------------------------------------
-*/
+
 .template-page.section {
   animation: fadeIn 0.3s ease;
   padding: 20px;
@@ -522,16 +518,12 @@ onMounted(() => {
   margin-bottom: 24px;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Header, Search, and Add Button Styles (Unified)
-|--------------------------------------------------------------------------
-*/
+
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px; /* Reduced from 30px to match Category page spacing */
+  margin-bottom: 24px; 
   gap: 20px;
 }
 
@@ -545,7 +537,7 @@ onMounted(() => {
   padding-left: 10px; /* Reset padding as icon is in input-group-text */
 }
 
-/* Custom Success Button Color (Consistent with Category Page) */
+
 .btn-success {
   background-color: #4BB66D;
   border-color: #4BB66D;
@@ -563,18 +555,14 @@ onMounted(() => {
   border-radius: 8px; /* Using Bootstrap default look or simplified */
 }
 
-/*
-|--------------------------------------------------------------------------
-| Table & Card Styles (MATCHING CATEGORY PAGE)
-|--------------------------------------------------------------------------
-*/
+
 
 /* This class defines the look for the entire table container */
 .table-card {
   background: white;
   border-radius: 8px; /* Use 8px to match Category page */
-  padding: 24px; /* Use 24px padding to match Category page */
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); /* Soft shadow to match Category page */
+  padding: 24px; 
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); 
   overflow: hidden;
 }
 
@@ -599,7 +587,6 @@ onMounted(() => {
   padding: 0.25rem 0.5rem; /* Standard sm button padding */
 }
 
-/* Ensure outline buttons are visible (from Category Page) */
 .btn-outline-primary {
   --bs-btn-color: #0d6efd;
   --bs-btn-border-color: #0d6efd;
@@ -611,13 +598,9 @@ onMounted(() => {
 }
 
 
-/*
-|--------------------------------------------------------------------------
-| MODAL STYLES (MATCHING CATEGORY PAGE)
-|--------------------------------------------------------------------------
-*/
 
-/* Custom style for the delete buttons (from Category Page) */
+
+
 .btn-warning {
     color: #212529 !important;
     background-color: #ffc107 !important;
@@ -655,6 +638,15 @@ onMounted(() => {
 .modal-footer {
   border-top: 1px solid #dee2e6;
   padding: 20px;
+}
+
+/* NEW STYLING TO MOVE DELETE MODAL TO THE TOP */
+.modal-dialog.delete-modal-top {
+    /* Override standard Bootstrap modal positioning */
+    align-items: flex-start; /* Ensures content aligns to the top of the viewport */
+    margin-top: 50px; /* Optional: Adds some space from the absolute top */
+    /* Ensure modal-dialog has full height to allow flex-start alignment if using display:flex on modal parent */
+    height: auto; 
 }
 
 
@@ -702,11 +694,7 @@ onMounted(() => {
   color: #6c757d;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Media Queries (Responsiveness)
-|--------------------------------------------------------------------------
-*/
+
 @media (max-width: 768px) {
   .page-header {
     flex-direction: column;
