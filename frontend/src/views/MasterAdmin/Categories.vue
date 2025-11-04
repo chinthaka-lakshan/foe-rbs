@@ -370,6 +370,7 @@ onMounted(() => {
   animation: fadeIn 0.3s ease;
   padding: 20px; /* Added padding for consistency */
   margin-left: 260px; /* Standard sidebar width */
+  
 }
 
 @media (max-width: 768px) {
