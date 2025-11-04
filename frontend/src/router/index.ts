@@ -11,6 +11,8 @@ import Setting from '../views/MasterAdmin/Setting.vue';
 import Categories from '../../../frontend/src/views/MasterAdmin/Categories.vue';
 import Templates from '../views/MasterAdmin/Templates.vue';
 import Add_Resource from '../views/MasterAdmin/Add_Resource.vue';
+import Use_Template from '../views/MasterAdmin/Use_Template.vue';
+import Single_Resource from '../views/MasterAdmin/Single_Resource.vue';
 
 
 const routes: Array<RouteRecordRaw> = [
@@ -81,8 +83,24 @@ const routes: Array<RouteRecordRaw> = [
 
   {
     path:'/add-resource',
-    name:'/add-resource',
+    name:'add-resource',
     component:Add_Resource
+  },
+
+  {
+    path:'/resource/:id',
+    name:'Single-Resource',
+    component:Single_Resource
+  },
+
+  {
+    path:'/',
+    redirect:'/use-template'
+  },
+  {
+    path:'/use-template',
+    name:'use-template',
+    component:Use_Template
   },
 
   {
