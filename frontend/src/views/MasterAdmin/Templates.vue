@@ -4,25 +4,23 @@
   <div class="template-page section">
     <h2 class="section-title">Resource Templates</h2>
     <div class="page-header">
-      <div class="search-box">
-        <i class="bi bi-search"></i>
-        <input
-          type="text"
-          class="form-control"
-          placeholder="Search Templates..."
-          v-model="searchQuery"
-        />
+      <div class="input-group mb-3 mb-md-0 w-100 w-md-auto me-md-3" style="max-width: 300px;">
+          <span class="input-group-text"><i class="bi bi-search"></i></span>
+          <input
+            type="text"
+            class="form-control"
+            placeholder="Search Templates..."
+            v-model="searchQuery"
+          />
       </div>
+
       <button class="btn btn-success add-new-btn" @click="openAddModal">
-        <i class="bi bi-plus-circle"></i> Add New Template
+        <i class="bi bi-plus-circle me-2"></i> Add New Template
       </button>
     </div>
     
-    <div class="content-card table-card">
-      <div class="card-header">
-        <i class="bi bi-bar-chart-line"></i>
-        <h5 class="mb-0">Resource Template List</h5>
-      </div>
+    <div class="table-card">
+      <h5 class="mb-3">Resource Template List</h5> 
 
       <div class="table-responsive">
         <table class="table table-hover">
@@ -40,18 +38,22 @@
               <td>{{ template.categoryName }}</td>
               <td>{{ template.description }}</td>
               <td>
-                <button
-                  class="btn btn-sm btn-link text-primary"
-                  @click="openEditModal(template)"
-                >
-                  <i class="bi bi-pencil-square"></i>
-                </button>
-                <button
-                  class="btn btn-sm btn-link text-danger"
-                  @click="confirmDelete(template.id)"
-                >
-                  <i class="bi bi-trash"></i>
-                </button>
+                <div class="btn-group btn-group-sm">
+                  <button
+                    class="btn btn-outline-primary"
+                    title="Edit"
+                    @click="openEditModal(template)"
+                  >
+                    <i class="bi bi-pencil-square"></i>
+                  </button>
+                  <button
+                    class="btn btn-outline-danger ms-1"
+                    title="Delete"
+                    @click="openDeleteConfirmation(template)"
+                  >
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </div>
               </td>
             </tr>
             <tr v-if="filteredTemplates.length === 0">
@@ -64,82 +66,14 @@
       </div>
     </div>
 
-    <div
-      v-if="showDeleteModal"
-      class="modal-overlay"
-      @click.self="cancelDelete"
-    >
-      <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-          <div class="modal-body text-center py-5">
-            <div class="icon-wrapper mb-4">
-              <i class="bi bi-exclamation-triangle text-warning"></i>
-            </div>
-            <h5 class="mb-3">Are you sure want to delete that template?</h5>
-            <div class="d-flex justify-content-center gap-3 mt-4">
-              <button
-                class="btn btn-success px-4"
-                @click="
-                  showPermanentDeleteModal = true;
-                  showDeleteModal = false;
-                "
-              >
-                Yes
-              </button>
-              <button class="btn btn-secondary px-4" @click="cancelDelete">
-                No
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div
-      v-if="showPermanentDeleteModal"
-      class="modal-overlay"
-      @click.self="cancelPermanentDelete"
-    >
-      <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-          <div class="modal-body text-center py-5">
-            <div class="icon-wrapper mb-4">
-              <i class="bi bi-trash text-danger"></i>
-            </div>
-            <h5 class="mb-3">Permanently Delete?</h5>
-            <p class="text-muted">This action cannot be undone.</p>
-            <div class="d-flex justify-content-center gap-3 mt-4">
-              <button class="btn btn-danger px-4" @click="deletePermanently">
-                Confirm
-              </button>
-              <button
-                class="btn btn-secondary px-4"
-                @click="cancelPermanentDelete"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div
-      v-if="showFormModal"
-      class="modal-overlay form-modal-overlay"
-      @click.self="closeFormModal"
-    >
-      <div class="modal-dialog modal-lg">
+    <div class="modal fade" id="templateFormModal" tabindex="-1" aria-labelledby="templateFormModalLabel" aria-hidden="true" ref="templateModalRef">
+      <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title">
-              {{ selectedTemplate ? 'Edit Template' : 'Add New Template' }}
+            <h5 class="modal-title" id="templateFormModalLabel">
+              {{ isEditMode ? 'Edit Template' : 'Add New Template' }}
             </h5>
-            <button
-              type="button"
-              class="btn-close"
-              @click="closeFormModal"
-            ></button>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
 
           <div class="modal-body">
@@ -170,7 +104,7 @@
                 </div>
               </div>
               <div class="col-md-6">
-                <select class="form-select" v-model="formData.categoryName">
+                <select class="form-select" v-model="formData.categoryName" required>
                   <option value="" disabled>Select Category *</option>
                   <option v-for="cat in categories" :key="cat" :value="cat">
                     {{ cat }}
@@ -193,6 +127,7 @@
                         class="form-control mb-2"
                         placeholder="Enter Input Field Name"
                         v-model="field.label"
+                        required
                       />
                       <input
                         type="text"
@@ -212,6 +147,7 @@
                         class="form-control"
                         placeholder="Enter Check Box Name"
                         v-model="field.label"
+                        required
                       />
                     </div>
 
@@ -219,7 +155,13 @@
                       <i class="bi bi-image"></i>
                       <p>Drag and Drop / Click to Upload</p>
                       <small>Upload Photo (Field Name: {{ field.label }})</small>
-                      <input type="hidden" v-model="field.label" />
+                      <input
+                        type="text"
+                        class="form-control mt-2"
+                        placeholder="Enter Photo Field Name (e.g., Facility Image)"
+                        v-model="field.label"
+                        required
+                      />
                     </div>
                   </div>
                   <button
@@ -245,17 +187,57 @@
 
           <div class="modal-footer">
             <button class="btn btn-success" @click="saveTemplate">
-              <i class="bi bi-save"></i> Save
+              <i class="bi bi-save me-2"></i> Save
             </button>
           </div>
         </div>
       </div>
     </div>
+
+
+    <div class="modal fade" id="deleteConfirmationModal" tabindex="-1" aria-labelledby="deleteConfirmationModalLabel" aria-hidden="true" ref="deleteModalRef">
+      <div class="modal-dialog modal-dialog-centered"> 
+        <div class="modal-content">
+
+          <template v-if="deleteStep === 'confirm'">
+              <div class="modal-header bg-warning text-dark">
+                  <h5 class="modal-title" id="deleteConfirmationModalLabel"><i class="bi bi-question-circle-fill me-2"></i>Confirmation</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body text-center">
+                  <p class="mb-0">Are you sure you want to delete the template for **{{ templateToDeleteName }}**?</p>
+              </div>
+              <div class="modal-footer justify-content-center">
+                  <button type="button" class="btn btn-secondary" @click="handleCancelDeletion">No</button>
+                  <button type="button" class="btn btn-warning text-dark" @click="handleFirstConfirmation">Yes</button>
+              </div>
+          </template>
+
+          <template v-else-if="deleteStep === 'final'">
+              <div class="modal-header bg-danger text-white">
+                  <h5 class="modal-title" id="deleteConfirmationModalLabel"><i class="bi bi-exclamation-triangle-fill me-2"></i>Confirm Permanent Deletion</h5>
+                  <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body text-center">
+                  <p class="mb-0">This action will **permanently delete** the template for **{{ templateToDeleteName }}**. Are you sure?</p>
+              </div>
+              <div class="modal-footer justify-content-center">
+                  <button type="button" class="btn btn-secondary" @click="handleCancelDeletion">Cancel</button>
+                  <button type="button" class="btn btn-danger" @click="deletePermanently">
+                      Confirm
+                  </button>
+              </div>
+          </template>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
+import { Modal } from 'bootstrap'; 
 // Assuming these components are available in your structure
 import Navbar from '../../components/Navbar.vue';
 import MasterAdminSidebar from '../../components/Sidebar/MasterAdminSidebar.vue';
@@ -280,11 +262,7 @@ interface TemplateData {
 
 // --- Template Data & State ---
 const searchQuery = ref('');
-const showDeleteModal = ref(false);
-const showPermanentDeleteModal = ref(false);
-const showFormModal = ref(false);
-const selectedTemplate = ref<Template | null>(null);
-const templateToDelete = ref<number | null>(null);
+const isEditMode = ref(false); 
 const activeFieldType = ref<string | null>(null);
 
 // Form data for the TemplateFormModal
@@ -334,6 +312,18 @@ const categories = ref([
   'Residential & Accommodation',
 ]);
 
+// MODAL STATE AND REFS (Matching Category Page)
+const templateModalRef = ref<HTMLElement | null>(null);
+const deleteModalRef = ref<HTMLElement | null>(null);
+let templateModalInstance: Modal | null = null;
+let deleteModalInstance: Modal | null = null;
+
+const selectedTemplate = ref<Template | null>(null);
+const templateToDelete = ref<number | null>(null);
+const templateToDeleteName = computed(() => templates.value.find(t => t.id === templateToDelete.value)?.categoryName || 'this template');
+const deleteStep = ref<'confirm' | 'final'>('confirm');
+
+
 // --- Computed Property for Search ---
 const filteredTemplates = computed(() => {
   if (!searchQuery.value) return templates.value;
@@ -345,29 +335,37 @@ const filteredTemplates = computed(() => {
   );
 });
 
-// --- Delete Logic ---
-const confirmDelete = (id: number) => {
-  templateToDelete.value = id;
-  showDeleteModal.value = true;
+// --- Delete Logic (Modified to Match Category Page) ---
+
+const openDeleteConfirmation = (template: Template) => {
+  templateToDelete.value = template.id;
+  deleteStep.value = 'confirm'; // Start with the first confirmation step
+  deleteModalInstance?.show();
 };
 
-const cancelDelete = () => {
-  showDeleteModal.value = false;
-  templateToDelete.value = null;
+const handleFirstConfirmation = () => {
+    // Logic for "Yes" on the first popup
+    deleteStep.value = 'final'; // Move to the second, permanent delete confirmation step
 };
 
-const cancelPermanentDelete = () => {
-  showPermanentDeleteModal.value = false;
-  templateToDelete.value = null;
+const handleCancelDeletion = () => {
+    // Logic for "No" (Step 1) and "Cancel" (Step 2)
+    deleteModalInstance?.hide();
+    templateToDelete.value = null;
+    deleteStep.value = 'confirm'; // Reset state
 };
 
 const deletePermanently = () => {
+  // Only proceed if we are on the final confirmation step
+  if (deleteStep.value !== 'final' || templateToDelete.value === null) return; 
+  
   if (templateToDelete.value !== null) {
     templates.value = templates.value.filter(
       (t) => t.id !== templateToDelete.value
     );
-    showPermanentDeleteModal.value = false;
+    deleteModalInstance?.hide();
     templateToDelete.value = null;
+    deleteStep.value = 'confirm'; // Reset step for next time
   }
 };
 
@@ -387,8 +385,10 @@ watch(selectedTemplate, (newTemplate) => {
       categoryName: newTemplate.categoryName || '',
       fields: newTemplate.fields ? [...newTemplate.fields] : [] // Deep copy fields for editing
     }
+    isEditMode.value = true;
   } else {
     resetFormData();
+    isEditMode.value = false;
   }
 });
 
@@ -396,19 +396,17 @@ watch(selectedTemplate, (newTemplate) => {
 const openAddModal = () => {
   selectedTemplate.value = null;
   resetFormData();
-  showFormModal.value = true;
+  templateModalInstance?.show();
 };
 
 const openEditModal = (template: Template) => {
   selectedTemplate.value = template;
   // Data load is handled by the watch function above
-  showFormModal.value = true;
+  templateModalInstance?.show();
 };
 
 const closeFormModal = () => {
-  showFormModal.value = false;
-  selectedTemplate.value = null;
-  resetFormData();
+  templateModalInstance?.hide();
 };
 
 const addField = (type: 'input' | 'checkbox' | 'photo') => {
@@ -468,24 +466,53 @@ const saveTemplate = () => {
 
   closeFormModal();
 };
+
+// --- LIFECYCLE ---
+onMounted(() => {
+  // Initialize Bootstrap Modals
+  if (templateModalRef.value) {
+    templateModalInstance = new Modal(templateModalRef.value);
+    // Use the hidden.bs.modal event to reset state
+    templateModalRef.value.addEventListener('hidden.bs.modal', () => {
+      selectedTemplate.value = null;
+      resetFormData();
+    });
+  }
+  if (deleteModalRef.value) {
+    deleteModalInstance = new Modal(deleteModalRef.value);
+    // Add listener to reset state if modal is closed via 'X' or backdrop click
+    deleteModalRef.value.addEventListener('hidden.bs.modal', handleCancelDeletion);
+  }
+});
 </script>
 
 <style scoped>
 /*
 |--------------------------------------------------------------------------
-| Layout & Page Title Styles (Consistent with Category Page)
+| Layout & Page Title Styles 
 |--------------------------------------------------------------------------
 */
 .template-page.section {
   animation: fadeIn 0.3s ease;
   padding: 20px;
-  /* Added margin-left for sidebar integration */
+  /* Standard sidebar width */
   margin-left: 260px; 
 }
 
 @media (max-width: 768px) {
   .template-page.section {
     margin-left: 80px; /* Collapsed sidebar width */
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -497,152 +524,125 @@ const saveTemplate = () => {
 
 /*
 |--------------------------------------------------------------------------
-| Header, Search, and Add Button Styles
+| Header, Search, and Add Button Styles (Unified)
 |--------------------------------------------------------------------------
 */
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 30px;
+  margin-bottom: 24px; /* Reduced from 30px to match Category page spacing */
   gap: 20px;
 }
 
-.search-box {
-  position: relative;
-  flex: 1;
-  max-width: 400px;
+.input-group-text {
+  background-color: white;
+  border-right: none;
 }
 
-.search-box i {
-  position: absolute;
-  left: 15px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #6c757d;
+.search-box input, .input-group input {
+  /* Using standard Bootstrap form-control now */
+  padding-left: 10px; /* Reset padding as icon is in input-group-text */
 }
 
-.search-box input {
-  padding-left: 45px;
-
-}
-
-/* Custom Add New Button Style (Consistent with Category Page) */
-.btn-success.add-new-btn {
-  border-radius: 25px;
-  padding: 10px 25px;
-  background-color: #4BB66D; /* Green Success Color */
+/* Custom Success Button Color (Consistent with Category Page) */
+.btn-success {
+  background-color: #4BB66D;
   border-color: #4BB66D;
 }
-.btn-success.add-new-btn:hover {
+
+.btn-success:hover {
   background-color: #3f975b;
   border-color: #3f975b;
 }
 
+.btn-success.add-new-btn {
+  /* Removed border-radius/padding overrides to use standard btn-success/btn settings */
+  /* Keeping only the margin/icon spacing */
+  padding: 10px 20px;
+  border-radius: 8px; /* Using Bootstrap default look or simplified */
+}
 
 /*
 |--------------------------------------------------------------------------
-| Table & Card Styles
+| Table & Card Styles (MATCHING CATEGORY PAGE)
 |--------------------------------------------------------------------------
 */
-.content-card {
+
+/* This class defines the look for the entire table container */
+.table-card {
   background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 8px; /* Use 8px to match Category page */
+  padding: 24px; /* Use 24px padding to match Category page */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); /* Soft shadow to match Category page */
   overflow: hidden;
 }
 
-.card-header {
-  background-color: #f8f9fa;
-  padding: 20px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border-bottom: 1px solid #dee2e6;
-}
-
-.card-header i {
-  font-size: 24px;
-}
-
-.table {
-  margin-bottom: 0;
+.table thead {
+  background: #f8f9fa; /* Light grey header background */
 }
 
 .table thead th {
-  background-color: #f8f9fa;
+  background-color: #f8f9fa; /* Ensure consistency */
   font-weight: 600;
-  border-bottom: 2px solid #dee2e6;
-  padding: 15px;
+  border-bottom: 1px solid #dee2e6; /* Standard border */
+  padding: 12px 15px; /* Adjust padding for better look, was 15px/15px */
 }
 
 .table tbody td {
-  padding: 15px;
+  padding: 12px 15px; /* Adjust padding to match header if needed */
   vertical-align: middle;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Modal General Styles
-|--------------------------------------------------------------------------
-*/
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1050;
+/* Action button styles (Unified) */
+.btn-group-sm .btn {
+  padding: 0.25rem 0.5rem; /* Standard sm button padding */
 }
 
+/* Ensure outline buttons are visible (from Category Page) */
+.btn-outline-primary {
+  --bs-btn-color: #0d6efd;
+  --bs-btn-border-color: #0d6efd;
+}
+
+.btn-outline-danger {
+  --bs-btn-color: #dc3545;
+  --bs-btn-border-color: #dc3545;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| MODAL STYLES (MATCHING CATEGORY PAGE)
+|--------------------------------------------------------------------------
+*/
+
+/* Custom style for the delete buttons (from Category Page) */
+.btn-warning {
+    color: #212529 !important;
+    background-color: #ffc107 !important;
+    border-color: #ffc107 !important;
+}
+.btn-warning:hover {
+    background-color: #e0a800 !important;
+    border-color: #e0a800 !important;
+}
+
+/* Modal sizing and common styles */
 .modal-dialog {
-  max-width: 500px; 
-  width: 90%;
+  max-width: 500px;
+}
+
+.modal-dialog.modal-lg {
+  max-width: 900px !important;
 }
 
 .modal-content {
   border-radius: 12px;
-  border: none;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
 }
 
-.icon-wrapper i {
-  font-size: 72px;
-}
-
-.btn {
-  min-width: 100px;
-  border-radius: 8px;
-}
-
-/*
-|--------------------------------------------------------------------------
-| Form Modal Specific Styles
-|--------------------------------------------------------------------------
-*/
-.form-modal-overlay {
-  overflow-y: auto;
-  padding: 20px;
-}
-
-.form-modal-overlay .modal-dialog {
-  max-width: 900px; 
-  width: 100%;
-  margin: auto;
-}
-
-.form-modal-overlay .modal-content {
-  max-height: 90vh;
-  display: flex;
-  flex-direction: column;
-}
-
 .modal-header {
-  background-color: #f8f9fa;
   border-bottom: 1px solid #dee2e6;
   padding: 20px;
   border-radius: 12px 12px 0 0;
@@ -650,17 +650,15 @@ const saveTemplate = () => {
 
 .modal-body {
   padding: 30px;
-  overflow-y: auto;
-  flex: 1;
 }
 
 .modal-footer {
   border-top: 1px solid #dee2e6;
   padding: 20px;
-  display: flex;
-  justify-content: flex-end;
 }
 
+
+/* Field Builder styles (Keeping original design as it's specific to the form) */
 .field-buttons {
   display: flex;
   gap: 10px;
@@ -704,17 +702,6 @@ const saveTemplate = () => {
   color: #6c757d;
 }
 
-.btn-close {
-  background-color: transparent;
-  border: none;
-  font-size: 24px;
-  opacity: 0.5;
-}
-
-.btn-close:hover {
-  opacity: 1;
-}
-
 /*
 |--------------------------------------------------------------------------
 | Media Queries (Responsiveness)
@@ -725,13 +712,19 @@ const saveTemplate = () => {
     flex-direction: column;
     align-items: stretch;
   }
-
-  .search-box {
-    max-width: 100%;
+  
+  /* Ensuring search and button take full width on mobile */
+  .input-group {
+    width: 100% !important;
+    max-width: 100% !important;
   }
 
-  .form-modal-overlay .modal-dialog {
-    max-width: 95%;
+  .template-page .add-new-btn {
+    width: 100%;
+  }
+
+  .modal-dialog.modal-lg {
+    max-width: 95% !important;
   }
 
   .field-buttons {
