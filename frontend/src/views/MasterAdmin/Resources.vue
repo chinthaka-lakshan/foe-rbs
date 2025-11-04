@@ -4,16 +4,16 @@
   <div class="section">
     <div class="d-flex justify-content-between align-items-center mb-4">
       <h2 class="section-title mb-0">Resources</h2>
-      <div class="d-flex gap-2">
+      <div class="d-flex gap-2 mt-3">
         <button
-         class="btn btn-outline-primary btn-sm"
-         @click="navigateToCategories"
+          class="btn btn-outline-dark-teal btn-sm"
+          @click="navigateToCategories"
         >
           <i class="bi bi-list-ul me-1"></i>Categories
         </button>
         <button
-         class="btn btn-outline-primary btn-sm"
-         @click="navigateToTemplates"
+          class="btn btn-outline-dark-teal btn-sm"
+          @click="navigateToTemplates"
         >
           <i class="bi bi-file-text me-1"></i>Templates
         </button>
@@ -118,6 +118,16 @@ const navigateToTemplates = () =>{
 </script>
 
 <style scoped>
+/* ADDED CUSTOM STYLE FOR THE NEW BUTTONS (Default Dark Teal, HOVER GREEN) */
+.btn-outline-dark-teal {
+  --bs-btn-color: #1e4449; /* Dark Teal */
+  --bs-btn-border-color: #1e4449; /* Dark Teal */
+  --bs-btn-hover-bg: #fcc300; /* HOVER: Success Green */
+  --bs-btn-hover-color: #ffffff;
+  --bs-btn-hover-border-color: #fcc300; /* HOVER: Success Green */
+}
+
+
 .section {
   animation: fadeIn 0.3s ease;
   margin-left: 260px
@@ -182,17 +192,18 @@ const navigateToTemplates = () =>{
 }
 
 .btn-success {
-  background-color: #26d516;
-  border-color: #26d516;
+  background-color: #4BB66D;
+  border-color: #4BB66D;
+  
 }
 
 .btn-success:hover {
-  background-color: #22b913;
-  border-color: #22b913;
+  background-color: #3f975b;
+  border-color: #3f975b;
 }
 
 .form-check-input:checked {
-  background-color: #26d516;
-  border-color: #26d516;
+  background-color: #fcc300;
+  border-color: #fcc300;
 }
 </style>
