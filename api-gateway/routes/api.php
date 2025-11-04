@@ -50,8 +50,6 @@ Route::post('/users', function (Request $request) {
 
 
 
-
-
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
     // Get authenticated user details
@@ -111,6 +109,63 @@ Route::middleware('auth:sanctum')->group(function () {
         try {
             $response = Http::timeout(30)->withToken($request->bearerToken())
                 ->put("http://resource_service/api/categories/{$id}", $request->all());
+            
+            return $response->json();
+        } catch (Exception $e) {
+            return response()->json([
+                'message' => 'Cannot connect to resource service',
+                'error' => $e->getMessage()
+            ], 503);
+        }
+    });
+
+
+    Route::post('/resources', function (Request $request) {
+        try {
+            $response = Http::timeout(30)->withToken($request->bearerToken())
+                ->post('http://resource_service/api/resources', $request->all());
+            
+            return $response->json();
+        } catch (Exception $e) {
+            return response()->json([
+                'message' => 'Cannot connect to resource service',
+                'error' => $e->getMessage()
+            ], 503);
+        }
+    });
+
+    Route::get('/resources', function (Request $request) {
+        try {
+            $response = Http::timeout(30)->withToken($request->bearerToken())
+                ->get('http://resource_service/api/resources');
+            
+            return $response->json();
+        } catch (Exception $e) {
+            return response()->json([
+                'message' => 'Cannot connect to resource service',
+                'error' => $e->getMessage()
+            ], 503);
+        }
+    });
+
+    Route::put('/resources/{id}', function (Request $request, $id) {
+        try {
+            $response = Http::timeout(30)->withToken($request->bearerToken())
+                ->put("http://resource_service/api/resources/{$id}", $request->all());
+            
+            return $response->json();
+        } catch (Exception $e) {
+            return response()->json([
+                'message' => 'Cannot connect to resource service',
+                'error' => $e->getMessage()
+            ], 503);
+        }
+    });
+
+    Route::delete('/resources/{id}', function (Request $request, $id) {
+        try {
+            $response = Http::timeout(30)->withToken($request->bearerToken())
+                ->delete("http://resource_service/api/resources/{$id}");
             
             return $response->json();
         } catch (Exception $e) {
