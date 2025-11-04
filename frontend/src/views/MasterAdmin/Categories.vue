@@ -1,27 +1,26 @@
 <template>
   <navbar/>
   <master-admin-sidebar/>
-  <div class="section">
-    <h2 class="section-title">Resource Categories</h2>
-
-    <div class="table-card">
-      <div class="d-flex justify-content-between align-items-center mb-4 flex-column flex-md-row">
-        <div class="input-group mb-3 mb-md-0 w-100 w-md-auto me-md-3" style="max-width: 300px;">
-          <span class="input-group-text"><i class="bi bi-search"></i></span>
-          <input
-            type="text"
-            class="form-control"
-            placeholder="Search Category..."
-            v-model="searchTerm"
-          />
-        </div>
-        <button
-          @click="openAddCategoryModal"
-          class="btn btn-success" 
-        >
-          <i class="bi bi-plus-lg me-2"></i>Add New Category
-        </button>
+  <div class="category-page section"> <h2 class="section-title">Resource Categories</h2>
+    
+    <div class="page-header">
+      <div class="input-group mb-3 mb-md-0 w-100 w-md-auto me-md-3" style="max-width: 300px;">
+        <span class="input-group-text"><i class="bi bi-search"></i></span>
+        <input
+          type="text"
+          class="form-control"
+          placeholder="Search Category..."
+          v-model="searchTerm"
+        />
       </div>
+      <button
+        @click="openAddCategoryModal"
+        class="btn btn-success add-new-btn" 
+      >
+        <i class="bi bi-plus-circle me-2"></i>Add New Category
+      </button>
+    </div>
+    <div class="table-card">
       
       <h5 class="mb-3">Category List</h5>
 
@@ -366,9 +365,14 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* Inherited styles from Booking Page for seamless design */
+/*
+|--------------------------------------------------------------------------
+| Layout & Page Title Styles 
+|--------------------------------------------------------------------------
+*/
 .section {
   animation: fadeIn 0.3s ease;
+  padding: 20px; /* Added padding for consistency */
   margin-left: 260px; /* Standard sidebar width */
 }
 
@@ -395,15 +399,17 @@ onMounted(() => {
   margin-bottom: 24px;
 }
 
-.table-card {
-  background: white;
-  border-radius: 8px;
-  padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); /* Soft shadow */
-}
-
-.table thead {
-  background: #f8f9fa; /* Light grey header background */
+/*
+|--------------------------------------------------------------------------
+| NEW: Header, Search, and Add Button Styles (Matching Template Page)
+|--------------------------------------------------------------------------
+*/
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px; /* Consistent spacing with Template Page */
+  gap: 20px;
 }
 
 /* Custom Success Button Color */
@@ -417,6 +423,37 @@ onMounted(() => {
   border-color: #3f975b;
 }
 
+.btn-success.add-new-btn {
+  /* Ensure the button matches the Template Page's style */
+  padding: 10px 20px;
+  border-radius: 8px; 
+}
+
+
+/* Table card structure */
+.table-card {
+  background: white;
+  border-radius: 8px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); /* Soft shadow */
+}
+
+.table thead {
+  background: #f8f9fa; /* Light grey header background */
+}
+
+.table thead th {
+  background-color: #f8f9fa; /* Ensure consistency */
+  font-weight: 600;
+  border-bottom: 1px solid #dee2e6; /* Standard border */
+  padding: 12px 15px; /* Added padding for better look, matching Template */
+}
+
+.table tbody td {
+  padding: 12px 15px; /* Added padding, matching Template */
+  vertical-align: middle;
+}
+
 /* Ensure outline buttons are visible */
 .btn-outline-primary {
   --bs-btn-color: #0d6efd;
@@ -428,7 +465,13 @@ onMounted(() => {
   --bs-btn-border-color: #dc3545;
 }
 
-/* Custom style for the first step button */
+/* Action button sizing */
+.btn-group-sm .btn {
+  padding: 0.25rem 0.5rem; /* Standard sm button padding, matching Template */
+}
+
+
+/* Custom style for the first step button (Modal) */
 .btn-warning {
     color: #212529 !important;
     background-color: #ffc107 !important;
@@ -437,5 +480,37 @@ onMounted(() => {
 .btn-warning:hover {
     background-color: #e0a800 !important;
     border-color: #e0a800 !important;
+}
+
+/* Modal styling (Already consistent, just ensuring defaults are here) */
+.modal-dialog.modal-lg {
+    max-width: 900px !important;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Media Queries (Responsiveness) - Matching Template Page
+|--------------------------------------------------------------------------
+*/
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  /* Ensuring search and button take full width on mobile */
+  .input-group {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .btn-success.add-new-btn {
+    width: 100%;
+  }
+
+  /* Modal sizing for mobile */
+  .modal-dialog.modal-lg {
+    max-width: 95% !important;
+  }
 }
 </style>
