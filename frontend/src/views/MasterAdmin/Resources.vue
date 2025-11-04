@@ -17,7 +17,10 @@
         >
           <i class="bi bi-file-text me-1"></i>Templates
         </button>
-        <button class="btn btn-success btn-sm" @click="navigateToAdd_Resource">
+        <button 
+          class="btn btn-success btn-sm" 
+          @click="showAddModal = true"
+        >
           <i class="bi bi-plus-circle me-1"></i>Add New
         </button>
       </div>
@@ -73,6 +76,28 @@
       </div>
     </div>
   </div>
+
+  <div class="modal fade" :class="{ 'show d-block': showAddModal }" tabindex="-1" @click.self="showAddModal = false" style="background-color: rgba(0,0,0,0.5);" v-if="showAddModal">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Add New Resource</h5>
+          <button type="button" class="btn-close" @click="showAddModal = false"></button>
+        </div>
+        <div class="modal-body text-center">
+          <p class="mb-3">How would you like to create the resource?</p>
+          <div class="d-grid gap-2">
+            <button class="btn btn-outline-dark-teal" @click="navigateToAdd_Custom">
+              <i class="bi bi-file-earmark-plus me-2"></i>Custom Resource
+            </button>
+            <button class="btn btn-outline-dark-teal" @click="navigateToAdd_Template">
+              <i class="bi bi-layout-text-window-reverse me-2"></i>From Template
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -97,7 +122,10 @@ const searchQuery = ref('');
 const selectedCategory = ref('');
 const router = useRouter();
 
-// --- Default Resources ---
+// New state for modal visibility
+const showAddModal = ref(false);
+
+// --- Default Resources (Unchanged) ---
 const DEFAULT_RESOURCES: Resource[] = [
     { id: 1, name: 'Conference Room A', category: 'Academic Space', status: 'active', image: 'https://images.pexels.com/photos/1181406/pexels-photo-1181406.jpeg?auto=compress&cs=tinysrgb&w=300' },
     { id: 2, name: 'Sports Hall', category: 'Sports & Recreational', status: 'active', image: 'https://images.pexels.com/photos/260024/pexels-photo-260024.jpeg?auto=compress&cs=tinysrgb&w=300' },
@@ -157,8 +185,18 @@ const navigateToTemplates = () =>{
   router.push('/templates');
 };
 
-const navigateToAdd_Resource = () => {
-  router.push('/add-resource'); 
+// Updated: Navigate to Add Custom Resource (old Add New page)
+const navigateToAdd_Custom = () => {
+    showAddModal.value = false; // Close the modal
+    router.push('/add-resource'); 
+};
+
+// New: Navigate to Add Resource From Template
+const navigateToAdd_Template = () => {
+    showAddModal.value = false; // Close the modal
+    // Assuming a route for adding from a template exists, e.g., '/add-resource-from-template'
+    // You can adjust this route path as needed.
+    router.push('/add-template'); 
 };
 </script>
 
@@ -248,5 +286,44 @@ const navigateToAdd_Resource = () => {
 .form-check-input:checked {
   background-color: #fcc300;
   border-color: #fcc300;
+}
+
+/* Modal styles to ensure it looks right even without full Bootstrap JS */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1050;
+  width: 100%;
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  outline: 0;
+}
+
+.modal-dialog-centered {
+  display: flex;
+  align-items: center;
+  min-height: calc(100% - 1rem);
+}
+
+@media (min-width: 576px) {
+  .modal-dialog-centered {
+    min-height: calc(100% - 3.5rem);
+  }
+}
+
+.modal-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  color: var(--bs-body-color);
+  pointer-events: auto;
+  background-color: var(--bs-modal-bg);
+  background-clip: padding-box;
+  border: var(--bs-modal-border-width) solid var(--bs-modal-border-color);
+  border-radius: var(--bs-modal-border-radius);
+  outline: 0;
 }
 </style>
