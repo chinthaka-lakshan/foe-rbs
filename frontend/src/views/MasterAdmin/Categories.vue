@@ -114,7 +114,7 @@
   </div>
 
   <div class="modal fade" id="deleteConfirmationModal" tabindex="-1" aria-labelledby="deleteConfirmationModalLabel" aria-hidden="true" ref="deleteModalRef">
-    <div class="modal-dialog"> 
+    <div class="modal-dialog delete-modal-top"> 
       <div class="modal-content">
 
         <template v-if="deleteStep === 'confirm'">
@@ -365,11 +365,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/*
-|--------------------------------------------------------------------------
-| Layout & Page Title Styles 
-|--------------------------------------------------------------------------
-*/
+
 .section {
   animation: fadeIn 0.3s ease;
   padding: 20px; /* Added padding for consistency */
@@ -399,16 +395,12 @@ onMounted(() => {
   margin-bottom: 24px;
 }
 
-/*
-|--------------------------------------------------------------------------
-| NEW: Header, Search, and Add Button Styles (Matching Template Page)
-|--------------------------------------------------------------------------
-*/
+
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px; /* Consistent spacing with Template Page */
+  margin-bottom: 24px; 
   gap: 20px;
 }
 
@@ -424,7 +416,7 @@ onMounted(() => {
 }
 
 .btn-success.add-new-btn {
-  /* Ensure the button matches the Template Page's style */
+
   padding: 10px 20px;
   border-radius: 8px; 
 }
@@ -446,11 +438,11 @@ onMounted(() => {
   background-color: #f8f9fa; /* Ensure consistency */
   font-weight: 600;
   border-bottom: 1px solid #dee2e6; /* Standard border */
-  padding: 12px 15px; /* Added padding for better look, matching Template */
+  padding: 12px 15px;
 }
 
 .table tbody td {
-  padding: 12px 15px; /* Added padding, matching Template */
+  padding: 12px 15px; 
   vertical-align: middle;
 }
 
@@ -467,9 +459,17 @@ onMounted(() => {
 
 /* Action button sizing */
 .btn-group-sm .btn {
-  padding: 0.25rem 0.5rem; /* Standard sm button padding, matching Template */
+  padding: 0.25rem 0.5rem; 
 }
 
+/* NEW STYLING TO MOVE DELETE MODAL TO THE TOP */
+.modal-dialog.delete-modal-top {
+    /* Override standard Bootstrap modal positioning */
+    align-items: flex-start; /* Ensures content aligns to the top of the viewport */
+    margin-top: 50px; /* Optional: Adds some space from the absolute top */
+    /* Ensure modal-dialog has full height to allow flex-start alignment if using display:flex on modal parent */
+    height: auto; 
+}
 
 /* Custom style for the first step button (Modal) */
 .btn-warning {
@@ -487,11 +487,7 @@ onMounted(() => {
     max-width: 900px !important;
 }
 
-/*
-|--------------------------------------------------------------------------
-| Media Queries (Responsiveness) - Matching Template Page
-|--------------------------------------------------------------------------
-*/
+
 @media (max-width: 768px) {
   .page-header {
     flex-direction: column;
