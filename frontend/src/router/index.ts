@@ -10,6 +10,7 @@ import Reports from '../views/MasterAdmin/Reports.vue';
 import Setting from '../views/MasterAdmin/Setting.vue';
 import Categories from '../../../frontend/src/views/MasterAdmin/Categories.vue';
 import Templates from '../views/MasterAdmin/Templates.vue';
+import Add_Resource from '../views/MasterAdmin/Add_Resource.vue';
 
 
 const routes: Array<RouteRecordRaw> = [
@@ -71,6 +72,17 @@ const routes: Array<RouteRecordRaw> = [
     path: '/master-admin/resource',
     name: 'master-admin-resource',
     component:Resources
+  },
+
+  {
+    path:'/',
+    redirect:'/add-resource'
+  },
+
+  {
+    path:'/add-resource',
+    name:'/add-resource',
+    component:Add_Resource
   },
 
   {
