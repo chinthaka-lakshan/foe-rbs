@@ -4,6 +4,18 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Http;
 
+
+
+function handleProxyResponse($response, $defaultMessage) {
+    if (!$response->successful()) {
+        return response(
+            $response->body(), 
+            $response->status()
+        )->header('Content-Type', 'application/json');
+    }
+    return response($response->body(), $response->status())
+            ->header('Content-Type', 'application/json');
+}
 //--------------------------------------------------------------------------
 // API Routes
 //--------------------------------------------------------------------------
@@ -35,6 +47,10 @@ Route::post('/users', function (Request $request) {
         ], 503);
     }
 });
+
+
+
+
 
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
@@ -74,5 +90,34 @@ Route::middleware('auth:sanctum')->group(function () {
         return $response->successful() 
             ? $response->json() 
             : response()->json(['message' => 'User deletion failed'], $response->status());
+    });
+
+    // Category CRUD routes proxying to resource service
+        // Create category route
+    Route::post('/categories', function (Request $request) {
+        try {
+            $response = Http::timeout(30)->withToken($request->bearerToken())
+                ->post('http://resource_service/api/categories', $request->all());
+            return $response->json();
+        } catch (Exception $e) {
+            return response()->json([
+                'message' => 'Cannot connect to resource service',
+                'error' => $e->getMessage()
+            ], 503);
+        }
+    });
+    // Update category route
+    Route::put('/categories/{id}', function (Request $request, $id) {
+        try {
+            $response = Http::timeout(30)->withToken($request->bearerToken())
+                ->put("http://resource_service/api/categories/{$id}", $request->all());
+            
+            return $response->json();
+        } catch (Exception $e) {
+            return response()->json([
+                'message' => 'Cannot connect to resource service',
+                'error' => $e->getMessage()
+            ], 503);
+        }
     });
 });
