@@ -4,6 +4,18 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Http;
 
+
+
+function handleProxyResponse($response, $defaultMessage) {
+    if (!$response->successful()) {
+        return response(
+            $response->body(), 
+            $response->status()
+        )->header('Content-Type', 'application/json');
+    }
+    return response($response->body(), $response->status())
+            ->header('Content-Type', 'application/json');
+}
 //--------------------------------------------------------------------------
 // API Routes
 //--------------------------------------------------------------------------
