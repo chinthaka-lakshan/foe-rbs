@@ -173,7 +173,7 @@
                 <button type="button" class="btn-close btn-close-white" @click="handleCancelDeletion"></button>
             </div>
             <div class="modal-body text-center">
-                <p class="mb-0">This action will **permanently delete** the resource **{{ resourceToDelete?.name }}**. Are you sure?</p>
+                <p class="mb-0">This action will permanently delete the resource {{ resourceToDelete?.name }}. Are you sure?</p>
             </div>
             <div class="modal-footer justify-content-center">
                 <button type="button" class="btn btn-secondary" @click="handleCancelDeletion">Cancel</button>
@@ -459,7 +459,7 @@ const navigateToTemplateCategory = (categoryKey: string) => {
   color: white;
 }
 
-/* --- Responsive Modal Styles (Delete Modal Top Positioning) --- */
+/* --- Responsive Modal Styles (Standard/Add Modals) --- */
 .modal {
   position: fixed;
   top: 0;
@@ -509,13 +509,8 @@ const navigateToTemplateCategory = (categoryKey: string) => {
   outline: 0;
 }
 
-.modal-dialog.delete-modal-top {
-  align-items: flex-start; 
-  margin-top: 50px; 
-  height: auto; 
-}
-
 @media (min-width: 576px) {
+    /* Standard/Add Modal size */
     .modal-dialog {
         max-width: 300px; 
         margin: 1.75rem auto;
@@ -524,14 +519,44 @@ const navigateToTemplateCategory = (categoryKey: string) => {
         min-height: calc(100% - 3.5rem);
     }
 }
-/* Modal Colors */
+
+
+/* --- DELETE MODAL STYLES (FROM CATEGORY PAGE - Ensures consistent width and colors) --- */
+
+/* 1. Top Positioning & Vertical Alignment */
+.modal-dialog.delete-modal-top {
+    align-items: flex-start;
+    margin-top: 50px;
+    height: auto; 
+}
+
+.modal-dialog.modal-lg {
+    max-width: 900px !important;
+}
+
+/* 2. Sizing (Ensures small modal size is correctly applied to the top-positioned delete modal) */
+@media (min-width: 576px) {
+    .modal-dialog.delete-modal-top {
+        max-width:500px ; /* Explicitly set to the 'modal-sm' size */
+        margin: 1.75rem auto; /* Ensures it's centered horizontally */
+    }
+
+  
+}
+
+/* 3. Color Overrides */
 .bg-warning { background-color: #ffc107 !important; }
-.bg-danger { background-color: #dc3545 !important; }
 .btn-warning {
     color: #212529 !important;
     background-color: #ffc107 !important;
     border-color: #ffc107 !important;
 }
+.btn-warning:hover {
+    background-color: #e0a800 !important;
+    border-color: #e0a800 !important;
+}
+
+.bg-danger { background-color: #dc3545 !important; }
 .btn-danger {
     background-color: #dc3545 !important;
     border-color: #dc3545 !important;
