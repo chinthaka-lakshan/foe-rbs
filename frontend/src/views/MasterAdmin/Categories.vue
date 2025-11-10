@@ -123,7 +123,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body text-center">
-                <p class="mb-0">Are you sure you want to delete the category **{{ categoryToDelete?.category_list }}**?</p>
+                <p class="mb-0">Are you sure you want to delete the category {{ categoryToDelete?.category_list }}?</p>
             </div>
             <div class="modal-footer justify-content-center">
                 <button type="button" class="btn btn-secondary" @click="handleCancelDeletion">No</button>
@@ -137,7 +137,7 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body text-center">
-                <p class="mb-0">This action will **permanently delete** the category **{{ categoryToDelete?.category_list }}**. Are you sure?</p>
+                <p class="mb-0">This action will permanently delete the category {{ categoryToDelete?.category_list }}. Are you sure?</p>
             </div>
             <div class="modal-footer justify-content-center">
                 <button type="button" class="btn btn-secondary" @click="handleCancelDeletion">Cancel</button>

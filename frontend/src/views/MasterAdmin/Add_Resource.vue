@@ -3,11 +3,14 @@
   <master-admin-sidebar/>
   <div class="section">
     <div class="d-flex justify-content-between align-items-center mb-4">
-      <h2 class="section-title mb-0">Add New Resource</h2>
+      <h2 class="section-title mb-0">{{ isEditMode ? 'Edit Resource' : 'Add New Resource' }}</h2>
+      <button class="btn btn-outline-dark-teal" @click="handleCancel">
+        <i class="bi bi-x-circle me-1"></i>Cancel
+      </button>
     </div>
 
     <div class="card p-4 shadow-sm">
-      <form @submit.prevent="handleSave">
+      <form @submit.prevent="isEditMode ? handleUpdate() : handleSave()">
         <div class="row g-4">
           <div class="col-md-6">
             <label for="resourceName" class="form-label fw-bold">Resource Name <span class="text-danger">*</span></label>
@@ -39,6 +42,8 @@
               <option value="Academic Space">Academic Space</option>
               <option value="Medical & Health">Medical & Health</option>
               <option value="Sports & Recreational">Sports & Recreational</option>
+              <option value="IT Space">IT Space</option>
+              <option value="Cultural">Cultural</option>
             </select>
           </div>
 
@@ -89,11 +94,8 @@
         </div>
 
         <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
-          <button type="button" class="btn btn-outline-secondary" @click="handleCancel">
-            <i class="bi bi-x-circle me-1"></i>Cancel
-          </button>
           <button type="submit" class="btn btn-success">
-            <i class="bi bi-save me-1"></i>Save Resource
+            <i class="bi bi-save me-1"></i> {{ isEditMode ? 'Update Resource' : 'Save Resource' }}
           </button>
         </div>
       </form>
@@ -102,12 +104,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, onMounted, computed } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
+// NOTE: Adjust these paths if necessary
 import Navbar from '../../components/Navbar.vue';
 import MasterAdminSidebar from '../../components/Sidebar/MasterAdminSidebar.vue';
 
 const router = useRouter();
+const route = useRoute();
 
 interface NewResource {
     id: number;
@@ -117,7 +121,7 @@ interface NewResource {
     assignee: string;
     description: string;
     status: 'active' | 'inactive';
-    image: string; // This stores the URL or the Base64 string
+    image: string; 
 }
 
 const initialResourceState: NewResource = {
@@ -128,7 +132,7 @@ const initialResourceState: NewResource = {
     assignee: '',
     description: '',
     status: 'active',
-    image: '', // Start with an empty image field
+    image: '',
 };
 
 const newResource = ref<NewResource>({ ...initialResourceState });
@@ -139,7 +143,9 @@ const assignees = ref([
     { id: 103, name: 'Charlie Davis' },
 ]);
 
-// Helper to get resources (relying on ResourcesPage to ensure defaults exist)
+const isEditMode = computed(() => route.query.mode === 'edit' && !!route.query.id);
+
+// Helper to get resources from Local Storage
 const getStoredResources = () => {
     const storedResourcesString = localStorage.getItem('resources');
     return storedResourcesString ? JSON.parse(storedResourcesString) : [];
@@ -153,71 +159,105 @@ const handleFileUpload = (event: Event) => {
 
     reader.onload = (e) => {
       if (e.target && typeof e.target.result === 'string') {
-        newResource.value.image = e.target.result; // Store Data URL
+        newResource.value.image = e.target.result; 
       }
     };
-    reader.readAsDataURL(file); // Read file as Data URL (Base64)
+    reader.readAsDataURL(file); 
   }
 };
 
+// --- ADD Logic ---
 const handleSave = () => {
-    // 1. Get the current list of resources
     let resources = getStoredResources();
-
-    // 2. Generate a unique ID 
     const maxId = resources.reduce((max: number, r: any) => (r.id > max ? r.id : max), 0);
     newResource.value.id = maxId + 1;
 
-    // 3. Ensure a default image if none is provided (URL or Base64)
     if (!newResource.value.image) {
       newResource.value.image = 'https://via.placeholder.com/300x180?text=New+Resource';
     }
 
-    // 4. Add the new resource to the list
     resources.push({ ...newResource.value });
-
-    // 5. Save the updated list back to Local Storage
     localStorage.setItem('resources', JSON.stringify(resources));
-
-    // 6. Navigate back to the Resources list page
-    router.push('/master-admin/resource'); // Update to your actual path if it's not '/'
+    router.push('/'); 
 };
+
+// --- EDIT/UPDATE Logic ---
+const handleUpdate = () => {
+    let resources = getStoredResources();
+    const idToUpdate = parseInt(route.query.id as string);
+    
+    if (isNaN(idToUpdate)) return;
+
+    const index = resources.findIndex((r: NewResource) => r.id === idToUpdate);
+    
+    if (index !== -1) {
+        // Update the existing resource data using the form's current state
+        resources[index] = { ...newResource.value, id: idToUpdate };
+        
+        localStorage.setItem('resources', JSON.stringify(resources));
+        router.push('/master-admin/resource'); // Navigate back to the resource list page
+    } else {
+        alert("Error: Resource ID not found for update.");
+    }
+};
+
 
 const handleCancel = () => {
-    // Clear form and navigate back
-    Object.assign(newResource.value, initialResourceState);
-    router.push('/master-admin/resource'); // Update to your actual path if it's not '/'
+    router.push('/'); 
 };
+
+// --- Auto-Fill Logic (on Component Load) ---
+onMounted(() => {
+    if (isEditMode.value) {
+        const idToEdit = parseInt(route.query.id as string);
+        const resources = getStoredResources();
+        const resourceToEdit = resources.find((r: NewResource) => r.id === idToEdit);
+
+        if (resourceToEdit) {
+            // **THIS IS THE KEY PART:** Load existing data into the reactive form state
+            Object.assign(newResource.value, resourceToEdit);
+        } else {
+            alert("Resource not found. Redirecting to resource list.");
+            router.push('/'); 
+        }
+    }
+});
 </script>
 
 <style scoped>
 /* Inherited section styles */
 .section {
-  animation: fadeIn 0.3s ease;
-  margin-left: 260px;
-  padding: 20px;
+    animation: fadeIn 0.3s ease;
+    margin-left: 260px;
+    padding: 20px;
 }
 
 @media (max-width: 768px) {
-  .section {
-    margin-left: 80px;
-  }
+    .section {
+        margin-left: 80px;
+    }
 }
 
 .section-title {
-  color: #1e4449;
-  font-weight: 600;
-  margin-bottom: 24px;
+    color: #1e4449;
+    font-weight: 600;
+    margin-bottom: 24px;
 }
-
+.btn-outline-dark-teal {
+  --bs-btn-color: #1e4449;
+  --bs-btn-border-color: #1e4449;
+  --bs-btn-hover-bg: #fcc300;
+  --bs-btn-hover-color: #ffffff;
+  --bs-btn-hover-border-color: #fcc300;
+}
 .btn-success {
-  background-color: #4BB66D;
-  border-color: #4BB66D;
+    background-color: #4BB66D;
+    border-color: #4BB66D;
 }
 
 .btn-success:hover {
-  background-color: #3f975b;
-  border-color: #3f975b;
+    background-color: #3f975b;
+    border-color: #3f975b;
 }
 
 .img-thumbnail {
@@ -225,7 +265,8 @@ const handleCancel = () => {
     max-width: 100%;
 }
 
-.card{
-    align-items: center;
+.card {
+    /* Aligning content to the start for better form layout */
+    align-items: flex-start;
 }
 </style>
