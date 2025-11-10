@@ -76,20 +76,31 @@
               <p v-if="resource.location" class="text-muted mb-1 small">{{ resource.location }}</p>
               <p class="text-muted mb-2">{{ resource.category }}</p>
 
-              <div class="d-flex justify-content-between align-items-center">
-                <span class="badge" :class="resource.status === 'active' ? 'bg-success' : 'bg-secondary'">
-                  {{ resource.status }}
-                </span>
-                <div class="form-check form-switch" @click.stop>
-                  <input
-                    class="form-check-input"
-                    type="checkbox"
-                    :checked="resource.status === 'active'"
-                    @change="toggleResourceStatus(resource.id)"
-                  >
+              <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge" :class="resource.status === 'active' ? 'bg-success' : 'bg-secondary'">
+                      {{ resource.status }}
+                    </span>
+                    <div class="form-check form-switch" @click.stop>
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        :checked="resource.status === 'active'"
+                        @change="toggleResourceStatus(resource.id)"
+                      >
+                    </div>
                 </div>
+
+                <button 
+                    v-if="resource.status === 'active'"
+                    class="btn btn-sm btn-reserve-card" 
+                    @click.stop="handleReserveClick(resource.id)"
+                >
+                    <i class="bi bi-calendar-check me-1"></i> Reserve
+                </button>
               </div>
-            </div>
+              </div>
           </div>
         </div>
       </div>
@@ -217,24 +228,13 @@ const showDeleteConfirmation = ref(false); // NEW: Delete modal visibility
 const resourceToDelete = ref<Resource | null>(null); // NEW: Resource selected for deletion
 const deleteStep = ref<'confirm' | 'final'>('confirm'); // NEW: Two-step delete state
 
-// --- Default Resources (Ensuring consistency with other pages) ---
-const DEFAULT_RESOURCES: Resource[] = [
-    { id: 1, name: 'Conference Room A', location: 'Main Building, Lvl 3', category: 'Academic Space', assignee: 'Dr. Jane Doe', description: 'Large conference room equipped with video conferencing tools.', status: 'active', image: 'https://images.pexels.com/photos/1181406/pexels-photo-1181406.jpeg?auto=compress&cs=tinysrgb&w=300' },
-    { id: 2, name: 'Sports Hall', location: 'Gymnasium Complex', category: 'Sports & Recreational', assignee: 'Mr. John Smith', description: 'Large multi-purpose sports hall for basketball, volleyball, etc.', status: 'active', image: 'https://images.pexels.com/photos/260024/pexels-photo-260024.jpeg?auto=compress&cs=tinysrgb&w=300' },
-    { id: 3, name: 'Library Study Room', location: 'Central Library, Zone C', category: 'Academic Space', assignee: 'Ms. Emily Brown', description: 'Quiet small group study room for up to 6 people.', status: 'inactive', image: 'https://images.pexels.com/photos/2041540/pexels-photo-2041540.jpeg?auto=compress&cs=tinysrgb&w=300' },
-    { id: 4, name: 'Medical Lab', location: 'Health Wing, Ground Floor', category: 'Medical & Health', assignee: 'Dr. Alan Turing', description: 'Fully equipped clinical testing laboratory.', status: 'active', image: 'https://images.pexels.com/photos/356040/pexels-photo-356040.jpeg?auto=compress&cs=tinysrgb&w=300' },
-    { id: 5, name: 'Basketball Court', location: 'Outdoor Courts', category: 'Sports & Recreational', assignee: 'Mr. John Smith', description: 'Full-size outdoor basketball court with floodlights.', status: 'active', image: 'https://images.pexels.com/photos/1752757/pexels-photo-1752757.jpeg?auto=compress&cs=tinysrgb&w=300' },
-    { id: 6, name: 'Lecture Hall B', location: 'Faculty of Eng, Block B', category: 'Academic Space', assignee: 'Dr. Jane Doe', description: 'Medium lecture hall with seating for 100 students.', status: 'active', image: 'https://images.pexels.com/photos/267885/pexels-photo-267885.jpeg?auto=compress&cs=tinysrgb&w=300' },
-];
-
 // Function to load all resources: defaults + user-added
 const getCombinedResources = (): Resource[] => {
     const storedResourcesString = localStorage.getItem('resources');
     
-    // Check if local storage is initialized, if not, set defaults
+    // If local storage is not set or empty, return an empty array. DO NOT set defaults.
     if (!storedResourcesString || JSON.parse(storedResourcesString).length === 0) {
-        localStorage.setItem('resources', JSON.stringify(DEFAULT_RESOURCES));
-        return DEFAULT_RESOURCES;
+        return [];
     }
     
     return JSON.parse(storedResourcesString);
@@ -251,7 +251,6 @@ const filteredResources = computed(() => {
   return resources.value.filter(resource => {
     const matchesSearch = resource.name.toLowerCase().includes(searchQuery.value.toLowerCase());
     
-    // Logic to match category key to full name
     const matchesCategory = !selectedCategory.value || resource.category.toLowerCase().includes(
         selectedCategory.value === 'academic' ? 'academic space' : 
         selectedCategory.value === 'medical' ? 'medical & health' : 
@@ -289,9 +288,15 @@ const navigateToAdd_Custom = () => {
     router.push('/add-resource'); 
 };
 
-// Navigate to Edit Resource page with resource ID in the query
 const navigateToEditResource = (id: number) => {
     router.push({ path: '/add-resource', query: { id: id, mode: 'edit' } });
+};
+
+// NEW: Handler for the Reserve button click
+const handleReserveClick = (id: number) => {
+    // Implement your desired action here, e.g., navigate to a specific booking page
+    alert(`Initiating booking for Resource ID: ${id}`);
+    // router.push({ path: '/bookings/new', query: { resourceId: id } });
 };
 
 // --- DELETE HANDLERS ---
@@ -315,14 +320,12 @@ const handleCancelDeletion = () => {
 const handleDeleteResource = () => {
     if (!resourceToDelete.value) return;
 
-    // Remove resource from the reactive list
     const index = resources.value.findIndex(r => r.id === resourceToDelete.value!.id);
     if (index !== -1) {
         resources.value.splice(index, 1);
         updateLocalStorage();
     }
     
-    // Close modal and reset state
     handleCancelDeletion();
 };
 
@@ -418,7 +421,22 @@ const navigateToTemplateCategory = (categoryKey: string) => {
   border-color: #fcc300;
 }
 
-/* --- NEW: Action Buttons Overlay --- */
+/* --- RESERVE BUTTON on Card --- */
+.btn-reserve-card {
+    background-color: #1e4449;
+    color: white;
+    border-color: #1e4449;
+    font-size: 0.8rem;
+    padding: 0.25rem 0.6rem;
+    line-height: 1; /* Ensure button height is small */
+}
+.btn-reserve-card:hover {
+    background-color: #fcc300;
+    color: #1e4449;
+    border-color: #fcc300;
+}
+
+/* --- Action Buttons Overlay --- */
 .resource-actions {
   position: absolute;
   top: 10px;
@@ -459,7 +477,7 @@ const navigateToTemplateCategory = (categoryKey: string) => {
   color: white;
 }
 
-/* --- Responsive Modal Styles (Standard/Add Modals) --- */
+/* --- Responsive Modal Styles (Delete Modal Top Positioning) --- */
 .modal {
   position: fixed;
   top: 0;
@@ -510,7 +528,6 @@ const navigateToTemplateCategory = (categoryKey: string) => {
 }
 
 @media (min-width: 576px) {
-    /* Standard/Add Modal size */
     .modal-dialog {
         max-width: 300px; 
         margin: 1.75rem auto;
@@ -521,30 +538,21 @@ const navigateToTemplateCategory = (categoryKey: string) => {
 }
 
 
-/* --- DELETE MODAL STYLES (FROM CATEGORY PAGE - Ensures consistent width and colors) --- */
+/* --- DELETE MODAL STYLES (Ensures consistent width and colors) --- */
 
-/* 1. Top Positioning & Vertical Alignment */
 .modal-dialog.delete-modal-top {
     align-items: flex-start;
     margin-top: 50px;
     height: auto; 
 }
 
-.modal-dialog.modal-lg {
-    max-width: 900px !important;
-}
-
-/* 2. Sizing (Ensures small modal size is correctly applied to the top-positioned delete modal) */
 @media (min-width: 576px) {
     .modal-dialog.delete-modal-top {
-        max-width:500px ; /* Explicitly set to the 'modal-sm' size */
-        margin: 1.75rem auto; /* Ensures it's centered horizontally */
+        max-width: 300px; 
+        margin: 1.75rem auto; 
     }
-
-  
 }
 
-/* 3. Color Overrides */
 .bg-warning { background-color: #ffc107 !important; }
 .btn-warning {
     color: #212529 !important;
