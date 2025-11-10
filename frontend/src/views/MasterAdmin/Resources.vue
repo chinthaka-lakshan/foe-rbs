@@ -49,26 +49,45 @@
 
     <div class="row g-4">
       <div v-for="resource in filteredResources" :key="resource.id" class="col-md-4">
-        <div class="resource-card" @click="navigateToSingleResource(resource.id)">
-          <div class="resource-image">
-            <img :src="resource.image || 'https://via.placeholder.com/300x180?text=No+Image'" :alt="resource.name">
+        <div class="resource-card">
+          <div class="resource-actions">
+            <button 
+                class="btn btn-sm btn-action-edit" 
+                @click.stop="navigateToEditResource(resource.id)" 
+                title="Edit Resource"
+            >
+              <i class="bi bi-pencil-square"></i>
+            </button>
+            <button 
+                class="btn btn-sm btn-action-delete" 
+                @click.stop="openDeleteResourceConfirmation(resource)" 
+                title="Delete Resource"
+            >
+              <i class="bi bi-trash"></i>
+            </button>
           </div>
-          <div class="resource-body">
-            <h5>{{ resource.name }}</h5>
-            <p v-if="resource.location" class="text-muted mb-1 small">{{ resource.location }}</p>
-            <p class="text-muted mb-2">{{ resource.category }}</p>
 
-            <div class="d-flex justify-content-between align-items-center">
-              <span class="badge" :class="resource.status === 'active' ? 'bg-success' : 'bg-secondary'">
-                {{ resource.status }}
-              </span>
-              <div class="form-check form-switch" @click.stop>
-                <input
-                  class="form-check-input"
-                  type="checkbox"
-                  :checked="resource.status === 'active'"
-                  @change="toggleResourceStatus(resource.id)"
-                >
+          <div @click="navigateToSingleResource(resource.id)">
+            <div class="resource-image">
+              <img :src="resource.image || 'https://via.placeholder.com/300x180?text=No+Image'" :alt="resource.name">
+            </div>
+            <div class="resource-body">
+              <h5>{{ resource.name }}</h5>
+              <p v-if="resource.location" class="text-muted mb-1 small">{{ resource.location }}</p>
+              <p class="text-muted mb-2">{{ resource.category }}</p>
+
+              <div class="d-flex justify-content-between align-items-center">
+                <span class="badge" :class="resource.status === 'active' ? 'bg-success' : 'bg-secondary'">
+                  {{ resource.status }}
+                </span>
+                <div class="form-check form-switch" @click.stop>
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    :checked="resource.status === 'active'"
+                    @change="toggleResourceStatus(resource.id)"
+                  >
+                </div>
               </div>
             </div>
           </div>
@@ -129,11 +148,49 @@
       </div>
     </div>
   </div>
+
+  <div class="modal fade" :class="{ 'show d-block': showDeleteConfirmation }" tabindex="-1" @click.self="handleCancelDeletion" style="background-color: rgba(0,0,0,0.5);" v-if="showDeleteConfirmation">
+    <div class="modal-dialog delete-modal-top"> 
+      <div class="modal-content">
+
+        <template v-if="deleteStep === 'confirm'">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title"><i class="bi bi-question-circle-fill me-2"></i>Confirmation</h5>
+                <button type="button" class="btn-close" @click="handleCancelDeletion"></button>
+            </div>
+            <div class="modal-body text-center">
+                <p class="mb-0">Are you sure you want to delete the resource **{{ resourceToDelete?.name }}**?</p>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-secondary" @click="handleCancelDeletion">No</button>
+                <button type="button" class="btn btn-warning text-dark" @click="handleFirstConfirmation">Yes</button>
+            </div>
+        </template>
+
+        <template v-else-if="deleteStep === 'final'">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle-fill me-2"></i>Confirm Permanent Deletion</h5>
+                <button type="button" class="btn-close btn-close-white" @click="handleCancelDeletion"></button>
+            </div>
+            <div class="modal-body text-center">
+                <p class="mb-0">This action will **permanently delete** the resource **{{ resourceToDelete?.name }}**. Are you sure?</p>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-secondary" @click="handleCancelDeletion">Cancel</button>
+                <button type="button" class="btn btn-danger" @click="handleDeleteResource">
+                    Confirm
+                </button>
+            </div>
+        </template>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
+// NOTE: Adjust these paths if necessary
 import Navbar from '../../components/Navbar.vue';
 import MasterAdminSidebar from '../../components/Sidebar/MasterAdminSidebar.vue';
 
@@ -153,11 +210,14 @@ const searchQuery = ref('');
 const selectedCategory = ref('');
 const router = useRouter();
 
-// State for both modals
+// State for modals
 const showAddModal = ref(false);
 const showTemplateSelectionModal = ref(false); 
+const showDeleteConfirmation = ref(false); // NEW: Delete modal visibility
+const resourceToDelete = ref<Resource | null>(null); // NEW: Resource selected for deletion
+const deleteStep = ref<'confirm' | 'final'>('confirm'); // NEW: Two-step delete state
 
-// --- Default Resources (Unchanged) ---
+// --- Default Resources (Ensuring consistency with other pages) ---
 const DEFAULT_RESOURCES: Resource[] = [
     { id: 1, name: 'Conference Room A', location: 'Main Building, Lvl 3', category: 'Academic Space', assignee: 'Dr. Jane Doe', description: 'Large conference room equipped with video conferencing tools.', status: 'active', image: 'https://images.pexels.com/photos/1181406/pexels-photo-1181406.jpeg?auto=compress&cs=tinysrgb&w=300' },
     { id: 2, name: 'Sports Hall', location: 'Gymnasium Complex', category: 'Sports & Recreational', assignee: 'Mr. John Smith', description: 'Large multi-purpose sports hall for basketball, volleyball, etc.', status: 'active', image: 'https://images.pexels.com/photos/260024/pexels-photo-260024.jpeg?auto=compress&cs=tinysrgb&w=300' },
@@ -171,6 +231,7 @@ const DEFAULT_RESOURCES: Resource[] = [
 const getCombinedResources = (): Resource[] => {
     const storedResourcesString = localStorage.getItem('resources');
     
+    // Check if local storage is initialized, if not, set defaults
     if (!storedResourcesString || JSON.parse(storedResourcesString).length === 0) {
         localStorage.setItem('resources', JSON.stringify(DEFAULT_RESOURCES));
         return DEFAULT_RESOURCES;
@@ -190,6 +251,7 @@ const filteredResources = computed(() => {
   return resources.value.filter(resource => {
     const matchesSearch = resource.name.toLowerCase().includes(searchQuery.value.toLowerCase());
     
+    // Logic to match category key to full name
     const matchesCategory = !selectedCategory.value || resource.category.toLowerCase().includes(
         selectedCategory.value === 'academic' ? 'academic space' : 
         selectedCategory.value === 'medical' ? 'medical & health' : 
@@ -208,6 +270,8 @@ const toggleResourceStatus = (id: number) => {
   }
 };
 
+// --- NAVIGATION HANDLERS ---
+
 const navigateToCategories = () =>{
   router.push('/categories');
 };
@@ -216,17 +280,53 @@ const navigateToTemplates = () =>{
   router.push('/templates');
 };
 
-// New: Navigate to a single resource page
 const navigateToSingleResource = (id: number) => {
     router.push(`/resource/${id}`);
 };
 
-// --- Modal Navigation Functions ---
 const navigateToAdd_Custom = () => {
     showAddModal.value = false;
     router.push('/add-resource'); 
 };
 
+// Navigate to Edit Resource page with resource ID in the query
+const navigateToEditResource = (id: number) => {
+    router.push({ path: '/add-resource', query: { id: id, mode: 'edit' } });
+};
+
+// --- DELETE HANDLERS ---
+
+const openDeleteResourceConfirmation = (resource: Resource) => {
+    resourceToDelete.value = resource;
+    deleteStep.value = 'confirm';
+    showDeleteConfirmation.value = true;
+};
+
+const handleFirstConfirmation = () => {
+    deleteStep.value = 'final';
+};
+
+const handleCancelDeletion = () => {
+    showDeleteConfirmation.value = false;
+    resourceToDelete.value = null;
+    deleteStep.value = 'confirm';
+};
+
+const handleDeleteResource = () => {
+    if (!resourceToDelete.value) return;
+
+    // Remove resource from the reactive list
+    const index = resources.value.findIndex(r => r.id === resourceToDelete.value!.id);
+    if (index !== -1) {
+        resources.value.splice(index, 1);
+        updateLocalStorage();
+    }
+    
+    // Close modal and reset state
+    handleCancelDeletion();
+};
+
+// --- Template Modal Handlers (Unchanged) ---
 const openTemplateSelectionModal = () => {
     showAddModal.value = false;
     showTemplateSelectionModal.value = true;
@@ -245,21 +345,9 @@ const navigateToTemplateCategory = (categoryKey: string) => {
   margin-left: 260px; /* Space for desktop sidebar */
   padding: 20px;
 }
-
 @media (max-width: 768px) {
   .section {
     margin-left: 80px; /* Space for mobile/collapsed sidebar */
-  }
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
   }
 }
 
@@ -277,12 +365,10 @@ const navigateToTemplateCategory = (categoryKey: string) => {
   --bs-btn-hover-color: #ffffff;
   --bs-btn-hover-border-color: #fcc300;
 }
-
 .btn-success {
   background-color: #4BB66D;
   border-color: #4BB66D;
 }
-
 .btn-success:hover {
   background-color: #3f975b;
   border-color: #3f975b;
@@ -290,12 +376,17 @@ const navigateToTemplateCategory = (categoryKey: string) => {
 
 /* --- Resource Card Styling --- */
 .resource-card {
+  position: relative; 
   background: white;
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
-  cursor: pointer; /* Added cursor to indicate clickability */
+}
+
+/* Clicking the main content navigates to single view */
+.resource-card > div:not(.resource-actions) {
+  cursor: pointer; 
 }
 
 .resource-card:hover {
@@ -307,7 +398,6 @@ const navigateToTemplateCategory = (categoryKey: string) => {
   height: 180px;
   overflow: hidden;
 }
-
 .resource-image img {
   width: 100%;
   height: 100%;
@@ -317,7 +407,6 @@ const navigateToTemplateCategory = (categoryKey: string) => {
 .resource-body {
   padding: 16px;
 }
-
 .resource-body h5 {
   margin-bottom: 8px;
   color: #1e4449;
@@ -329,7 +418,48 @@ const navigateToTemplateCategory = (categoryKey: string) => {
   border-color: #fcc300;
 }
 
-/* --- Responsive Modal Styles --- */
+/* --- NEW: Action Buttons Overlay --- */
+.resource-actions {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 10; 
+  display: flex;
+  gap: 5px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.resource-card:hover .resource-actions {
+  opacity: 1;
+}
+
+.btn-action-edit, .btn-action-delete {
+  font-size: 0.8rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background-color: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.btn-action-edit {
+  color: #0d6efd;
+}
+.btn-action-edit:hover {
+  background-color: #0d6efd;
+  color: white;
+}
+
+.btn-action-delete {
+  color: #dc3545;
+}
+.btn-action-delete:hover {
+  background-color: #dc3545;
+  color: white;
+}
+
+/* --- Responsive Modal Styles (Delete Modal Top Positioning) --- */
 .modal {
   position: fixed;
   top: 0;
@@ -357,14 +487,14 @@ const navigateToTemplateCategory = (categoryKey: string) => {
   transform: translate(0, -50px);
 }
 
+.modal.show .modal-dialog {
+  transform: none;
+}
+
 .modal-dialog-centered {
   display: flex;
   align-items: center;
   min-height: calc(100% - 1rem);
-}
-
-.modal.show .modal-dialog {
-  transform: none;
 }
 
 .modal-content {
@@ -379,6 +509,12 @@ const navigateToTemplateCategory = (categoryKey: string) => {
   outline: 0;
 }
 
+.modal-dialog.delete-modal-top {
+  align-items: flex-start; 
+  margin-top: 50px; 
+  height: auto; 
+}
+
 @media (min-width: 576px) {
     .modal-dialog {
         max-width: 300px; 
@@ -387,5 +523,20 @@ const navigateToTemplateCategory = (categoryKey: string) => {
     .modal-dialog-centered {
         min-height: calc(100% - 3.5rem);
     }
+}
+/* Modal Colors */
+.bg-warning { background-color: #ffc107 !important; }
+.bg-danger { background-color: #dc3545 !important; }
+.btn-warning {
+    color: #212529 !important;
+    background-color: #ffc107 !important;
+    border-color: #ffc107 !important;
+}
+.btn-danger {
+    background-color: #dc3545 !important;
+    border-color: #dc3545 !important;
+}
+.btn-close-white {
+    filter: invert(1);
 }
 </style>
