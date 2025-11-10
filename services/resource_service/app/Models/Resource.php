@@ -18,4 +18,8 @@ class Resource extends Model
     {
         return $this->belongsTo(Category::class);
     }
+    public function resourceImages()
+    {
+        return $this->hasMany(ResourceImage::class, 'resource_id')->orderBy('order_index');
+    }
 }
