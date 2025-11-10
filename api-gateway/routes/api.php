@@ -7,12 +7,14 @@ use Illuminate\Support\Facades\Http;
 
 
 function handleProxyResponse($response, $defaultMessage) {
-    if (!$response->successful()) {
-        return response(
-            $response->body(), 
-            $response->status()
-        )->header('Content-Type', 'application/json');
+    // If the microservice returned a success code (2xx), return the body.
+    if ($response->successful()) {
+        return response($response->body(), $response->status())
+                ->header('Content-Type', 'application/json');
     }
+    
+    // If the microservice returned an error (4xx or 5xx), return its original body/status.
+    // This allows the client (Vue.js) to see validation errors or 403 Forbidden messages.
     return response($response->body(), $response->status())
             ->header('Content-Type', 'application/json');
 }
@@ -122,24 +124,25 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/resources', function (Request $request) {
         try {
-            $response = Http::timeout(30)->withToken($request->bearerToken())
-                ->post('http://resource_service/api/resources', $request->all());
+            $http = Http::timeout(30)->withToken($request->bearerToken());
             
-            return $response->json();
-        } catch (Exception $e) {
-            return response()->json([
-                'message' => 'Cannot connect to resource service',
-                'error' => $e->getMessage()
-            ], 503);
-        }
-    });
-
-    Route::get('/resources', function (Request $request) {
-        try {
-            $response = Http::timeout(30)->withToken($request->bearerToken())
-                ->get('http://resource_service/api/resources');
+            // --- 1. Get the non-file data ---
+            $data = $request->except(['images']); // Assuming 'images' is the file input name
+            // --- 2. Attach files ---
+            if ($request->hasFile('images')) { // Check if the file array is present
+                foreach ($request->file('images') as $file) {
+                    $http->attach(
+                        'images[]', // <--- Use the array syntax for forwarding
+                        file_get_contents($file->getRealPath()), 
+                        $file->getClientOriginalName()
+                    );
+                }
+            }
             
-            return $response->json();
+            // 3. Send the request with the attached file and the data
+            $response = $http->post('http://resource_service/api/resources', $data);
+            
+            return handleProxyResponse($response, 'Resource creation failed.'); 
         } catch (Exception $e) {
             return response()->json([
                 'message' => 'Cannot connect to resource service',
