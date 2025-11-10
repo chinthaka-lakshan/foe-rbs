@@ -32,11 +32,7 @@
                 <span :class="resource.status === 'active' ? 'badge bg-success' : 'badge bg-secondary'" class="fs-6">
                     {{ resource.status.toUpperCase() }}
                 </span>
-                <button class="btn btn-sm btn-primary">
-                    <i class="bi bi-pencil me-1"></i> Edit
-                </button>
-            </div>
-            
+                </div>
             <div class="details-list">
                 <div class="detail-item mb-3">
                     <h6 class="text-muted mb-0">Resource Name</h6>
@@ -65,11 +61,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+// NOTE: Adjust these paths if necessary
 import Navbar from '../../components/Navbar.vue';
 import MasterAdminSidebar from '../../components/Sidebar/MasterAdminSidebar.vue';
-
-const route = useRoute();
-const router = useRouter();
 
 interface Resource {
     id: number;
@@ -82,9 +76,11 @@ interface Resource {
     image: string;
 }
 
+const route = useRoute();
+const router = useRouter();
 const resource = ref<Resource | null>(null);
 
-// **MANUAL DATA SOURCE (ALL_RESOURCES):** This list is used to mimic a database lookup.
+// **MANUAL DATA SOURCE (ALL_RESOURCES):**
 const ALL_RESOURCES: Resource[] = [
     { id: 1, name: 'Conference Room A', location: 'Main Building, Lvl 3', category: 'Academic Space', assignee: 'Dr. Jane Doe', description: 'Large conference room equipped with video conferencing tools, seating 50.', status: 'active', image: 'https://images.pexels.com/photos/1181406/pexels-photo-1181406.jpeg?auto=compress&cs=tinysrgb&w=600' },
     { id: 2, name: 'Sports Hall', location: 'Gymnasium Complex', category: 'Sports & Recreational', assignee: 'Mr. John Smith', description: 'Large multi-purpose sports hall for basketball, volleyball, etc. Includes changing rooms and seating.', status: 'active', image: 'https://images.pexels.com/photos/260024/pexels-photo-260024.jpeg?auto=compress&cs=tinysrgb&w=600' },
@@ -95,17 +91,15 @@ const ALL_RESOURCES: Resource[] = [
 ];
 
 const fetchResourceDetails = (id: number) => {
-    // Finds the resource by ID from the manual list
     const fetchedResource = ALL_RESOURCES.find(r => r.id === id);
     if (fetchedResource) {
         resource.value = fetchedResource;
     } else {
-        resource.value = null; // Indicate resource not found
+        resource.value = null;
     }
 };
 
 onMounted(() => {
-    // Get the ID from the URL (route.params.id)
     const resourceId = parseInt(route.params.id as string);
     if (!isNaN(resourceId)) {
         fetchResourceDetails(resourceId);
@@ -162,15 +156,7 @@ onMounted(() => {
   --bs-btn-hover-color: #ffffff;
   --bs-btn-hover-border-color: #fcc300;
 }
-.btn-primary {
-    background-color: #fcc300;
-    border-color: #fcc300;
-    color: #1e4449;
-}
-.btn-primary:hover {
-    background-color: #e6b200;
-    border-color: #e6b200;
-}
+/* Removed: .btn-primary, .btn-primary:hover CSS rules */
 .bg-success {
     background-color: #4BB66D !important;
 }
