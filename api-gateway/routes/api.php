@@ -120,62 +120,144 @@ Route::middleware('auth:sanctum')->group(function () {
             ], 503);
         }
     });
-
-
+    // List all resources
+    Route::get('/resources', function (Request $request) {
+        try {
+            $response = Http::timeout(30)
+                ->withToken($request->bearerToken())
+                ->get('http://resource_service/api/resources');
+            
+            return handleProxyResponse($response, 'Failed to fetch resources.');
+        } catch (Exception $e) {
+            return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
+        }
+    });
+    // Show single resource
+    Route::get('/resources/{id}', function (Request $request, $id) {
+        try {
+            $response = Http::timeout(30)
+                ->withToken($request->bearerToken())
+                ->get("http://resource_service/api/resources/{$id}");
+            
+            return handleProxyResponse($response, 'Failed to fetch resource.');
+        } catch (Exception $e) {
+            return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
+        }
+    });
+    // post a new resource
     Route::post('/resources', function (Request $request) {
         try {
             $http = Http::timeout(30)->withToken($request->bearerToken());
-            
-            // --- 1. Get the non-file data ---
-            $data = $request->except(['images']); // Assuming 'images' is the file input name
-            // --- 2. Attach files ---
-            if ($request->hasFile('images')) { // Check if the file array is present
-                foreach ($request->file('images') as $file) {
-                    $http->attach(
-                        'images[]', // <--- Use the array syntax for forwarding
-                        file_get_contents($file->getRealPath()), 
-                        $file->getClientOriginalName()
-                    );
+            $http->asMultipart();
+            $data = $request->except(['images']);
+            foreach ($data as $key => $value) {
+                if (is_array($value)) {
+                    foreach ($value as $index => $item) {
+                        if (is_array($item)) {
+                            foreach ($item as $subKey => $subValue) {
+                                $http->attach(
+                                    "{$key}[{$index}][{$subKey}]",
+                                    $subValue
+                                );
+                            }
+                        } else {
+                            $http->attach("{$key}[{$index}]", $item);
+                        }
+                    }
+                } else {
+                    $http->attach($key, $value);
                 }
             }
-            
-            // 3. Send the request with the attached file and the data
-            $response = $http->post('http://resource_service/api/resources', $data);
+            if ($request->hasFile('images')) {
+                foreach ($request->file('images') as $index => $file) {
+                    if ($file && $file->isValid() && is_readable($file->getRealPath())) {
+                        $contents = file_get_contents($file->getRealPath());
+                        
+                        if ($contents !== false) {
+                            $http->attach(
+                                'images[]',
+                                $contents, 
+                                $file->getClientOriginalName()
+                            );
+                        }
+                    }
+                }
+            }
+            $response = $http->post('http://resource_service/api/resources');
             
             return handleProxyResponse($response, 'Resource creation failed.'); 
-        } catch (Exception $e) {
-            return response()->json([
-                'message' => 'Cannot connect to resource service',
-                'error' => $e->getMessage()
-            ], 503);
-        }
-    });
-
-    Route::put('/resources/{id}', function (Request $request, $id) {
-        try {
-            $response = Http::timeout(30)->withToken($request->bearerToken())
-                ->put("http://resource_service/api/resources/{$id}", $request->all());
             
-            return $response->json();
         } catch (Exception $e) {
+            \Log::error('Resource proxy error: ' . $e->getMessage());
             return response()->json([
-                'message' => 'Cannot connect to resource service',
+                'message' => 'Gateway error',
                 'error' => $e->getMessage()
-            ], 503);
+            ], 500);
         }
     });
 
+    // Update resource
+    Route::match(['put', 'post'], '/resources/{id}', function (Request $request, $id) {
+        try {
+            $http = Http::timeout(30)->withToken($request->bearerToken());
+            
+            // Check if there are files or delete operations (need multipart)
+            if ($request->hasFile('images') || $request->has('delete_images') || $request->has('delete_equipment')) {
+                $http->asMultipart();
+                
+                // Attach all fields
+                foreach ($request->except(['images']) as $key => $value) {
+                    if (is_array($value)) {
+                        foreach ($value as $index => $item) {
+                            if (is_array($item)) {
+                                foreach ($item as $subKey => $subValue) {
+                                    $http->attach("{$key}[{$index}][{$subKey}]", $subValue ?? '');
+                                }
+                            } else {
+                                $http->attach("{$key}[{$index}]", $item ?? '');
+                            }
+                        }
+                    } else {
+                        $http->attach($key, $value ?? '');
+                    }
+                }
+                
+                // Attach image files
+                if ($request->hasFile('images')) {
+                    foreach ($request->file('images') as $file) {
+                        if ($file && $file->isValid()) {
+                            $http->attach(
+                                'images[]',
+                                file_get_contents($file->getRealPath()),
+                                $file->getClientOriginalName()
+                            );
+                        }
+                    }
+                }
+                
+                $response = $http->post("http://resource_service/api/resources/{$id}");
+            } else {
+                // Use JSON for simple updates
+                $response = $http->put("http://resource_service/api/resources/{$id}", $request->all());
+            }
+            
+            return handleProxyResponse($response, 'Resource update failed.');
+            
+        } catch (Exception $e) {
+            return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
+        }
+    });
+
+    // Delete resource
     Route::delete('/resources/{id}', function (Request $request, $id) {
         try {
-            $response = Http::timeout(30)->withToken($request->bearerToken())
+            $response = Http::timeout(30)
+                ->withToken($request->bearerToken())
                 ->delete("http://resource_service/api/resources/{$id}");
             
-            return $response->json();
+            return handleProxyResponse($response, 'Resource deletion failed.');
         } catch (Exception $e) {
-            return response()->json([
-                'message' => 'Cannot connect to resource service',
-                'error' => $e->getMessage()
-            ], 503);
+            return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
         }
     });
 });
