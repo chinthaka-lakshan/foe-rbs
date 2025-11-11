@@ -130,7 +130,7 @@
                   <button class="btn btn-outline-success" v-if="booking.status === 'pending'" @click="approveBooking(booking.id)">
                     <i class="bi bi-check-circle"></i>
                   </button>
-                  <button class="btn btn-outline-danger" @click="deleteBooking(booking.id)">
+                  <button class="btn btn-outline-danger" @click="openDeleteConfirmation(booking)">
                     <i class="bi bi-trash"></i>
                   </button>
                 </div>
@@ -141,6 +141,43 @@
       </div>
     </div>
 
+  </div>
+
+  <div class="modal fade" :class="{ 'show d-block': showDeleteConfirmation }" tabindex="-1" @click.self="handleCancelDeletion" style="background-color: rgba(0,0,0,0.5);" v-if="showDeleteConfirmation">
+    <div class="modal-dialog delete-modal-top"> 
+      <div class="modal-content">
+
+        <template v-if="deleteStep === 'confirm'">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title"><i class="bi bi-question-circle-fill me-2"></i>Confirmation</h5>
+                <button type="button" class="btn-close" @click="handleCancelDeletion"></button>
+            </div>
+            <div class="modal-body text-center">
+                <p class="mb-0">Are you sure you want to delete the booking for {{ bookingToDelete?.resourceName }} by User {{ bookingToDelete?.userId }}?</p>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-secondary" @click="handleCancelDeletion">No</button>
+                <button type="button" class="btn btn-warning text-dark" @click="handleFirstConfirmation">Yes</button>
+            </div>
+        </template>
+
+        <template v-else-if="deleteStep === 'final'">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle-fill me-2"></i>Confirm Permanent Deletion</h5>
+                <button type="button" class="btn-close btn-close-white" @click="handleCancelDeletion"></button>
+            </div>
+            <div class="modal-body text-center">
+                <p class="mb-0">This action will **permanently delete** the booking. Are you sure?</p>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-secondary" @click="handleCancelDeletion">Cancel</button>
+                <button type="button" class="btn btn-danger" @click="handleDeleteBooking">
+                    Confirm
+                </button>
+            </div>
+        </template>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -164,6 +201,12 @@ const selectedStatus = ref('');
 const startDate = ref(''); 
 const endDate = ref('');   
 
+// --- FIX: DECLARE MODAL STATE VARIABLES ONCE ---
+const bookingToDelete = ref<Booking | null>(null);
+const showDeleteConfirmation = ref(false);
+const deleteStep = ref<'confirm' | 'final'>('confirm');
+
+
 // --- Mock Booking Data ---
 const bookings = ref<Booking[]>([
     { id: 1, userId: 'U001', resourceName: 'Conference Room A', date: '2025-10-25', startTime: '10:00 AM', endTime: '12:00 PM', status: 'approved' },
@@ -178,7 +221,6 @@ const bookings = ref<Booking[]>([
     { id: 9, userId: 'U009', resourceName: 'Library Study Room', date: '2025-11-28', startTime: '10:00 AM', endTime: '12:00 PM', status: 'pending' },
     
     { id: 10, userId: 'U010', resourceName: 'Conference Room A', date: '2025-12-10', startTime: '1:00 PM', endTime: '3:00 PM', status: 'approved' },
-    
 ]);
 
 // --- Utility Functions ---
@@ -310,14 +352,38 @@ const approveBooking = (id: number) => {
     }
 };
 
-const deleteBooking = (id: number) => {
+
+// --- DELETE MODAL LOGIC ---
+
+const openDeleteConfirmation = (booking: Booking) => {
+    bookingToDelete.value = booking;
+    deleteStep.value = 'confirm';
+    showDeleteConfirmation.value = true;
+};
+
+const handleFirstConfirmation = () => {
+    deleteStep.value = 'final';
+};
+
+const handleCancelDeletion = () => {
+    showDeleteConfirmation.value = false;
+    bookingToDelete.value = null;
+    deleteStep.value = 'confirm';
+};
+
+const handleDeleteBooking = () => {
+    if (!bookingToDelete.value) return;
+
+    const id = bookingToDelete.value.id;
     const index = bookings.value.findIndex(b => b.id === id);
     if (index !== -1) {
+        // Execute deletion
         bookings.value.splice(index, 1);
         bookings.value = [...bookings.value];
     }
+    
+    handleCancelDeletion();
 };
-
 </script>
 
 <style scoped>
@@ -363,25 +429,13 @@ const deleteBooking = (id: number) => {
     font-weight: 600;
 }
 
-/* Fix for filter row layout */
-.small-label {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #495057;
-}
-
-.calendar-title-header {
-    color: #1e4449;
-    font-weight: 600;
-}
-
 /* Custom styling for the input group icon */
 .input-group .form-control {
-    border-right: none; /* Hide separation line between input and text */
+    border-right: none; 
 }
 
 .calendar-icon-fix {
-    background-color: #f8f9fa; /* Light grey background for icon */
+    background-color: #f8f9fa; 
     color: #495057;
     border-left: none;
 }
@@ -442,11 +496,11 @@ const deleteBooking = (id: number) => {
 
 /* Range Styling */
 .day-in-range {
-    background-color: #e6f7ff; /* Light blue background */
+    background-color: #e6f7ff; 
     border-radius: 0;
 }
 .day-is-start, .day-is-end {
-    background-color: #fcc300 !important; /* Yellow highlight for boundaries */
+    background-color: #fcc300 !important; 
     color: #1e4449 !important;
     font-weight: 700;
     border: 1px solid #1e4449;
@@ -457,7 +511,7 @@ const deleteBooking = (id: number) => {
 
 /* Existing Approved Booking Style */
 .day-has-booking {
-    background-color: #4BB66D; /* Success background */
+    background-color: #4BB66D; 
     color: white;
     font-weight: 700;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -481,7 +535,7 @@ const deleteBooking = (id: number) => {
 }
 
 .btn-success {
-  background-color: #4BB66D; /* Custom green */
+  background-color: #4BB66D; 
   border-color: #4BB66D;
 }
 
@@ -506,7 +560,7 @@ const deleteBooking = (id: number) => {
 
 /* Action button styles */
 .btn-group-sm .btn {
-    padding: 0.25rem 0.4rem; /* Reduced padding for compact action buttons */
+    padding: 0.25rem 0.4rem; 
     font-size: 0.8rem;
 }
 .btn-outline-success {
@@ -521,4 +575,25 @@ const deleteBooking = (id: number) => {
     --bs-btn-hover-bg: #dc3545;
     --bs-btn-hover-color: white;
 }
+
+/* --- DELETE MODAL STYLES --- */
+.modal {
+    position: fixed; top: 0; left: 0; z-index: 1050; width: 100%; height: 100%; 
+    overflow-x: hidden; overflow-y: auto; outline: 0; opacity: 0; transition: opacity 0.15s linear;
+}
+.modal.show { opacity: 1; }
+.modal-dialog { position: relative; width: auto; margin: 0.5rem; pointer-events: none; transition: transform 0.3s ease-out; transform: translate(0, -50px); }
+.modal.show .modal-dialog { transform: none; }
+.modal-dialog-centered { display: flex; align-items: center; min-height: calc(100% - 1rem); }
+.modal-content { position: relative; display: flex; flex-direction: column; width: 100%; pointer-events: auto; background-color: #ffffff; border: 1px solid rgba(0, 0, 0, 0.2); border-radius: 0.3rem; outline: 0; }
+
+.modal-dialog.delete-modal-top { align-items: flex-start; margin-top: 50px; height: auto; }
+@media (min-width: 576px) { 
+    .modal-dialog.delete-modal-top { max-width: 300px; margin: 1.75rem auto; }
+}
+
+.bg-warning { background-color: #ffc107 !important; }
+.btn-warning { color: #212529 !important; background-color: #ffc107 !important; border-color: #ffc107 !important; }
+.btn-danger { background-color: #dc3545 !important; border-color: #dc3545 !important; }
+.btn-close-white { filter: invert(1); }
 </style>
