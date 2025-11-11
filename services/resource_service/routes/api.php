@@ -15,5 +15,7 @@ Route::put('/categories/{id}', [CategoryController::class, 'update']);
 // Resource Service Resource Routes
 Route::post('/resources', [ResourceController::class, 'store']);
 Route::get('/resources', [ResourceController::class, 'index']);
+Route::get('/resources/{id}', [ResourceController::class, 'show']);
 Route::put('/resources/{id}', [ResourceController::class, 'update']);
+Route::post('/resources/{id}', [ResourceController::class, 'update']);
 Route::delete('/resources/{id}', [ResourceController::class, 'destroy']);
