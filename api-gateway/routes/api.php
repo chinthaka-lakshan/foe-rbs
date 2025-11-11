@@ -120,7 +120,31 @@ Route::middleware('auth:sanctum')->group(function () {
             ], 503);
         }
     });
-    // Resources Routes proxying to resource service
+    // List all resources
+    Route::get('/resources', function (Request $request) {
+        try {
+            $response = Http::timeout(30)
+                ->withToken($request->bearerToken())
+                ->get('http://resource_service/api/resources');
+            
+            return handleProxyResponse($response, 'Failed to fetch resources.');
+        } catch (Exception $e) {
+            return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
+        }
+    });
+    // Show single resource
+    Route::get('/resources/{id}', function (Request $request, $id) {
+        try {
+            $response = Http::timeout(30)
+                ->withToken($request->bearerToken())
+                ->get("http://resource_service/api/resources/{$id}");
+            
+            return handleProxyResponse($response, 'Failed to fetch resource.');
+        } catch (Exception $e) {
+            return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
+        }
+    });
+    // post a new resource
     Route::post('/resources', function (Request $request) {
         try {
             $http = Http::timeout(30)->withToken($request->bearerToken());
@@ -172,33 +196,68 @@ Route::middleware('auth:sanctum')->group(function () {
         }
     });
 
-
-    
-    Route::put('/resources/{id}', function (Request $request, $id) {
+    // Update resource
+    Route::match(['put', 'post'], '/resources/{id}', function (Request $request, $id) {
         try {
-            $response = Http::timeout(30)->withToken($request->bearerToken())
-                ->put("http://resource_service/api/resources/{$id}", $request->all());
+            $http = Http::timeout(30)->withToken($request->bearerToken());
             
-            return $response->json();
+            // Check if there are files or delete operations (need multipart)
+            if ($request->hasFile('images') || $request->has('delete_images') || $request->has('delete_equipment')) {
+                $http->asMultipart();
+                
+                // Attach all fields
+                foreach ($request->except(['images']) as $key => $value) {
+                    if (is_array($value)) {
+                        foreach ($value as $index => $item) {
+                            if (is_array($item)) {
+                                foreach ($item as $subKey => $subValue) {
+                                    $http->attach("{$key}[{$index}][{$subKey}]", $subValue ?? '');
+                                }
+                            } else {
+                                $http->attach("{$key}[{$index}]", $item ?? '');
+                            }
+                        }
+                    } else {
+                        $http->attach($key, $value ?? '');
+                    }
+                }
+                
+                // Attach image files
+                if ($request->hasFile('images')) {
+                    foreach ($request->file('images') as $file) {
+                        if ($file && $file->isValid()) {
+                            $http->attach(
+                                'images[]',
+                                file_get_contents($file->getRealPath()),
+                                $file->getClientOriginalName()
+                            );
+                        }
+                    }
+                }
+                
+                $response = $http->post("http://resource_service/api/resources/{$id}");
+            } else {
+                // Use JSON for simple updates
+                $response = $http->put("http://resource_service/api/resources/{$id}", $request->all());
+            }
+            
+            return handleProxyResponse($response, 'Resource update failed.');
+            
         } catch (Exception $e) {
-            return response()->json([
-                'message' => 'Cannot connect to resource service',
-                'error' => $e->getMessage()
-            ], 503);
+            return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
         }
     });
 
+    // Delete resource
     Route::delete('/resources/{id}', function (Request $request, $id) {
         try {
-            $response = Http::timeout(30)->withToken($request->bearerToken())
+            $response = Http::timeout(30)
+                ->withToken($request->bearerToken())
                 ->delete("http://resource_service/api/resources/{$id}");
             
-            return $response->json();
+            return handleProxyResponse($response, 'Resource deletion failed.');
         } catch (Exception $e) {
-            return response()->json([
-                'message' => 'Cannot connect to resource service',
-                'error' => $e->getMessage()
-            ], 503);
+            return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
         }
     });
 });
