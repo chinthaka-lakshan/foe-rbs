@@ -479,17 +479,7 @@ const navigateToTemplateCategory = (categoryKey: string) => {
 
 /* --- Responsive Modal Styles (Delete Modal Top Positioning) --- */
 .modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 1050;
-  width: 100%;
   height: 100%;
-  overflow-x: hidden;
-  overflow-y: auto;
-  outline: 0;
-  opacity: 0;
-  transition: opacity 0.15s linear;
 }
 
 .modal.show {
@@ -543,12 +533,12 @@ const navigateToTemplateCategory = (categoryKey: string) => {
 .modal-dialog.delete-modal-top {
     align-items: flex-start;
     margin-top: 50px;
-    height: auto; 
+  
 }
 
 @media (min-width: 576px) {
     .modal-dialog.delete-modal-top {
-        max-width: 300px; 
+        max-width: 500px; 
         margin: 1.75rem auto; 
     }
 }
