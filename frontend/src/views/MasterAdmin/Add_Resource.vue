@@ -67,8 +67,58 @@
               <option v-for="person in assignees" :key="person.id" :value="person.name">{{ person.name }}</option>
             </select>
           </div>
+          
+          <div class="col-md-6"></div>
 
-          <div class="col-md-12">
+          <div class="col-12">
+            <h5 class="section-subtitle fw-bold mb-3 mt-3">Available Time Duration</h5>
+            <div class="availability-matrix border p-3 rounded bg-light">
+                
+                <div class="row fw-bold text-muted mb-2 border-bottom pb-2 mx-0 small">
+                    <div class="col-3">Day</div>
+                    <div class="col-3 text-center">Available</div>
+                    <div class="col-3">Start Time</div>
+                    <div class="col-3">End Time</div>
+                </div>
+
+                <div 
+                    v-for="(day, index) in newResource.schedule" 
+                    :key="day.dayName"
+                    class="row align-items-center mb-2 mx-0"
+                >
+                    <div class="col-3 fw-medium">{{ day.dayName }}</div>
+                    
+                    <div class="col-3 text-center">
+                        <div class="form-check form-switch d-inline-block">
+                            <input 
+                                class="form-check-input" 
+                                type="checkbox" 
+                                v-model="day.available"
+                            >
+                        </div>
+                    </div>
+
+                    <div class="col-3">
+                        <input 
+                            type="time" 
+                            class="form-control form-control-sm" 
+                            v-model="day.startTime"
+                            :disabled="!day.available"
+                        >
+                    </div>
+                    <div class="col-3">
+                        <input 
+                            type="time" 
+                            class="form-control form-control-sm" 
+                            v-model="day.endTime"
+                            :disabled="!day.available"
+                        >
+                    </div>
+                </div>
+            </div>
+            <small class="form-text text-muted">Define the daily hours when this resource can be booked. Times are disabled if the day is not available.</small>
+          </div>
+          <div class="col-12">
             <label class="form-label fw-bold">Custom Equipment/Accessories</label>
             <div class="equipment-list border p-3 rounded">
                 <div 
@@ -192,6 +242,13 @@ interface EquipmentItem {
     checked: boolean;
 }
 
+interface ScheduleDay {
+    dayName: string;
+    available: boolean;
+    startTime: string; 
+    endTime: string;   
+}
+
 interface NewResource {
     id: number;
     name: string;
@@ -202,11 +259,23 @@ interface NewResource {
     description: string;
     status: 'active' | 'inactive';
     image: string; 
-    equipment: EquipmentItem[]; // Changed to an array of custom items
+    equipment: EquipmentItem[]; 
+    schedule: ScheduleDay[]; // Weekly schedule array
 }
 
 // Global counter for unique IDs for dynamic equipment rows
 let equipmentIdCounter = 1;
+
+// Base structure for a full weekly schedule (UPDATED: default to false)
+const defaultSchedule: ScheduleDay[] = [
+    { dayName: 'Monday', available: false, startTime: '09:00', endTime: '17:00' },
+    { dayName: 'Tuesday', available: false, startTime: '09:00', endTime: '17:00' },
+    { dayName: 'Wednesday', available: false, startTime: '09:00', endTime: '17:00' },
+    { dayName: 'Thursday', available: false, startTime: '09:00', endTime: '17:00' },
+    { dayName: 'Friday', available: false, startTime: '09:00', endTime: '17:00' },
+    { dayName: 'Saturday', available: false, startTime: '09:00', endTime: '13:00' },
+    { dayName: 'Sunday', available: false, startTime: '00:00', endTime: '00:00' },
+];
 
 const initialResourceState: NewResource = {
     id: 0,
@@ -218,7 +287,8 @@ const initialResourceState: NewResource = {
     description: '',
     status: 'active',
     image: '',
-    equipment: [], // Start with an empty array of equipment
+    equipment: [], 
+    schedule: JSON.parse(JSON.stringify(defaultSchedule)), 
 };
 
 const newResource = ref<NewResource>({ ...initialResourceState });
@@ -270,6 +340,17 @@ const handleFileUpload = (event: Event) => {
 
 // --- LOGIC HANDLERS ---
 
+const prepareEquipmentForSave = (): EquipmentItem[] => {
+    return newResource.value.equipment
+        .filter(item => item.checked && item.name.trim())
+        .map(item => ({
+            name: item.name.trim(),
+            price: item.price === null || isNaN(Number(item.price)) ? 0 : Number(item.price),
+            checked: true,
+        })) as EquipmentItem[];
+};
+
+
 const handleSave = () => {
     let resources = getStoredResources();
     const maxId = resources.reduce((max: number, r: any) => (r.id > max ? r.id : max), 0);
@@ -279,22 +360,11 @@ const handleSave = () => {
       newResource.value.image = 'https://via.placeholder.com/300x180?text=New+Resource';
     }
     
-    // Prepare equipment data: only save items that are checked and have a name
-    const equipmentToSave = newResource.value.equipment
-        .filter(item => item.checked && item.name.trim())
-        .map(item => ({
-            name: item.name.trim(),
-            price: item.price === null || isNaN(Number(item.price)) ? 0 : Number(item.price),
-            checked: true,
-        }));
-    
     const resourceToSave = { 
         ...newResource.value, 
         price: newResource.value.price === null ? null : Number(newResource.value.price),
-        equipment: equipmentToSave, // Save the simplified equipment list
+        equipment: prepareEquipmentForSave(), 
     };
-    // Ensure the complex ID property is removed before saving the object structure
-    delete resourceToSave.equipment.id; 
 
     resources.push(resourceToSave);
     localStorage.setItem('resources', JSON.stringify(resources));
@@ -310,23 +380,12 @@ const handleUpdate = () => {
     const index = resources.findIndex((r: NewResource) => r.id === idToUpdate);
     
     if (index !== -1) {
-        // Prepare equipment data for update
-        const equipmentToUpdate = newResource.value.equipment
-            .filter(item => item.checked && item.name.trim())
-            .map(item => ({
-                name: item.name.trim(),
-                price: item.price === null || isNaN(Number(item.price)) ? 0 : Number(item.price),
-                checked: true,
-            }));
-            
         const resourceToUpdate = { 
             ...newResource.value, 
             id: idToUpdate,
             price: newResource.value.price === null ? null : Number(newResource.value.price),
-            equipment: equipmentToUpdate, // Save the simplified equipment list
+            equipment: prepareEquipmentForSave(),
         };
-        // Ensure the complex ID property is removed before saving the object structure
-        delete resourceToUpdate.equipment.id; 
         
         resources[index] = resourceToUpdate;
         
@@ -344,36 +403,54 @@ const handleCancel = () => {
 
 // --- Auto-Fill Logic (on Component Load) ---
 onMounted(() => {
+    // Deep copy of schedule is required to avoid modifying the defaultSchedule constant
+    let currentSchedule = JSON.parse(JSON.stringify(defaultSchedule)); // Use let instead of const
+
     if (isEditMode.value) {
         const idToEdit = parseInt(route.query.id as string);
         const resources = getStoredResources();
         const resourceToEdit = resources.find((r: NewResource) => r.id === idToEdit);
 
         if (resourceToEdit) {
-            // Reset state to ensure clean load
-            Object.assign(newResource.value, initialResourceState);
             
-            // Load primary data
+            // Load primary data and existing schedule/equipment
             Object.assign(newResource.value, resourceToEdit);
 
-            // Load equipment data: Map simplified stored objects back to the detailed EquipmentItem structure
+            // Load complex equipment data
             if (Array.isArray(resourceToEdit.equipment)) {
                 newResource.value.equipment = resourceToEdit.equipment.map(item => ({
                     id: equipmentIdCounter++,
                     name: item.name,
                     price: item.price !== undefined && item.price !== null ? Number(item.price) : 0,
-                    checked: true, // Saved items are assumed checked
+                    checked: true,
                 }));
             }
             
+            // Load complex schedule data: Merge saved data over fresh schedule defaults
+            if (Array.isArray(resourceToEdit.schedule)) {
+                const newScheduleMap = new Map(resourceToEdit.schedule.map(d => [d.dayName, d]));
+                
+                newResource.value.schedule = currentSchedule.map(defaultDay => {
+                    const savedDay = newScheduleMap.get(defaultDay.dayName);
+                    return savedDay ? savedDay : defaultDay;
+                });
+            } else {
+                 newResource.value.schedule = currentSchedule;
+            }
+
             newResource.value.price = resourceToEdit.price === undefined ? null : Number(resourceToEdit.price);
+            
+            // Re-assign schedule to the ref so the component uses the merged/saved data
+            // (This step is often redundant with Object.assign but ensures clarity)
+            // newResource.value.schedule = newResource.value.schedule;
 
         } else {
             alert("Resource not found. Redirecting to resource list.");
             router.push('/'); 
         }
-    } else {
-        // Start 'Add New' with one empty equipment item
+    } else if (newResource.value.equipment.length === 0) {
+        // Initialize equipment and schedule for Add New mode
+        newResource.value.schedule = currentSchedule;
         addEquipment('Projector', 150);
         addEquipment('AC Unit', 500);
     }
@@ -398,6 +475,10 @@ onMounted(() => {
     color: #1e4449;
     font-weight: 600;
     margin-bottom: 24px;
+}
+.section-subtitle {
+    color: #1e4449;
+    font-size: 1.1rem;
 }
 .btn-outline-dark-teal {
   --bs-btn-color: #1e4449;
@@ -425,7 +506,7 @@ onMounted(() => {
     align-items: flex-start;
 }
 
-/* Equipment Styling */
+/* Schedule and Equipment Styling */
 .equipment-list {
     max-height: 350px;
     overflow-y: auto;
@@ -439,5 +520,17 @@ onMounted(() => {
     --bs-btn-border-color: #dc3545;
     --bs-btn-hover-bg: #dc3545;
     --bs-btn-hover-color: white;
+}
+.availability-matrix {
+    background-color: #fafafa !important;
+}
+.availability-matrix .form-check-input {
+    margin-top: 0.2rem;
+    cursor: pointer;
+}
+/* Disable styling when checkbox is disabled */
+.availability-matrix input[type="time"]:disabled {
+    background-color: #e9ecef;
+    opacity: 0.8;
 }
 </style>

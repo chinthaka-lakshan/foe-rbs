@@ -100,7 +100,8 @@
                     <i class="bi bi-calendar-check me-1"></i> Reserve
                 </button>
               </div>
-              </div>
+
+            </div>
           </div>
         </div>
       </div>
@@ -232,7 +233,7 @@ const deleteStep = ref<'confirm' | 'final'>('confirm'); // NEW: Two-step delete 
 const getCombinedResources = (): Resource[] => {
     const storedResourcesString = localStorage.getItem('resources');
     
-    // If local storage is not set or empty, return an empty array. DO NOT set defaults.
+    // If local storage is not set or empty, return an empty array.
     if (!storedResourcesString || JSON.parse(storedResourcesString).length === 0) {
         return [];
     }
@@ -292,11 +293,10 @@ const navigateToEditResource = (id: number) => {
     router.push({ path: '/add-resource', query: { id: id, mode: 'edit' } });
 };
 
-// NEW: Handler for the Reserve button click
+// **UPDATED:** Handler for the Reserve button click to navigate to the Booking Page
 const handleReserveClick = (id: number) => {
-    // Implement your desired action here, e.g., navigate to a specific booking page
-    alert(`Initiating booking for Resource ID: ${id}`);
-    // router.push({ path: '/bookings/new', query: { resourceId: id } });
+    // Navigates to the new booking page, passing the resource ID
+    router.push({ path: '/single-resource-booking', query: { resourceId: id } });
 };
 
 // --- DELETE HANDLERS ---
@@ -479,7 +479,17 @@ const navigateToTemplateCategory = (categoryKey: string) => {
 
 /* --- Responsive Modal Styles (Delete Modal Top Positioning) --- */
 .modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1050;
+  width: 100%;
   height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  outline: 0;
+  opacity: 0;
+  transition: opacity 0.15s linear;
 }
 
 .modal.show {
@@ -533,12 +543,12 @@ const navigateToTemplateCategory = (categoryKey: string) => {
 .modal-dialog.delete-modal-top {
     align-items: flex-start;
     margin-top: 50px;
-  
+    height: auto; 
 }
 
 @media (min-width: 576px) {
     .modal-dialog.delete-modal-top {
-        max-width: 500px; 
+        max-width: 300px; 
         margin: 1.75rem auto; 
     }
 }
@@ -547,7 +557,7 @@ const navigateToTemplateCategory = (categoryKey: string) => {
 .btn-warning {
     color: #212529 !important;
     background-color: #ffc107 !important;
-    border-color: #ffc107 !important;
+    border-color: #ffc300 !important;
 }
 .btn-warning:hover {
     background-color: #e0a800 !important;
