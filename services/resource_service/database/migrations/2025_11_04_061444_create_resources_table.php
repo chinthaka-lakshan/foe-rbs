@@ -12,7 +12,8 @@ return new class extends Migration
                 $table->id();
                 $table->string('name'); 
                 $table->string('location_name');
-                $table->text('description')->nullable(); 
+                $table->text('description')->nullable();
+                $table->decimal('base_price', 8, 2);
                 $table->foreignId('category_id')->constrained()->onDelete('restrict'); 
                 $table->unsignedBigInteger('assigned_admin_id')->nullable();
                 $table->enum('status', ['Active', 'Inactive', 'Maintenance'])->default('Active');

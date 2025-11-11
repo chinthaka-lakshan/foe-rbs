@@ -9,6 +9,7 @@ class Resource extends Model
         'name',
         'location_name',
         'description',
+        'base_price',
         'category_id',
         'assigned_admin_id',
         'status',

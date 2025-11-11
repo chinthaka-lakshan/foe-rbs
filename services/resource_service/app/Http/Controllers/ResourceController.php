@@ -21,6 +21,7 @@ class ResourceController extends Controller
             'category_id' => 'required|exists:categories,id',
             'assigned_admin_id' => 'nullable|integer',
             'description' => 'nullable|string',
+            'base_price' => 'required|numeric|min:0',
             'status' => 'required|in:Active,Inactive,Maintenance',
             
             // Validation for the file array received from the API Gateway
