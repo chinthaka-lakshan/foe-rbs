@@ -2,6 +2,8 @@
 namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
 
 class Resource extends Model
 {
@@ -22,5 +24,9 @@ class Resource extends Model
     public function resourceImages()
     {
         return $this->hasMany(ResourceImage::class, 'resource_id')->orderBy('order_index');
+    }
+    public function equipment(): HasMany
+    {
+        return $this->hasMany(ResourceEquipment::class);
     }
 }
