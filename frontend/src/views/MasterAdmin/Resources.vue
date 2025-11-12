@@ -293,9 +293,8 @@ const navigateToEditResource = (id: number) => {
     router.push({ path: '/add-resource', query: { id: id, mode: 'edit' } });
 };
 
-// **UPDATED:** Handler for the Reserve button click to navigate to the Booking Page
+// **NAVIGATION FOR RESERVE BUTTON**
 const handleReserveClick = (id: number) => {
-    // Navigates to the new booking page, passing the resource ID
     router.push({ path: '/single-resource-booking', query: { resourceId: id } });
 };
 
