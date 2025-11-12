@@ -13,6 +13,7 @@ import Templates from '../views/MasterAdmin/Templates.vue';
 import Add_Resource from '../views/MasterAdmin/Add_Resource.vue';
 import Use_Template from '../views/MasterAdmin/Use_Template.vue';
 import Single_Resource from '../views/MasterAdmin/Single_Resource.vue';
+import Single_Resource_Booking from '/Users/hasi0/Documents/GitHub/foe-rbs/frontend/src/views/MasterAdmin/Single_Resource_Booking.vue';
 
 
 const routes: Array<RouteRecordRaw> = [
@@ -91,6 +92,12 @@ const routes: Array<RouteRecordRaw> = [
     path:'/resource/:id',
     name:'Single-Resource',
     component:Single_Resource
+  },
+
+  {
+    path:'/single-resource-booking',
+    name:'single-resource-booking',
+    component:Single_Resource_Booking
   },
 
   {
