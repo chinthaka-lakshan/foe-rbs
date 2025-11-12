@@ -4,9 +4,10 @@
   <div class="section">
     <h2 class="section-title">Bookings</h2>
 
-    <div class="mb-4">
+    <div class="mb-4 filter-row">
       <div class="row g-3">
-        <div class="col-md-4">
+        
+        <div class="col-sm-6 col-md-3">
           <select class="form-select" v-model="selectedResource">
             <option value="">All Resources</option>
             <option value="1">Conference Room A</option>
@@ -16,7 +17,8 @@
             <option value="5">Basketball Court</option>
           </select>
         </div>
-        <div class="col-md-4">
+        
+        <div class="col-sm-6 col-md-3">
           <select class="form-select" v-model="selectedStatus">
             <option value="">All Status</option>
             <option value="approved">Approved</option>
@@ -24,23 +26,76 @@
             <option value="rejected">Rejected</option>
           </select>
         </div>
-        <div class="col-md-4">
-          <input type="date" class="form-control" v-model="selectedDate">
+        
+        <div class="col-sm-6 col-md-3">
+            <div class="input-group">
+                <input 
+                    type="date" 
+                    class="form-control" 
+                    v-model="startDate" 
+                    placeholder="Start Date"
+                >
+                <span class="input-group-text calendar-icon-fix">
+                    <i class="bi bi-calendar-range"></i>
+                </span>
+            </div>
         </div>
+        
+        <div class="col-sm-6 col-md-3">
+            <div class="input-group">
+                <input 
+                    type="date" 
+                    class="form-control" 
+                    v-model="endDate" 
+                    placeholder="End Date"
+                >
+                <span class="input-group-text calendar-icon-fix">
+                    <i class="bi bi-calendar-range"></i>
+                </span>
+            </div>
+        </div>
+        
       </div>
     </div>
 
     <div class="calendar-card mb-4">
-      <h5 class="mb-3">Booking Calendar</h5>
-      <div class="calendar-placeholder">
-        <i class="bi bi-calendar3" style="font-size: 48px; color: #1e4449;"></i>
-        <p class="text-center text-muted">Calendar view showing booked dates</p>
+      <div class="d-flex justify-content-between align-items-center mb-4">
+          <button class="btn btn-sm btn-outline-dark-teal" @click="changeMonth(-1)">
+              <i class="bi bi-chevron-left"></i>
+          </button>
+          <h5 class="mb-0 calendar-title-header">{{ currentMonthName }} {{ currentYear }}</h5>
+          <button class="btn btn-sm btn-outline-dark-teal" @click="changeMonth(1)">
+              <i class="bi bi-chevron-right"></i>
+          </button>
+      </div>
+
+      <div class="calendar-grid">
+          <div v-for="day in weekdays" :key="day" class="calendar-header">{{ day }}</div>
+          
+          <div 
+            v-for="day in daysInMonth" 
+            :key="day.dateString" 
+            class="calendar-day"
+            :class="{ 
+                'day-outside-month': day.isOutsideMonth,
+                'day-has-booking': day.hasApprovedBooking,
+                'day-is-start': day.dateString && day.dateString === startDate,
+                'day-is-end': day.dateString && day.dateString === endDate,
+                'day-in-range': day.dateString && isDateInRange(day.dateString)
+            }"
+            @click="day.dateString && updateDateRange(day.dateString)"
+            :title="day.hasApprovedBooking ? `Bookings on ${day.dayNumber}` : ''"
+          >
+            <span class="day-label" v-if="day.dateString === startDate">Start</span>
+            <span class="day-label" v-else-if="day.dateString === endDate">End</span>
+            <span class="day-number">{{ day.dayNumber }}</span>
+          </div>
       </div>
     </div>
 
     <div class="table-card">
       <div class="d-flex justify-content-between align-items-center mb-3">
-        <h5 class="mb-0">All Bookings</h5>
+        <h5 class="mb-0">All Bookings (Filtered: {{ filteredBookings.length }})</h5>
         <button class="btn btn-success btn-sm">
           <i class="bi bi-file-earmark-spreadsheet me-1"></i>Export
         </button>
@@ -75,7 +130,7 @@
                   <button class="btn btn-outline-success" v-if="booking.status === 'pending'" @click="approveBooking(booking.id)">
                     <i class="bi bi-check-circle"></i>
                   </button>
-                  <button class="btn btn-outline-danger" @click="deleteBooking(booking.id)">
+                  <button class="btn btn-outline-danger" @click="openDeleteConfirmation(booking)">
                     <i class="bi bi-trash"></i>
                   </button>
                 </div>
@@ -83,6 +138,44 @@
             </tr>
           </tbody>
         </table>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="modal fade" :class="{ 'show d-block': showDeleteConfirmation }" tabindex="-1" @click.self="handleCancelDeletion" style="background-color: rgba(0,0,0,0.5);" v-if="showDeleteConfirmation">
+    <div class="modal-dialog delete-modal-top"> 
+      <div class="modal-content">
+
+        <template v-if="deleteStep === 'confirm'">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title"><i class="bi bi-question-circle-fill me-2"></i>Confirmation</h5>
+                <button type="button" class="btn-close" @click="handleCancelDeletion"></button>
+            </div>
+            <div class="modal-body text-center">
+                <p class="mb-0">Are you sure you want to delete the booking for {{ bookingToDelete?.resourceName }} by User {{ bookingToDelete?.userId }}?</p>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-secondary" @click="handleCancelDeletion">No</button>
+                <button type="button" class="btn btn-warning text-dark" @click="handleFirstConfirmation">Yes</button>
+            </div>
+        </template>
+
+        <template v-else-if="deleteStep === 'final'">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle-fill me-2"></i>Confirm Permanent Deletion</h5>
+                <button type="button" class="btn-close btn-close-white" @click="handleCancelDeletion"></button>
+            </div>
+            <div class="modal-body text-center">
+                <p class="mb-0">This action will **permanently delete** the booking. Are you sure?</p>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-secondary" @click="handleCancelDeletion">Cancel</button>
+                <button type="button" class="btn btn-danger" @click="handleDeleteBooking">
+                    Confirm
+                </button>
+            </div>
+        </template>
       </div>
     </div>
   </div>
@@ -93,48 +186,203 @@ import { ref, computed } from 'vue';
 import Navbar from '../../components/Navbar.vue';
 import MasterAdminSidebar from '../../components/Sidebar/MasterAdminSidebar.vue';
 
+interface Booking {
+    id: number;
+    userId: string;
+    resourceName: string;
+    date: string; // YYYY-MM-DD format
+    startTime: string;
+    endTime: string;
+    status: 'approved' | 'pending' | 'rejected';
+}
+
 const selectedResource = ref('');
 const selectedStatus = ref('');
-const selectedDate = ref('');
+const startDate = ref(''); 
+const endDate = ref('');   
 
-const bookings = ref([
-  { id: 1, userId: 'U001', resourceName: 'Conference Room A', date: '2025-10-25', startTime: '10:00 AM', endTime: '12:00 PM', status: 'approved' },
-  { id: 2, userId: 'U002', resourceName: 'Sports Hall', date: '2025-10-26', startTime: '2:00 PM', endTime: '4:00 PM', status: 'pending' },
-  { id: 3, userId: 'U003', resourceName: 'Library Study Room', date: '2025-10-27', startTime: '9:00 AM', endTime: '11:00 AM', status: 'rejected' },
-  { id: 4, userId: 'U004', resourceName: 'Medical Lab', date: '2025-10-28', startTime: '1:00 PM', endTime: '3:00 PM', status: 'approved' },
-  { id: 5, userId: 'U005', resourceName: 'Basketball Court', date: '2025-10-29', startTime: '4:00 PM', endTime: '6:00 PM', status: 'pending' }
+// --- FIX: DECLARE MODAL STATE VARIABLES ONCE ---
+const bookingToDelete = ref<Booking | null>(null);
+const showDeleteConfirmation = ref(false);
+const deleteStep = ref<'confirm' | 'final'>('confirm');
+
+
+// --- Mock Booking Data ---
+const bookings = ref<Booking[]>([
+    { id: 1, userId: 'U001', resourceName: 'Conference Room A', date: '2025-10-25', startTime: '10:00 AM', endTime: '12:00 PM', status: 'approved' },
+    { id: 2, userId: 'U002', resourceName: 'Sports Hall', date: '2025-10-26', startTime: '2:00 PM', endTime: '4:00 PM', status: 'pending' },
+    { id: 3, userId: 'U003', resourceName: 'Library Study Room', date: '2025-10-27', startTime: '9:00 AM', endTime: '11:00 AM', status: 'rejected' },
+    { id: 4, userId: 'U004', resourceName: 'Medical Lab', date: '2025-10-28', startTime: '1:00 PM', endTime: '3:00 PM', status: 'approved' },
+    { id: 5, userId: 'U005', resourceName: 'Basketball Court', date: '2025-10-29', startTime: '4:00 PM', endTime: '6:00 PM', status: 'pending' },
+    
+    { id: 6, userId: 'U006', resourceName: 'Conference Room A', date: '2025-11-15', startTime: '1:00 PM', endTime: '3:00 PM', status: 'approved' },
+    { id: 7, userId: 'U007', resourceName: 'Sports Hall', date: '2025-11-20', startTime: '5:00 PM', endTime: '7:00 PM', status: 'approved' },
+    { id: 8, userId: 'U008', resourceName: 'Medical Lab', date: '2025-11-22', startTime: '8:00 AM', endTime: '10:00 AM', status: 'approved' },
+    { id: 9, userId: 'U009', resourceName: 'Library Study Room', date: '2025-11-28', startTime: '10:00 AM', endTime: '12:00 PM', status: 'pending' },
+    
+    { id: 10, userId: 'U010', resourceName: 'Conference Room A', date: '2025-12-10', startTime: '1:00 PM', endTime: '3:00 PM', status: 'approved' },
 ]);
 
+// --- Utility Functions ---
+
+const parseDate = (dateString: string) => {
+    return dateString.replace(/-/g, '');
+};
+
+const updateDateRange = (dateString: string) => {
+    const clickedDateNum = parseDate(dateString);
+    const startNum = startDate.value ? parseDate(startDate.value) : 0;
+    const endNum = endDate.value ? parseDate(endDate.value) : Infinity;
+
+    if (!startDate.value || clickedDateNum < startNum || (startDate.value && endDate.value)) {
+        startDate.value = dateString;
+        endDate.value = '';
+    } else if (clickedDateNum > startNum) {
+        endDate.value = dateString;
+    } else {
+        startDate.value = '';
+        endDate.value = '';
+    }
+};
+
+const isDateInRange = (dateString: string) => {
+    const checkNum = parseDate(dateString);
+    const startNum = startDate.value ? parseDate(startDate.value) : 0;
+    const endNum = endDate.value ? parseDate(endDate.value) : 0;
+
+    if (startNum && endNum && startNum < endNum) {
+        return checkNum > startNum && checkNum < endNum;
+    }
+    return false;
+};
+
+// --- Calendar Logic ---
+const initialDate = new Date(2025, 10, 1); 
+const currentDate = ref(initialDate); 
+
+const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+const currentMonthName = computed(() => 
+    currentDate.value.toLocaleString('default', { month: 'long' })
+);
+const currentYear = computed(() => currentDate.value.getFullYear());
+
+const changeMonth = (delta: number) => {
+    const newMonthDate = new Date(currentDate.value.getFullYear(), currentDate.value.getMonth() + delta, 1);
+    currentDate.value = newMonthDate;
+};
+
+const daysInMonth = computed(() => {
+    const year = currentDate.value.getFullYear();
+    const month = currentDate.value.getMonth();
+
+    const firstDayOfMonth = new Date(year, month, 1);
+    
+    const jsDayOfWeek = firstDayOfMonth.getDay();
+    const startingDayOfWeekIndex = (jsDayOfWeek + 6) % 7; 
+    
+    const daysInCurrentMonth = new Date(year, month + 1, 0).getDate();
+    const daysInPreviousMonth = new Date(year, month, 0).getDate();
+
+    const allDays = [];
+
+    // Add padding days (from previous month)
+    for (let i = startingDayOfWeekIndex; i > 0; i--) {
+        const dayNumber = daysInPreviousMonth - i + 1;
+        allDays.push({ dayNumber, isOutsideMonth: true, dateString: '' });
+    }
+
+    // Prepare approved booking dates for quick lookup
+    const approvedBookingDates = new Set(
+        bookings.value
+            .filter(b => b.status === 'approved')
+            .map(b => b.date)
+    );
+
+    // Add days of the current month
+    for (let day = 1; day <= daysInCurrentMonth; day++) {
+        const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const hasApprovedBooking = approvedBookingDates.has(dateString);
+        
+        allDays.push({ dayNumber: day, isOutsideMonth: false, dateString, hasApprovedBooking });
+    }
+
+    // Add padding days (from next month) to fill the grid
+    const remainingCells = 42 - allDays.length; 
+    for (let i = 1; i <= remainingCells; i++) {
+        allDays.push({ dayNumber: i, isOutsideMonth: true, dateString: '' });
+    }
+
+    return allDays.slice(0, Math.ceil(allDays.length / 7) * 7);
+});
+
+
+// --- Table and CRUD Logic ---
+
 const filteredBookings = computed(() => {
-  return bookings.value.filter(booking => {
-    const matchesResource = !selectedResource.value || booking.resourceName.includes('Room') && selectedResource.value === '1';
-    const matchesStatus = !selectedStatus.value || booking.status === selectedStatus.value;
-    const matchesDate = !selectedDate.value || booking.date === selectedDate.value;
-    return matchesResource && matchesStatus && matchesDate;
-  });
+    const startNum = startDate.value ? parseDate(startDate.value) : 0;
+    const endNum = endDate.value ? parseDate(endDate.value) : Infinity;
+
+    return bookings.value.filter(booking => {
+        const matchesResource = !selectedResource.value || booking.id.toString() === selectedResource.value;
+        const matchesStatus = !selectedStatus.value || booking.status === selectedStatus.value;
+        
+        // Date Range Filtering
+        const bookingDateNum = parseDate(booking.date);
+        const matchesDateRange = bookingDateNum >= startNum && bookingDateNum <= endNum;
+
+        return matchesResource && matchesStatus && matchesDateRange;
+    });
 });
 
 const getStatusClass = (status: string) => {
-  switch (status) {
-    case 'approved': return 'bg-success';
-    case 'pending': return 'bg-warning';
-    case 'rejected': return 'bg-danger';
-    default: return 'bg-secondary';
-  }
+    switch (status) {
+        case 'approved': return 'bg-success';
+        case 'pending': return 'bg-warning text-dark';
+        case 'rejected': return 'bg-danger';
+        default: return 'bg-secondary';
+    }
 };
 
 const approveBooking = (id: number) => {
-  const booking = bookings.value.find(b => b.id === id);
-  if (booking) {
-    booking.status = 'approved';
-  }
+    const booking = bookings.value.find(b => b.id === id);
+    if (booking) {
+        booking.status = 'approved';
+        bookings.value = [...bookings.value];
+    }
 };
 
-const deleteBooking = (id: number) => {
-  const index = bookings.value.findIndex(b => b.id === id);
-  if (index !== -1) {
-    bookings.value.splice(index, 1);
-  }
+
+// --- DELETE MODAL LOGIC ---
+
+const openDeleteConfirmation = (booking: Booking) => {
+    bookingToDelete.value = booking;
+    deleteStep.value = 'confirm';
+    showDeleteConfirmation.value = true;
+};
+
+const handleFirstConfirmation = () => {
+    deleteStep.value = 'final';
+};
+
+const handleCancelDeletion = () => {
+    showDeleteConfirmation.value = false;
+    bookingToDelete.value = null;
+    deleteStep.value = 'confirm';
+};
+
+const handleDeleteBooking = () => {
+    if (!bookingToDelete.value) return;
+
+    const id = bookingToDelete.value.id;
+    const index = bookings.value.findIndex(b => b.id === id);
+    if (index !== -1) {
+        // Execute deletion
+        bookings.value.splice(index, 1);
+        bookings.value = [...bookings.value];
+    }
+    
+    handleCancelDeletion();
 };
 </script>
 
@@ -142,10 +390,10 @@ const deleteBooking = (id: number) => {
 .section {
   animation: fadeIn 0.3s ease;
   margin-left: 260px;
+  padding: 20px; 
 }
 
 @media (max-width: 768px) {
-  /* When the sidebar collapses, reduce the margin to 70px (Collapsed Sidebar Width) */
   .section {
     margin-left: 80px;
   }
@@ -176,28 +424,176 @@ const deleteBooking = (id: number) => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
-.calendar-placeholder {
-  height: 300px;
-  background: #f8f9fa;
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
+.text-dark-teal {
+    color: #1e4449;
+    font-weight: 600;
 }
+
+/* Custom styling for the input group icon */
+.input-group .form-control {
+    border-right: none; 
+}
+
+.calendar-icon-fix {
+    background-color: #f8f9fa; 
+    color: #495057;
+    border-left: none;
+}
+
+/* --- Calendar Specific Styles --- */
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px;
+    text-align: center;
+    user-select: none;
+}
+
+.calendar-header {
+    font-weight: 600;
+    color: #1e4449;
+    padding: 8px 0;
+    font-size: 0.9em;
+}
+
+.calendar-day {
+    position: relative; 
+    padding: 8px 0; 
+    min-height: 45px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.2s;
+    font-weight: 500;
+    font-size: 0.9em;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Inner elements for stacking */
+.day-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    line-height: 1;
+    text-transform: uppercase;
+    color: #1e4449;
+    margin-bottom: 2px;
+}
+.day-number {
+    line-height: 1;
+}
+
+.calendar-day:not(.day-outside-month):hover {
+    background-color: #fcc30040;
+    transform: scale(1.05);
+}
+
+.day-outside-month {
+    color: #ccc;
+    cursor: default;
+}
+
+/* Range Styling */
+.day-in-range {
+    background-color: #e6f7ff; 
+    border-radius: 0;
+}
+.day-is-start, .day-is-end {
+    background-color: #fcc300 !important; 
+    color: #1e4449 !important;
+    font-weight: 700;
+    border: 1px solid #1e4449;
+}
+.day-is-start .day-label, .day-is-end .day-label {
+    color: #1e4449 !important;
+}
+
+/* Existing Approved Booking Style */
+.day-has-booking {
+    background-color: #4BB66D; 
+    color: white;
+    font-weight: 700;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+.day-has-booking .day-label {
+    color: white;
+}
+
+/* --- Table and Button Styles --- */
 
 .table thead {
   background: #f8f9fa;
 }
 
+.btn-outline-dark-teal {
+    --bs-btn-color: #1e4449;
+    --bs-btn-border-color: #1e4449;
+    --bs-btn-hover-bg: #fcc300;
+    --bs-btn-hover-color: #ffffff;
+    --bs-btn-hover-border-color: #fcc300;
+}
+
 .btn-success {
-  background-color: #26d516;
-  border-color: #26d516;
+  background-color: #4BB66D; 
+  border-color: #4BB66D;
 }
 
 .btn-success:hover {
-  background-color: #22b913;
-  border-color: #22b913;
+  background-color: #3f975b;
+  border-color: #3f975b;
 }
+
+/* Badge classes used in the table */
+.bg-warning {
+    background-color: #ffc107 !important;
+}
+.bg-danger {
+    background-color: #dc3545 !important;
+}
+.bg-secondary {
+    background-color: #6c757d !important;
+}
+.text-dark { 
+    color: #212529 !important;
+}
+
+/* Action button styles */
+.btn-group-sm .btn {
+    padding: 0.25rem 0.4rem; 
+    font-size: 0.8rem;
+}
+.btn-outline-success {
+    --bs-btn-color: #4BB66D;
+    --bs-btn-border-color: #4BB66D;
+    --bs-btn-hover-bg: #4BB66D;
+    --bs-btn-hover-color: white;
+}
+.btn-outline-danger {
+    --bs-btn-color: #dc3545;
+    --bs-btn-border-color: #dc3545;
+    --bs-btn-hover-bg: #dc3545;
+    --bs-btn-hover-color: white;
+}
+
+/* --- DELETE MODAL STYLES --- */
+.modal {
+    position: fixed; top: 0; left: 0; z-index: 1050; width: 100%; height: 100%; 
+    overflow-x: hidden; overflow-y: auto; outline: 0; opacity: 0; transition: opacity 0.15s linear;
+}
+.modal.show { opacity: 1; }
+.modal-dialog { position: relative; width: auto; margin: 0.5rem; pointer-events: none; transition: transform 0.3s ease-out; transform: translate(0, -50px); }
+.modal.show .modal-dialog { transform: none; }
+.modal-dialog-centered { display: flex; align-items: center; min-height: calc(100% - 1rem); }
+.modal-content { position: relative; display: flex; flex-direction: column; width: 100%; pointer-events: auto; background-color: #ffffff; border: 1px solid rgba(0, 0, 0, 0.2); border-radius: 0.3rem; outline: 0; }
+
+.modal-dialog.delete-modal-top { align-items: flex-start; margin-top: 50px; height: auto; }
+@media (min-width: 576px) { 
+    .modal-dialog.delete-modal-top { max-width: 300px; margin: 1.75rem auto; }
+}
+
+.bg-warning { background-color: #ffc107 !important; }
+.btn-warning { color: #212529 !important; background-color: #ffc107 !important; border-color: #ffc107 !important; }
+.btn-danger { background-color: #dc3545 !important; border-color: #dc3545 !important; }
+.btn-close-white { filter: invert(1); }
 </style>
