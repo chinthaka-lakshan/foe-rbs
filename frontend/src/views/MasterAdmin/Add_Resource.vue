@@ -4,10 +4,7 @@
   <div class="section">
     <div class="d-flex justify-content-between align-items-center mb-4">
       <h2 class="section-title mb-0">{{ isEditMode ? 'Edit Resource' : 'Add New Resource' }}</h2>
-      <button class="btn btn-outline-dark-teal" @click="handleCancel">
-        <i class="bi bi-x-circle me-1"></i>Cancel
-      </button>
-    </div>
+      </div>
 
     <div class="card p-4 shadow-sm">
       <form @submit.prevent="isEditMode ? handleUpdate() : handleSave()">
@@ -263,10 +260,8 @@ interface NewResource {
     schedule: ScheduleDay[]; // Weekly schedule array
 }
 
-// Global counter for unique IDs for dynamic equipment rows
 let equipmentIdCounter = 1;
 
-// Base structure for a full weekly schedule (UPDATED: default to false)
 const defaultSchedule: ScheduleDay[] = [
     { dayName: 'Monday', available: false, startTime: '09:00', endTime: '17:00' },
     { dayName: 'Tuesday', available: false, startTime: '09:00', endTime: '17:00' },
@@ -368,6 +363,7 @@ const handleSave = () => {
 
     resources.push(resourceToSave);
     localStorage.setItem('resources', JSON.stringify(resources));
+    // Navigate back to the resource list page
     router.push('/master-admin/resource'); 
 };
 
@@ -390,6 +386,7 @@ const handleUpdate = () => {
         resources[index] = resourceToUpdate;
         
         localStorage.setItem('resources', JSON.stringify(resources));
+        // Navigate back to the resource list page
         router.push('/master-admin/resource'); 
     } else {
         alert("Error: Resource ID not found for update.");
@@ -398,13 +395,14 @@ const handleUpdate = () => {
 
 
 const handleCancel = () => {
+    // Navigate back to the resource list page
     router.push('/'); 
 };
 
 // --- Auto-Fill Logic (on Component Load) ---
 onMounted(() => {
     // Deep copy of schedule is required to avoid modifying the defaultSchedule constant
-    let currentSchedule = JSON.parse(JSON.stringify(defaultSchedule)); // Use let instead of const
+    let currentSchedule = JSON.parse(JSON.stringify(defaultSchedule)); 
 
     if (isEditMode.value) {
         const idToEdit = parseInt(route.query.id as string);
@@ -440,10 +438,6 @@ onMounted(() => {
 
             newResource.value.price = resourceToEdit.price === undefined ? null : Number(resourceToEdit.price);
             
-            // Re-assign schedule to the ref so the component uses the merged/saved data
-            // (This step is often redundant with Object.assign but ensures clarity)
-            // newResource.value.schedule = newResource.value.schedule;
-
         } else {
             alert("Resource not found. Redirecting to resource list.");
             router.push('/'); 
