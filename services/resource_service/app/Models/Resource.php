@@ -29,4 +29,8 @@ class Resource extends Model
     {
         return $this->hasMany(ResourceEquipment::class);
     }
-}
+    public function availability(): HasMany
+    {
+        return $this->hasMany(ResourceAvailability::class)->orderBy('day_of_week');
+    }
+};
