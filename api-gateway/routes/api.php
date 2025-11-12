@@ -146,79 +146,135 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     // post a new resource
     Route::post('/resources', function (Request $request) {
-        try {
-            $http = Http::timeout(30)->withToken($request->bearerToken());
-            $http->asMultipart();
-            $data = $request->except(['images']);
-            foreach ($data as $key => $value) {
-                if (is_array($value)) {
-                    foreach ($value as $index => $item) {
-                        if (is_array($item)) {
-                            foreach ($item as $subKey => $subValue) {
-                                $http->attach(
-                                    "{$key}[{$index}][{$subKey}]",
-                                    $subValue
-                                );
+    try {
+        \Log::info('Gateway received request', [
+            'data' => $request->except(['images']),
+            'has_images' => $request->hasFile('images')
+        ]);
+        
+        $http = Http::timeout(30)->withToken($request->bearerToken());
+        $http->asMultipart();
+        $data = $request->except(['images']);
+        
+        foreach ($data as $key => $value) {
+            if (is_array($value)) {
+                foreach ($value as $index => $item) {
+                    if (is_array($item)) {
+                        foreach ($item as $subKey => $subValue) {
+                            $attachValue = $subValue;
+                            if (is_bool($subValue)) {
+                                $attachValue = $subValue ? '1' : '0';
+                            } elseif (is_null($subValue)) {
+                                $attachValue = '';
                             }
-                        } else {
-                            $http->attach("{$key}[{$index}]", $item);
-                        }
-                    }
-                } else {
-                    $http->attach($key, $value);
-                }
-            }
-            if ($request->hasFile('images')) {
-                foreach ($request->file('images') as $index => $file) {
-                    if ($file && $file->isValid() && is_readable($file->getRealPath())) {
-                        $contents = file_get_contents($file->getRealPath());
-                        
-                        if ($contents !== false) {
+                            
                             $http->attach(
-                                'images[]',
-                                $contents, 
-                                $file->getClientOriginalName()
+                                "{$key}[{$index}][{$subKey}]",
+                                $attachValue
                             );
                         }
+                    } else {
+                        $attachValue = $item;
+                        if (is_bool($item)) {
+                            $attachValue = $item ? '1' : '0';
+                        } elseif (is_null($item)) {
+                            $attachValue = '';
+                        }
+                        
+                        $http->attach("{$key}[{$index}]", $attachValue);
+                    }
+                }
+            } else {
+                $attachValue = $value;
+                if (is_bool($value)) {
+                    $attachValue = $value ? '1' : '0';
+                } elseif (is_null($value)) {
+                    $attachValue = '';
+                }
+                
+                $http->attach($key, $attachValue);
+            }
+        }
+        
+        if ($request->hasFile('images')) {
+            foreach ($request->file('images') as $index => $file) {
+                if ($file && $file->isValid() && is_readable($file->getRealPath())) {
+                    $contents = file_get_contents($file->getRealPath());
+                    
+                    if ($contents !== false) {
+                        $http->attach(
+                            'images[]',
+                            $contents, 
+                            $file->getClientOriginalName()
+                        );
                     }
                 }
             }
-            $response = $http->post('http://resource_service/api/resources');
-            
-            return handleProxyResponse($response, 'Resource creation failed.'); 
-            
-        } catch (Exception $e) {
-            \Log::error('Resource proxy error: ' . $e->getMessage());
-            return response()->json([
-                'message' => 'Gateway error',
-                'error' => $e->getMessage()
-            ], 500);
         }
-    });
+        
+        \Log::info('Sending request to resource service');
+        
+        $response = $http->post('http://resource_service/api/resources');
+        
+        \Log::info('Resource service response', [
+            'status' => $response->status(),
+            'body' => $response->body()
+        ]);
+        
+        return handleProxyResponse($response, 'Resource creation failed.'); 
+        
+    } catch (Exception $e) {
+        \Log::error('Resource proxy error: ' . $e->getMessage());
+        return response()->json([
+            'message' => 'Gateway error',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+});
 
     // Update resource
     Route::match(['put', 'post'], '/resources/{id}', function (Request $request, $id) {
         try {
             $http = Http::timeout(30)->withToken($request->bearerToken());
             
-            // Check if there are files or delete operations (need multipart)
             if ($request->hasFile('images') || $request->has('delete_images') || $request->has('delete_equipment')) {
                 $http->asMultipart();
                 
-                // Attach all fields
+                // Attach all fields with proper boolean/null handling
                 foreach ($request->except(['images']) as $key => $value) {
                     if (is_array($value)) {
                         foreach ($value as $index => $item) {
                             if (is_array($item)) {
                                 foreach ($item as $subKey => $subValue) {
-                                    $http->attach("{$key}[{$index}][{$subKey}]", $subValue ?? '');
+                                    $attachValue = $subValue;
+                                    if (is_bool($subValue)) {
+                                        $attachValue = $subValue ? '1' : '0';
+                                    } elseif (is_null($subValue)) {
+                                        $attachValue = '';
+                                    }
+                                    
+                                    $http->attach("{$key}[{$index}][{$subKey}]", $attachValue);
                                 }
                             } else {
-                                $http->attach("{$key}[{$index}]", $item ?? '');
+                                $attachValue = $item;
+                                if (is_bool($item)) {
+                                    $attachValue = $item ? '1' : '0';
+                                } elseif (is_null($item)) {
+                                    $attachValue = '';
+                                }
+                                
+                                $http->attach("{$key}[{$index}]", $attachValue);
                             }
                         }
                     } else {
-                        $http->attach($key, $value ?? '');
+                        $attachValue = $value;
+                        if (is_bool($value)) {
+                            $attachValue = $value ? '1' : '0';
+                        } elseif (is_null($value)) {
+                            $attachValue = '';
+                        }
+                        
+                        $http->attach($key, $attachValue);
                     }
                 }
                 

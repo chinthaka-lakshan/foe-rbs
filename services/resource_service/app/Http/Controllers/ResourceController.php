@@ -10,20 +10,21 @@ use Illuminate\Support\Facades\Storage;
 use Exception;
 use App\Models\ResourceImage;
 use App\Models\ResourceEquipment;
+use App\Models\ResourceAvailability;
 
 class ResourceController extends Controller
 {
     // Get list of resources with related data
     public function index(): JsonResponse
     {
-        $resources = Resource::with(['category', 'resourceImages', 'equipment'])->get();
+        $resources = Resource::with(['category', 'resourceImages', 'equipment', 'availability'])->get();
         return response()->json($resources);
     }
 
     // Get a single resource by ID with related data
     public function show($id): JsonResponse
     {
-        $resource = Resource::with(['category', 'resourceImages', 'equipment'])->findOrFail($id);
+        $resource = Resource::with(['category', 'resourceImages', 'equipment', 'availability'])->findOrFail($id);
         return response()->json($resource);
     }
 
@@ -38,29 +39,34 @@ class ResourceController extends Controller
                 'description' => 'nullable|string',
                 'base_price' => 'required|numeric|min:0',
                 'status' => 'required|in:Active,Inactive,Maintenance',
-                
                 // Nested data validation
                 'images' => 'nullable|array', 
-                'images.*' => 'image|mimes:jpeg,png,jpg,gif|max:2048', 
+                'images.*' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
+                // Equipment validation
                 'equipment' => 'nullable|array',
                 'equipment.*.equipment_name' => 'required_with:equipment|string|max:255',
                 'equipment.*.quantity' => 'required_with:equipment|integer|min:1',
                 'equipment.*.equipment_price' => 'required_with:equipment|numeric|min:0',
+                // Availability validation
+                'availability' => 'nullable|array',
+                'availability.*.day_of_week' => 'required_with:availability|in:Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday',
+                'availability.*.is_available' => 'required_with:availability|in:0,1,true,false',
+                'availability.*.start_time' => 'nullable|date_format:H:i',
+                'availability.*.end_time' => 'nullable|date_format:H:i|after:availability.*.start_time',
+                
             ]);
             
-            // --- DATA SEPARATION (Corrected Variables) ---
-            // Extract nested data arrays
             $equipmentData = $validatedData['equipment'] ?? [];
-            $imagesData = $request->file('images') ?? []; // Use file() for file objects
+            $imagesData = $request->file('images') ?? [];
+            $availabilityData = $validatedData['availability'] ?? [];
             
-            // 🛑 FIX: Get ONLY the fields belonging to the 'resources' table (excluding images and equipment)
-            $resourceData = collect($validatedData)->except(['images', 'equipment'])->toArray();
+
+            $resourceData = collect($validatedData)->except(['images', 'equipment', 'availability'])->toArray();
 
             
             DB::beginTransaction();
             try {
                 // 2. Create the Resource Record (base data)
-                // 🚀 FIX: Use $resourceData, which contains only base columns, for creation.
                 $resource = Resource::create($resourceData); 
 
                 // 3. Handle File Uploads and Association (Images)
@@ -68,7 +74,6 @@ class ResourceController extends Controller
                     $imagesToSave = [];
                     
                     foreach ($imagesData as $index => $file) {
-                        // Note: Since $imagesData is from $request->file(), it contains file objects.
                         $path = Storage::disk('public')->putFile('resource_images', $file); 
 
                         $imagesToSave[] = new ResourceImage([
@@ -81,15 +86,33 @@ class ResourceController extends Controller
                     $resource->resourceImages()->saveMany($imagesToSave);
                 }
                 
-                // 4. Save the Equipment/Components
                 if (!empty($equipmentData)) {
                     $resource->equipment()->createMany($equipmentData);
                 }
-                
+                if (!empty($availabilityData)) {
+                    $availabilityToSave = [];
+                    
+                    foreach ($availabilityData as $availability) {
+                        $dayName = $availability['day_of_week'];
+                        $dayNumber = ResourceAvailability::getDayNumber($dayName);
+                        
+                        // Convert string boolean to actual boolean
+                        $isAvailable = in_array($availability['is_available'], [true, 1, '1', 'true'], true);
+                        
+                        $availabilityToSave[] = [
+                            'day_of_week' => $dayNumber,
+                            'day_name' => $dayName,
+                            'is_available' => $isAvailable,
+                            'start_time' => $isAvailable && !empty($availability['start_time']) ? $availability['start_time'] : null,
+                            'end_time' => $isAvailable && !empty($availability['end_time']) ? $availability['end_time'] : null,
+                        ];
+                    }
+                    
+                    $resource->availability()->createMany($availabilityToSave);
+                }
                 DB::commit();
-                
-                // 5. Load and Return
-                $resource->load(['category', 'resourceImages', 'equipment']); 
+
+                $resource->load(['category', 'resourceImages', 'equipment', 'availability']); 
                 
                 return response()->json([
                     'message' => 'Resource created successfully',
@@ -123,20 +146,28 @@ class ResourceController extends Controller
             'base_price' => 'sometimes|numeric|min:0',
             'status' => 'sometimes|in:Active,Inactive,Maintenance',
             
-            // Images handling
+            // Images
             'images' => 'nullable|array',
             'images.*' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
-            'delete_images' => 'nullable|array', // Array of image IDs to delete
+            'delete_images' => 'nullable|array',
             'delete_images.*' => 'integer|exists:resource_images,id',
             
-            // Equipment handling
+            // Equipment
             'equipment' => 'nullable|array',
-            'equipment.*.id' => 'nullable|integer|exists:resource_equipment,id', // For updates
+            'equipment.*.id' => 'nullable|integer|exists:resource_equipment,id',
             'equipment.*.equipment_name' => 'required_with:equipment|string|max:255',
             'equipment.*.quantity' => 'required_with:equipment|integer|min:1',
             'equipment.*.equipment_price' => 'required_with:equipment|numeric|min:0',
-            'delete_equipment' => 'nullable|array', // Array of equipment IDs to delete
+            'delete_equipment' => 'nullable|array',
             'delete_equipment.*' => 'integer|exists:resource_equipment,id',
+            
+            // Availability
+            'availability' => 'nullable|array',
+            'availability.*.id' => 'nullable|integer|exists:resource_availability,id',
+            'availability.*.day_of_week' => 'required_with:availability|in:Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday',
+            'availability.*.is_available' => 'required_with:availability|in:0,1,true,false',
+            'availability.*.start_time' => 'nullable|date_format:H:i',
+            'availability.*.end_time' => 'nullable|date_format:H:i',
         ]);
 
         DB::beginTransaction();
@@ -146,7 +177,8 @@ class ResourceController extends Controller
                 'images', 
                 'equipment', 
                 'delete_images', 
-                'delete_equipment'
+                'delete_equipment',
+                'availability'
             ])->toArray();
             
             $resource->update($resourceData);
@@ -158,7 +190,6 @@ class ResourceController extends Controller
                     ->get();
                 
                 foreach ($imagesToDelete as $image) {
-                    // Delete file from storage
                     if (Storage::disk('public')->exists($image->file_path)) {
                         Storage::disk('public')->delete($image->file_path);
                     }
@@ -219,10 +250,47 @@ class ResourceController extends Controller
                 }
             }
 
+            // 6. Handle availability updates/creates
+            if (!empty($validatedData['availability'])) {
+                foreach ($validatedData['availability'] as $availabilityItem) {
+                    $dayName = $availabilityItem['day_of_week'];
+                    $dayNumber = ResourceAvailability::getDayNumber($dayName);
+                    $isAvailable = in_array($availabilityItem['is_available'], [true, 1, '1', 'true'], true);
+                    
+                    $availabilityData = [
+                        'day_of_week' => $dayNumber,
+                        'day_name' => $dayName,
+                        'is_available' => $isAvailable,
+                        'start_time' => $isAvailable && !empty($availabilityItem['start_time']) ? $availabilityItem['start_time'] : null,
+                        'end_time' => $isAvailable && !empty($availabilityItem['end_time']) ? $availabilityItem['end_time'] : null,
+                    ];
+                    
+                    if (isset($availabilityItem['id'])) {
+                        // Update existing availability
+                        $availability = ResourceAvailability::where('resource_id', $resource->id)
+                            ->where('id', $availabilityItem['id'])
+                            ->first();
+                        
+                        if ($availability) {
+                            $availability->update($availabilityData);
+                        }
+                    } else {
+                        // Create new availability or update by day
+                        ResourceAvailability::updateOrCreate(
+                            [
+                                'resource_id' => $resource->id,
+                                'day_of_week' => $dayNumber,
+                            ],
+                            $availabilityData
+                        );
+                    }
+                }
+            }
+
             DB::commit();
             
             // Reload relationships
-            $resource->load(['category', 'resourceImages', 'equipment']);
+            $resource->load(['category', 'resourceImages', 'equipment', 'availability']);
             
             return response()->json([
                 'message' => 'Resource updated successfully',
@@ -248,7 +316,7 @@ class ResourceController extends Controller
     {
         DB::beginTransaction();
         try {
-            $resource = Resource::with(['resourceImages', 'equipment'])->findOrFail($id);
+            $resource = Resource::with(['resourceImages', 'equipment', 'availability'])->findOrFail($id);
             
             // 1. Delete all associated images from storage
             foreach ($resource->resourceImages as $image) {
