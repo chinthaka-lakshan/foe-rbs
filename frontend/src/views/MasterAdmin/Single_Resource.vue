@@ -30,6 +30,15 @@
 
             <h5 class="text-dark-teal mb-2">Description</h5>
             <p>{{ resource.description || 'No detailed description available.' }}</p>
+
+              <button 
+                    v-if="resource.status === 'active'"
+                    class="btn btn-sm btn-reserve-card" 
+                    @click.stop="handleReserveClick(resource.id)"
+                >
+                    <i class="bi bi-calendar-check me-1"></i> Reserve
+                </button>
+            
           </div>
         </div>
 
@@ -96,7 +105,7 @@
                     </li>
                 </ul>
             </div>
-            
+           
           </div>
         </div>
       </div>
@@ -106,7 +115,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { useRoute} from 'vue-router';
+import { useRoute, useRouter} from 'vue-router';
 // NOTE: Adjust these paths if necessary
 import Navbar from '../../components/Navbar.vue';
 import MasterAdminSidebar from '../../components/Sidebar/MasterAdminSidebar.vue';
@@ -140,6 +149,7 @@ interface Resource {
 
 const route = useRoute();
 const resource = ref<Resource | null>(null);
+const router = useRouter();
 
 // Function to load resources from Local Storage, initializing if empty
 const getCombinedResources = (): Resource[] => {
@@ -149,6 +159,10 @@ const getCombinedResources = (): Resource[] => {
         return [];
     }
     return JSON.parse(storedResourcesString);
+};
+
+const handleReserveClick = (id: number) => {
+    router.push({ path: '/single-resource-booking', query: { resourceId: id } });
 };
 
 const fetchResourceDetails = (id: number) => {
@@ -241,5 +255,20 @@ onMounted(() => {
 }
 .text-secondary {
     color: #6c757d !important;
+}
+
+.btn-reserve-card {
+    background-color: #1e4449;
+    color: white;
+    border-color: #1e4449;
+    font-size: 0.8rem;
+    padding: 0.25rem 0.6rem;
+    line-height: 4; /* Ensure button height is small */
+    margin-top: 10%;
+}
+.btn-reserve-card:hover {
+    background-color: #fcc300;
+    color: #1e4449;
+    border-color: #fcc300;
 }
 </style>
