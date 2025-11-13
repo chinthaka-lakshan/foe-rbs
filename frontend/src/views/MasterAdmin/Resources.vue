@@ -7,9 +7,9 @@
       <div class="d-flex gap-2 mt-3">
          <button
           class="btn btn-outline-dark-teal btn-sm"
-          @click="navigateToAdd_Equipment"
+          @click="navigateToBooking_Item"
         >
-          <i class="bi bi-list-ul me-1"></i>Add Equipment
+          <i class="bi bi-list-ul me-1"></i>Booking Item
         </button>
         <button
           class="btn btn-outline-dark-teal btn-sm"
@@ -278,8 +278,8 @@ const toggleResourceStatus = (id: number) => {
 
 // --- NAVIGATION HANDLERS ---
 
-const navigateToAdd_Equipment = () =>{
-  router.push('/add_equipment');
+const navigateToBooking_Item = () =>{
+  router.push('/booking_item');
 }
 
 const navigateToCategories = () =>{
