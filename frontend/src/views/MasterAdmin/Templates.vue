@@ -454,6 +454,11 @@ const saveTemplate = () => {
     return;
   }
 
+  if (!formData.value.templateName){
+    alert('please enter a template name before saving.');
+    return;
+  }
+
   // Generate description from field labels
   const description =
     formData.value.fields.map((f) => f.label).join(', ') || 'No fields defined';
