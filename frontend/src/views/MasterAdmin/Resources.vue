@@ -5,6 +5,12 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
       <h2 class="section-title mb-0">Resources</h2>
       <div class="d-flex gap-2 mt-3">
+         <button
+          class="btn btn-outline-dark-teal btn-sm"
+          @click="navigateToAdd_Equipment"
+        >
+          <i class="bi bi-list-ul me-1"></i>Add Equipment
+        </button>
         <button
           class="btn btn-outline-dark-teal btn-sm"
           @click="navigateToCategories"
@@ -271,6 +277,10 @@ const toggleResourceStatus = (id: number) => {
 };
 
 // --- NAVIGATION HANDLERS ---
+
+const navigateToAdd_Equipment = () =>{
+  router.push('/add_equipment');
+}
 
 const navigateToCategories = () =>{
   router.push('/categories');
@@ -547,7 +557,7 @@ const navigateToTemplateCategory = (categoryKey: string) => {
 
 @media (min-width: 576px) {
     .modal-dialog.delete-modal-top {
-        max-width: 300px; 
+        max-width: 500px; 
         margin: 1.75rem auto; 
     }
 }

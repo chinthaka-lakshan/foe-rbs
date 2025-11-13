@@ -141,17 +141,6 @@
                             required
                         >
                     </div>
-
-                    <div class="input-group input-group-sm w-25 me-2 flex-shrink-0">
-                        <span class="input-group-text">Rs.</span>
-                        <input 
-                            type="number" 
-                            class="form-control" 
-                            v-model.number="item.price"
-                            min="0"
-                            step="0.01"
-                        >
-                    </div>
                     
                     <button 
                         type="button" 
@@ -170,7 +159,7 @@
                     <i class="bi bi-plus-circle me-1"></i> Add Equipment
                 </button>
             </div>
-            <small class="form-text text-muted">Define custom equipment, its price, and mark if it should be included.</small>
+            <small class="form-text text-muted">Define custom equipment and mark if it should be included.</small>
           </div>
           <div class="col-12">
             <label for="resourcePhotoFile" class="form-label fw-bold">Upload Photo</label>
@@ -235,7 +224,6 @@ const route = useRoute();
 interface EquipmentItem {
     id: number;
     name: string;
-    price: number | null;
     checked: boolean;
 }
 
@@ -243,7 +231,7 @@ interface ScheduleDay {
     dayName: string;
     available: boolean;
     startTime: string; 
-    endTime: string;   
+    endTime: string;   
 }
 
 interface NewResource {
@@ -257,7 +245,7 @@ interface NewResource {
     status: 'active' | 'inactive';
     image: string; 
     equipment: EquipmentItem[]; 
-    schedule: ScheduleDay[]; // Weekly schedule array
+    schedule: ScheduleDay[]; 
 }
 
 let equipmentIdCounter = 1;
@@ -296,11 +284,10 @@ const assignees = ref([
 
 // --- EQUIPMENT MANAGEMENT ---
 
-const addEquipment = (name: string = 'New Equipment', price: number = 0) => {
+const addEquipment = (name: string = 'New Equipment') => { 
     newResource.value.equipment.push({
         id: equipmentIdCounter++,
         name: name,
-        price: price,
         checked: true,
     });
 };
@@ -319,18 +306,18 @@ const getStoredResources = () => {
 };
 
 const handleFileUpload = (event: Event) => {
-  const input = event.target as HTMLInputElement;
-  if (input.files && input.files[0]) {
-    const file = input.files[0];
-    const reader = new FileReader();
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files[0]) {
+        const file = input.files[0];
+        const reader = new FileReader();
 
-    reader.onload = (e) => {
-      if (e.target && typeof e.target.result === 'string') {
-        newResource.value.image = e.target.result; 
-      }
-    };
-    reader.readAsDataURL(file); 
-  }
+        reader.onload = (e) => {
+            if (e.target && typeof e.target.result === 'string') {
+                newResource.value.image = e.target.result; 
+            }
+        };
+        reader.readAsDataURL(file); 
+    }
 };
 
 // --- LOGIC HANDLERS ---
@@ -340,8 +327,8 @@ const prepareEquipmentForSave = (): EquipmentItem[] => {
         .filter(item => item.checked && item.name.trim())
         .map(item => ({
             name: item.name.trim(),
-            price: item.price === null || isNaN(Number(item.price)) ? 0 : Number(item.price),
             checked: true,
+            // Price is intentionally omitted/removed here
         })) as EquipmentItem[];
 };
 
@@ -394,10 +381,7 @@ const handleUpdate = () => {
 };
 
 
-const handleCancel = () => {
-    // Navigate back to the resource list page
-    router.push('/'); 
-};
+
 
 // --- Auto-Fill Logic (on Component Load) ---
 onMounted(() => {
@@ -407,7 +391,7 @@ onMounted(() => {
     if (isEditMode.value) {
         const idToEdit = parseInt(route.query.id as string);
         const resources = getStoredResources();
-        const resourceToEdit = resources.find((r: NewResource) => r.id === idToEdit);
+        const resourceToEdit = resources.find((r: any) => r.id === idToEdit);
 
         if (resourceToEdit) {
             
@@ -416,17 +400,17 @@ onMounted(() => {
 
             // Load complex equipment data
             if (Array.isArray(resourceToEdit.equipment)) {
-                newResource.value.equipment = resourceToEdit.equipment.map(item => ({
+                newResource.value.equipment = resourceToEdit.equipment.map((item: any) => ({
                     id: equipmentIdCounter++,
                     name: item.name,
-                    price: item.price !== undefined && item.price !== null ? Number(item.price) : 0,
-                    checked: true,
+                    // Price field is ignored during load
+                    checked: item.checked !== undefined ? item.checked : true,
                 }));
             }
             
             // Load complex schedule data: Merge saved data over fresh schedule defaults
             if (Array.isArray(resourceToEdit.schedule)) {
-                const newScheduleMap = new Map(resourceToEdit.schedule.map(d => [d.dayName, d]));
+                const newScheduleMap = new Map(resourceToEdit.schedule.map((d: any) => [d.dayName, d]));
                 
                 newResource.value.schedule = currentSchedule.map(defaultDay => {
                     const savedDay = newScheduleMap.get(defaultDay.dayName);
@@ -445,8 +429,8 @@ onMounted(() => {
     } else if (newResource.value.equipment.length === 0) {
         // Initialize equipment and schedule for Add New mode
         newResource.value.schedule = currentSchedule;
-        addEquipment('Projector', 150);
-        addEquipment('AC Unit', 500);
+        addEquipment('Projector');
+        addEquipment('AC Unit');
     }
 });
 </script>
@@ -475,11 +459,11 @@ onMounted(() => {
     font-size: 1.1rem;
 }
 .btn-outline-dark-teal {
-  --bs-btn-color: #1e4449;
-  --bs-btn-border-color: #1e4449;
-  --bs-btn-hover-bg: #fcc300;
-  --bs-btn-hover-color: #ffffff;
-  --bs-btn-hover-border-color: #fcc300;
+    --bs-btn-color: #1e4449;
+    --bs-btn-border-color: #1e4449;
+    --bs-btn-hover-bg: #fcc300;
+    --bs-btn-hover-color: #ffffff;
+    --bs-btn-hover-border-color: #fcc300;
 }
 .btn-success {
     background-color: #4BB66D;
