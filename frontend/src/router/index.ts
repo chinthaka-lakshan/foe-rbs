@@ -14,7 +14,7 @@ import Add_Resource from '../views/MasterAdmin/Add_Resource.vue';
 import Use_Template from '../views/MasterAdmin/Use_Template.vue';
 import Single_Resource from '../views/MasterAdmin/Single_Resource.vue';
 import Single_Resource_Booking from '/Users/hasi0/Documents/GitHub/foe-rbs/frontend/src/views/MasterAdmin/Single_Resource_Booking.vue';
-import Add_Equipment from '/Users/hasi0/Documents/GitHub/foe-rbs/frontend/src/views/MasterAdmin/Add_Equipment.vue';
+import Booking_Item from '../views/MasterAdmin/Booking_Item.vue';
 
 
 const routes: Array<RouteRecordRaw> = [
@@ -61,12 +61,12 @@ const routes: Array<RouteRecordRaw> = [
 
   {
     path: '/',
-    redirect: 'add_equipment'
+    redirect: 'booking_item'
   },
   {
-    path: '/add_equipment',
-    name: 'add-equipment',
-    component:Add_Equipment
+   path: '/booking_item',
+   name: 'booking-item',
+   component:Booking_Item
   },
   {
     path:'/',
