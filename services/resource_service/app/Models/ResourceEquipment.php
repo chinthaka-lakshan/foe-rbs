@@ -14,7 +14,6 @@ class ResourceEquipment extends Model
         'resource_id',
         'equipment_name',
         'quantity',
-        'equipment_price',
     ];
 
     public function resource(): BelongsTo

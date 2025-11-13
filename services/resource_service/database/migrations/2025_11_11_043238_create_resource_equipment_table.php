@@ -18,7 +18,6 @@ return new class extends Migration
             $table->foreignId('resource_id')->constrained('resources')->onDelete('cascade');
             $table->string('equipment_name');
             $table->integer('quantity')->default(1);
-            $table->decimal('equipment_price', 8, 2)->default(0);
             $table->timestamps();
         });
     }
