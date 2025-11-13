@@ -28,6 +28,7 @@
             <tr>
               <th>Template ID</th>
               <th>Category Name</th>
+              <th>Template Name</th>
               <th>Description</th>
               <th>Action</th>
             </tr>
@@ -36,6 +37,7 @@
             <tr v-for="template in filteredTemplates" :key="template.id">
               <td>{{ template.id }}</td>
               <td>{{ template.categoryName }}</td>
+              <td>{{ template.templateName }}</td>
               <td>{{ template.description }}</td>
               <td>
                 <div class="btn-group btn-group-sm">
@@ -75,7 +77,6 @@
             </h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
-
           <div class="modal-body">
             <div class="row mb-4">
               <div class="col-md-6 mb-3 mb-md-0">
@@ -111,6 +112,17 @@
                   </option>
                 </select>
               </div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Template Name</label>
+              <input
+                type="text"
+                class="form-control"
+                placeholder="Enter Template Name"
+                v-model="formData.templateName"
+                required
+              />
             </div>
 
             <div class="template-builder">
@@ -251,12 +263,14 @@ interface Field {
 interface Template {
   id: number;
   categoryName: string;
+  templateName: string;
   description: string;
   fields: Field[];
 }
 
 interface TemplateData {
   categoryName: string;
+  templateName: string;
   fields: Field[];
 }
 
@@ -268,6 +282,7 @@ const activeFieldType = ref<string | null>(null);
 // Form data for the TemplateFormModal
 const formData = ref<TemplateData>({
   categoryName: '',
+  templateName: '',
   fields: [],
 });
 
@@ -275,6 +290,7 @@ const templates = ref<Template[]>([
   {
     id: 1,
     categoryName: 'Academic Space',
+    templateName: 'Network Labs',
     description: 'Capacity: 300 seats, Projector Check',
     fields: [
       { type: 'input', label: 'Capacity' },
@@ -284,6 +300,7 @@ const templates = ref<Template[]>([
   {
     id: 2,
     categoryName: 'Sports & Recreation',
+    templateName: 'Lecture Hall',
     description: 'Equipment count, Photo of Facility',
     fields: [
       { type: 'input', label: 'Equipment count' },
@@ -293,6 +310,7 @@ const templates = ref<Template[]>([
   {
     id: 3,
     categoryName: 'Medical & Health',
+    templateName: 'Computer Lab',
     description: 'Treatment package, Notes',
     fields: [
       { type: 'input', label: 'Treatment package' },
@@ -373,6 +391,7 @@ const deletePermanently = () => {
 const resetFormData = () => {
   formData.value = {
     categoryName: '',
+    templateName: '',
     fields: [],
   };
   activeFieldType.value = null;
@@ -383,6 +402,7 @@ watch(selectedTemplate, (newTemplate) => {
   if (newTemplate) {
     formData.value = {
       categoryName: newTemplate.categoryName || '',
+      templateName: newTemplate.templateName || '',
       fields: newTemplate.fields ? [...newTemplate.fields] : [] // Deep copy fields for editing
     }
     isEditMode.value = true;
@@ -434,12 +454,18 @@ const saveTemplate = () => {
     return;
   }
 
+  if (!formData.value.templateName){
+    alert('please enter a template name before saving.');
+    return;
+  }
+
   // Generate description from field labels
   const description =
     formData.value.fields.map((f) => f.label).join(', ') || 'No fields defined';
 
   const templateData = {
     categoryName: formData.value.categoryName,
+    templateName: formData.value.templateName,
     description: description,
     fields: formData.value.fields,
   };
