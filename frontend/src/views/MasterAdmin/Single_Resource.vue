@@ -20,23 +20,23 @@
             </div>
 
             <div class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
-                <span :class="resource.status === 'active' ? 'badge bg-success' : 'badge bg-secondary'" class="fs-6">
-                    {{ resource.status.toUpperCase() }}
-                </span>
-                <span class="fw-bold fs-5 text-dark-teal">
-                    Base Price: {{ resource.price !== null && resource.price !== undefined ? `Rs. ${resource.price.toFixed(2)}` : 'N/A (Free)' }}
-                </span>
+              <span :class="resource.status === 'active' ? 'badge bg-success' : 'badge bg-secondary'" class="fs-6">
+                  {{ resource.status.toUpperCase() }}
+              </span>
+              <span class="fw-bold fs-5 text-dark-teal">
+                  Base Price: {{ resource.price !== null && resource.price !== undefined ? `Rs. ${resource.price.toFixed(2)}` : 'N/A (Free)' }}
+              </span>
             </div>
 
             <h5 class="text-dark-teal mb-2">Description</h5>
             <p>{{ resource.description || 'No detailed description available.' }}</p>
 
               <button 
-                    v-if="resource.status === 'active'"
-                    class="btn btn-sm btn-reserve-card" 
-                    @click.stop="handleReserveClick(resource.id)"
+                  v-if="resource.status === 'active'"
+                  class="btn btn-sm btn-reserve-card" 
+                  @click.stop="handleReserveClick(resource.id)"
                 >
-                    <i class="bi bi-calendar-check me-1"></i> Reserve
+                  <i class="bi bi-calendar-check me-1"></i> Reserve
                 </button>
             
           </div>
@@ -85,7 +85,7 @@
                                 Unavailable
                             </span>
                         </span>
-                        </li>
+                    </li>
                 </ul>
             </div>
 
@@ -99,13 +99,10 @@
                         <span class="fw-medium">
                             <i class="bi bi-check-circle-fill text-success me-2"></i>{{ item.name }}
                         </span>
-                        <span class="text-secondary small ms-3">
-                            (Rs. {{ item.price !== null && item.price !== undefined ? item.price.toFixed(2) : '0.00' }})
-                        </span>
-                    </li>
+                        </li>
                 </ul>
             </div>
-           
+            
           </div>
         </div>
       </div>
@@ -130,7 +127,7 @@ interface ScheduleDay {
     dayName: string;
     available: boolean;
     startTime: string; 
-    endTime: string;   
+    endTime: string;   
 }
 
 interface Resource {
@@ -264,7 +261,7 @@ onMounted(() => {
     font-size: 0.8rem;
     padding: 0.25rem 0.6rem;
     line-height: 4; /* Ensure button height is small */
-    margin-top: 10%;
+    margin-top: 17%;
 }
 .btn-reserve-card:hover {
     background-color: #fcc300;
