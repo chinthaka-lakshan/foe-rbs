@@ -316,4 +316,78 @@ Route::middleware('auth:sanctum')->group(function () {
             return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
         }
     });
+
+
+    // Booking Items Routes
+    Route::get('/booking-items', function (Request $request) {
+        try {
+            $response = Http::timeout(30)
+                ->withToken($request->bearerToken())
+                ->get('http://resource_service/api/booking-items');
+            
+            return handleProxyResponse($response, 'Failed to fetch booking items.');
+        } catch (Exception $e) {
+            return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
+        }
+    });
+
+    Route::get('/booking-items/available', function (Request $request) {
+        try {
+            $response = Http::timeout(30)
+                ->withToken($request->bearerToken())
+                ->get('http://resource_service/api/booking-items/available');
+            
+            return handleProxyResponse($response, 'Failed to fetch available booking items.');
+        } catch (Exception $e) {
+            return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
+        }
+    });
+
+    Route::post('/booking-items', function (Request $request) {
+        try {
+            $response = Http::timeout(30)
+                ->withToken($request->bearerToken())
+                ->post('http://resource_service/api/booking-items', $request->all());
+            
+            return handleProxyResponse($response, 'Booking item creation failed.');
+        } catch (Exception $e) {
+            return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
+        }
+    });
+
+    Route::get('/booking-items/{id}', function (Request $request, $id) {
+        try {
+            $response = Http::timeout(30)
+                ->withToken($request->bearerToken())
+                ->get("http://resource_service/api/booking-items/{$id}");
+            
+            return handleProxyResponse($response, 'Failed to fetch booking item.');
+        } catch (Exception $e) {
+            return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
+        }
+    });
+
+    Route::put('/booking-items/{id}', function (Request $request, $id) {
+        try {
+            $response = Http::timeout(30)
+                ->withToken($request->bearerToken())
+                ->put("http://resource_service/api/booking-items/{$id}", $request->all());
+            
+            return handleProxyResponse($response, 'Booking item update failed.');
+        } catch (Exception $e) {
+            return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
+        }
+    });
+
+    Route::delete('/booking-items/{id}', function (Request $request, $id) {
+        try {
+            $response = Http::timeout(30)
+                ->withToken($request->bearerToken())
+                ->delete("http://resource_service/api/booking-items/{$id}");
+            
+            return handleProxyResponse($response, 'Booking item deletion failed.');
+        } catch (Exception $e) {
+            return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
+        }
+    });
 });
