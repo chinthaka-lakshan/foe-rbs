@@ -46,7 +46,6 @@ class ResourceController extends Controller
                 'equipment' => 'nullable|array',
                 'equipment.*.equipment_name' => 'required_with:equipment|string|max:255',
                 'equipment.*.quantity' => 'required_with:equipment|integer|min:1',
-                'equipment.*.equipment_price' => 'required_with:equipment|numeric|min:0',
                 // Availability validation
                 'availability' => 'nullable|array',
                 'availability.*.day_of_week' => 'required_with:availability|in:Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday',
@@ -157,7 +156,6 @@ class ResourceController extends Controller
             'equipment.*.id' => 'nullable|integer|exists:resource_equipment,id',
             'equipment.*.equipment_name' => 'required_with:equipment|string|max:255',
             'equipment.*.quantity' => 'required_with:equipment|integer|min:1',
-            'equipment.*.equipment_price' => 'required_with:equipment|numeric|min:0',
             'delete_equipment' => 'nullable|array',
             'delete_equipment.*' => 'integer|exists:resource_equipment,id',
             
@@ -236,7 +234,6 @@ class ResourceController extends Controller
                             $equipment->update([
                                 'equipment_name' => $equipmentItem['equipment_name'],
                                 'quantity' => $equipmentItem['quantity'],
-                                'equipment_price' => $equipmentItem['equipment_price'],
                             ]);
                         }
                     } else {
@@ -244,7 +241,6 @@ class ResourceController extends Controller
                         $resource->equipment()->create([
                             'equipment_name' => $equipmentItem['equipment_name'],
                             'quantity' => $equipmentItem['quantity'],
-                            'equipment_price' => $equipmentItem['equipment_price'],
                         ]);
                     }
                 }
