@@ -391,3 +391,117 @@ Route::middleware('auth:sanctum')->group(function () {
         }
     });
 });
+
+/**
+ * Get all bookings
+ */
+Route::get('/bookings', function (Request $request) {
+    try {
+        $response = Http::timeout(30)
+            ->withToken($request->bearerToken())
+            ->get('http://booking_service/api/bookings');
+        
+        return handleProxyResponse($response, 'Failed to fetch bookings.');
+    } catch (Exception $e) {
+        \Log::error('Booking gateway error: ' . $e->getMessage());
+        return response()->json([
+            'message' => 'Gateway error',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+});
+
+/**
+ * Create new booking
+ */
+Route::post('/bookings', function (Request $request) {
+    try {
+        $response = Http::timeout(30)
+            ->withToken($request->bearerToken())
+            ->post('http://booking_service/api/bookings', $request->all());
+        
+        return handleProxyResponse($response, 'Booking creation failed.');
+    } catch (Exception $e) {
+        \Log::error('Booking creation gateway error: ' . $e->getMessage());
+        return response()->json([
+            'message' => 'Gateway error',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+});
+
+/**
+ * Get single booking by ID
+ */
+Route::get('/bookings/{id}', function (Request $request, $id) {
+    try {
+        $response = Http::timeout(30)
+            ->withToken($request->bearerToken())
+            ->get("http://booking_service/api/bookings/{$id}");
+        
+        return handleProxyResponse($response, 'Failed to fetch booking.');
+    } catch (Exception $e) {
+        \Log::error('Booking fetch gateway error: ' . $e->getMessage());
+        return response()->json([
+            'message' => 'Gateway error',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+});
+
+/**
+ * Update booking status
+ */
+Route::patch('/bookings/{id}/status', function (Request $request, $id) {
+    try {
+        $response = Http::timeout(30)
+            ->withToken($request->bearerToken())
+            ->patch("http://booking_service/api/bookings/{$id}/status", $request->all());
+        
+        return handleProxyResponse($response, 'Booking status update failed.');
+    } catch (Exception $e) {
+        \Log::error('Booking status update gateway error: ' . $e->getMessage());
+        return response()->json([
+            'message' => 'Gateway error',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+});
+
+/**
+ * Cancel booking
+ */
+Route::post('/bookings/{id}/cancel', function (Request $request, $id) {
+    try {
+        $response = Http::timeout(30)
+            ->withToken($request->bearerToken())
+            ->post("http://booking_service/api/bookings/{$id}/cancel");
+        
+        return handleProxyResponse($response, 'Booking cancellation failed.');
+    } catch (Exception $e) {
+        \Log::error('Booking cancellation gateway error: ' . $e->getMessage());
+        return response()->json([
+            'message' => 'Gateway error',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+});
+
+/**
+ * Get user's bookings (optional - for future use)
+ */
+Route::get('/users/{userId}/bookings', function (Request $request, $userId) {
+    try {
+        $response = Http::timeout(30)
+            ->withToken($request->bearerToken())
+            ->get("http://booking_service/api/bookings?user_id={$userId}");
+        
+        return handleProxyResponse($response, 'Failed to fetch user bookings.');
+    } catch (Exception $e) {
+        \Log::error('User bookings gateway error: ' . $e->getMessage());
+        return response()->json([
+            'message' => 'Gateway error',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+});

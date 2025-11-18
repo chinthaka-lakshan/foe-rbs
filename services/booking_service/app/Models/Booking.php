@@ -29,11 +29,23 @@ class Booking extends Model
     {
         return $this->hasMany(BookingDetail::class);
     }
-
-    public static function generateBookingReference(): string
+        public function resources(): HasMany
     {
-        do{$reference = 'BK' .date('Ymd') . strtoupper(substr(uniqid(), -6));
+        return $this->hasMany(BookingDetail::class)->where('item_type', 'resource');
+    }
+
+    // Only booking items
+    public function bookingItems(): HasMany
+    {
+        return $this->hasMany(BookingDetail::class)->where('item_type', 'booking_item');
+    }
+
+    public static function generateReference(): string
+    {
+        do {
+            $reference = 'BK' . date('Ymd') . strtoupper(substr(uniqid(), -6));
         } while (self::where('booking_reference', $reference)->exists());
+
         return $reference;
     }
     public function calculateHours(): floatval
