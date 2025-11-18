@@ -27,7 +27,7 @@
                     {{ resource.status.toUpperCase() }}
                 </span>
             </p>
-            <p class="text-muted small mb-0">Category: {{ resource.category }} | Base Price: Rs. {{ resource.price?.toFixed(2) || '0.00' }}</p>
+            <p class="text-muted small mb-0">Category: {{ resource.category }} | Base Price: Rs. {{ resource.price?.toFixed(2) || '0.00' }}/hour</p>
           </div>
 
           <div class="col-lg-6">
@@ -159,11 +159,12 @@
                 </ul>
             </div>
             
-            <h5 class="fw-bold mb-3 mt-4 section-subtitle">2. Equipment & Purpose</h5>
-
-            <div class="equipment-selection-box border p-3 rounded bg-light mb-3">
+            <h5 class="fw-bold mb-3 mt-4 section-subtitle">2. Resource Equipment & Optional Items</h5>
+            
+            <div class="equipment-selection-box border p-3 rounded bg-light mb-4">
+                <h6 class="fw-bold mb-2 small">Included Resource Equipment</h6>
                 <div v-if="!resource.equipment || resource.equipment.length === 0" class="text-muted text-center py-2 small">
-                    No optional equipment available.
+                    No fixed equipment included with this resource.
                 </div>
                 
                 <div 
@@ -171,32 +172,75 @@
                     :key="item.name" 
                     class="d-flex align-items-center justify-content-between mb-2 border-bottom pb-2"
                 >
-                    <div class="form-check me-3 flex-grow-1">
-                        <input
-                            class="form-check-input"
-                            type="checkbox"
-                            v-model="item.checked"
-                            :id="'eq-' + item.name"
-                        >
-                        <label class="form-check-label" :for="'eq-' + item.name">
-                            {{ item.name }} 
-                            <small class="text-muted ms-2">(Rs. {{ item.price?.toFixed(2) || '0.00' }})</small>
-                        </label>
-                    </div>
-
-                    <div class="w-25 input-group input-group-sm">
-                        <input 
-                            type="number" 
-                            class="form-control text-center" 
-                            v-model.number="item.quantity"
-                            min="1"
-                            :disabled="!item.checked"
-                        >
+                    <div class="flex-grow-1">
+                        <span class="fw-medium text-dark">
+                            <i class="bi bi-check-circle-fill text-success me-2"></i> {{ item.name }} 
+                        </span>
                     </div>
                 </div>
             </div>
+            <div class="booking-items-section border p-3 rounded bg-light mb-4">
+                <h6 class="fw-bold mb-2 small">Optional Booking Items (Add Ons)</h6>
+                <div class="mb-3">
+                    <input 
+                        type="text" 
+                        class="form-control" 
+                        placeholder="Search & Add Rentable Items (e.g. Projector, Tennis Racket)" 
+                        v-model="bookingItemSearch"
+                        @input="filterBookingItems"
+                    >
+                    <div class="dropdown-items-list mt-2 shadow-sm" v-if="bookingItemSearch && filteredBookingItems.length > 0">
+                        <div 
+                            v-for="item in filteredBookingItems" 
+                            :key="item.id" 
+                            class="dropdown-item p-2 small"
+                            @click="addBookingItem(item)"
+                        >
+                            <span class="fw-medium text-dark">{{ item.name }}</span> 
+                            <span class="text-muted small ms-2">({{ item.description }})</span>
+                            <span class="badge bg-info text-dark float-end">Rs. {{ item.price_per_hour.toFixed(2) }}/hr | Qty: {{ item.quantity }}</span>
+                        </div>
+                    </div>
+                    <div class="text-muted text-center py-2 small" v-else-if="bookingItemSearch">
+                        No items found matching "{{ bookingItemSearch }}".
+                    </div>
+                </div>
 
-            <div class="col-12">
+                <div v-if="selectedBookingItems.length === 0" class="text-muted text-center py-2 small">
+                    No optional items selected. Use the search bar to add.
+                </div>
+                
+                <ul class="list-unstyled mb-0 selected-items-list">
+                    <li 
+                        v-for="(item, index) in selectedBookingItems" 
+                        :key="item.id" 
+                        class="d-flex align-items-center justify-content-between py-2 selected-item border-bottom"
+                    >
+                        <div class="d-flex align-items-center flex-grow-1">
+                            <i class="bi bi-gear-fill text-dark-teal me-2"></i>
+                            <span class="fw-medium text-dark">{{ item.name }}</span>
+                            <span class="text-muted small ms-2">(Rs. {{ item.price_per_hour.toFixed(2) }}/hr)</span>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <div class="quantity-controls me-3">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" @click="decreaseQuantity(index)" :disabled="item.selectedQuantity! <= 1">
+                                    <i class="bi bi-dash"></i>
+                                </button>
+                                <span class="fw-bold">{{ item.selectedQuantity }}</span>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" @click="increaseQuantity(index)" :disabled="item.selectedQuantity! >= item.quantity">
+                                    <i class="bi bi-plus"></i>
+                                </button>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-danger" @click="removeBookingItem(index)">
+                                <i class="bi bi-x"></i>
+                            </button>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+            <h5 class="fw-bold mb-3 mt-4 section-subtitle">3. Purpose & Summary</h5>
+
+            <div class="col-12 mb-4">
                 <label for="purpose" class="form-label fw-bold small-label">Purpose/Notes</label>
                 <textarea 
                   class="form-control" 
@@ -206,8 +250,22 @@
                   placeholder="e.g., Team meeting, presentation practice, etc."
                 ></textarea>
             </div>
-
-
+            
+            <div class="border p-3 rounded booking-summary">
+                <div class="d-flex justify-content-between summary-item">
+                    <span>Base Resource Price:</span>
+                    <span class="fw-bold">Rs. {{ resource.price?.toFixed(2) || '0.00' }}/hr</span>
+                </div>
+                 <div v-for="item in selectedBookingItems" :key="item.id" class="d-flex justify-content-between summary-item text-muted">
+                    <span class="ms-3">- {{ item.name }} (x{{ item.selectedQuantity }}) Rental Price:</span>
+                    <span>Rs. {{ (item.price_per_hour * item.selectedQuantity!).toFixed(2) }}/hr</span>
+                </div>
+                <div class="border-top mt-2 pt-2 d-flex justify-content-between summary-total">
+                    <span class="fw-bold fs-6">Total Estimated Price:</span>
+                    <span class="fw-bold fs-6 text-dark-teal">Rs. {{ calculateTotalPrice().toFixed(2) }}/hr</span>
+                </div>
+                <p class="text-muted small mt-2 mb-0">Note: Total price is an hourly estimate and is subject to approval.</p>
+            </div>
             <div class="d-flex justify-content-end mt-4 pt-3 border-top">
               <button 
                 type="submit" 
@@ -238,7 +296,7 @@ const route = useRoute();
 // --- DATA INTERFACES ---
 
 interface ScheduleDay { dayName: string; available: boolean; startTime: string; endTime: string; }
-interface EquipmentItem { name: string; price: number | null; checked: boolean; quantity?: number; } 
+interface EquipmentItem { name: string; price: number | null; } 
 
 interface Resource {
     id: number;
@@ -247,7 +305,7 @@ interface Resource {
     category: string;
     price: number | null; 
     status: 'active' | 'inactive';
-    equipment?: EquipmentItem[]; 
+    equipment?: EquipmentItem[]; // KEPT: Base equipment included with the resource
     schedule?: ScheduleDay[]; 
 }
 interface GlobalBooking {
@@ -265,6 +323,17 @@ interface BookingForm {
     startTime: string;
     endTime: string;
     purpose: string;
+}
+
+// NEW INTERFACE FOR BOOKING ITEMS
+interface BookingItem {
+  id: number;
+  name: string;
+  description: string;
+  price_per_hour: number;
+  quantity: number;
+  available: boolean;
+  selectedQuantity?: number;
 }
 
 // --- STATE ---
@@ -294,6 +363,22 @@ const MOCK_BOOKING_HISTORY: GlobalBooking[] = [
     { id: 5, resourceId: 3, date: '2025-11-10', startTime: '15:00', endTime: '16:00', status: 'approved', userId: 'U005' },
 ];
 
+// NEW STATE FOR BOOKING ITEMS
+const bookingItems = ref<BookingItem[]>([]);
+const filteredBookingItems = ref<BookingItem[]>([]);
+const selectedBookingItems = ref<BookingItem[]>([]);
+const bookingItemSearch = ref('');
+
+// MOCK BOOKING ITEMS DATA (Same as in booking items page)
+const MOCK_BOOKING_ITEMS: BookingItem[] = [
+  { id: 1, name: 'Tennis Racket', description: 'Standard adult size racket.', price_per_hour: 50.00, quantity: 15, available: true },
+  { id: 2, name: 'Basketball', description: 'Size 7, official weight.', price_per_hour: 40.00, quantity: 10, available: true },
+  { id: 3, name: 'Projector', description: 'High definition short-throw projector.', price_per_hour: 150.00, quantity: 3, available: false },
+  { id: 4, name: 'Microphone (Wireless)', description: 'Lapel mic for presentations.', price_per_hour: 75.00, quantity: 5, available: true },
+  { id: 5, name: 'Computer', description: 'Desktop computer for presentations.', price_per_hour: 100.00, quantity: 30, available: true },
+  { id: 6, name: 'Whiteboard', description: 'Large magnetic whiteboard.', price_per_hour: 25.00, quantity: 8, available: true },
+];
+
 // --- UTILITIES & FETCHING ---
 
 const getStoredResources = (): Resource[] => {
@@ -316,12 +401,8 @@ const fetchResourceDetails = (id: number) => {
         if (fetchedResource.price === undefined) fetchedResource.price = null;
         if (fetchedResource.equipment === undefined || !Array.isArray(fetchedResource.equipment)) {
              fetchedResource.equipment = [];
-        } else {
-             fetchedResource.equipment = fetchedResource.equipment.map(item => ({
-                 ...item,
-                 quantity: item.quantity || 1 
-             }));
-        }
+        } 
+
         if (fetchedResource.schedule === undefined) fetchedResource.schedule = [];
 
         resource.value = fetchedResource;
@@ -434,6 +515,75 @@ const getBookingStatusClass = (status: string) => {
     }
 };
 
+// NEW FUNCTIONS FOR BOOKING ITEMS
+const loadBookingItems = () => {
+    // In a real app, this would be an API call
+    bookingItems.value = MOCK_BOOKING_ITEMS.filter(item => item.available);
+    filterBookingItems();
+};
+
+const filterBookingItems = () => {
+    const searchTerm = bookingItemSearch.value.toLowerCase();
+    if (!searchTerm) {
+        filteredBookingItems.value = []; // Clear dropdown if no search term
+    } else {
+        filteredBookingItems.value = bookingItems.value.filter(item =>
+            item.name.toLowerCase().includes(searchTerm) ||
+            item.description.toLowerCase().includes(searchTerm)
+        );
+    }
+};
+
+const addBookingItem = (item: BookingItem) => {
+    // Check if item is already selected
+    const existingIndex = selectedBookingItems.value.findIndex(selected => selected.id === item.id);
+    
+    if (existingIndex === -1) {
+        // Add new item with quantity 1
+        selectedBookingItems.value.push({
+            ...item,
+            selectedQuantity: 1
+        });
+    } else {
+        // Increase quantity if not at max
+        if (selectedBookingItems.value[existingIndex].selectedQuantity! < item.quantity) {
+            selectedBookingItems.value[existingIndex].selectedQuantity! += 1;
+        }
+    }
+    
+    // Clear search
+    bookingItemSearch.value = '';
+    filterBookingItems();
+};
+
+const removeBookingItem = (index: number) => {
+    selectedBookingItems.value.splice(index, 1);
+};
+
+const increaseQuantity = (index: number) => {
+    const item = selectedBookingItems.value[index];
+    if (item.selectedQuantity! < item.quantity) {
+        item.selectedQuantity! += 1;
+    }
+};
+
+const decreaseQuantity = (index: number) => {
+    const item = selectedBookingItems.value[index];
+    if (item.selectedQuantity! > 1) {
+        item.selectedQuantity! -= 1;
+    }
+};
+
+const calculateTotalPrice = () => {
+    let total = resource.value?.price || 0;
+    selectedBookingItems.value.forEach(item => {
+        // Calculate price for selected items based on quantity
+        total += item.price_per_hour * (item.selectedQuantity || 1);
+    });
+    return total;
+};
+
+
 // --- SUBMISSION LOGIC ---
 
 const submitBooking = () => {
@@ -443,28 +593,42 @@ const submitBooking = () => {
     if (!bookingData.value.date || !bookingData.value.startTime || !bookingData.value.endTime) { alert("Please select a valid date, start time, and end time."); return; }
     if (!isCurrentDayAvailable.value) { alert("Booking failed: Resource is not available on the selected day according to its weekly schedule."); return; }
 
-    const selectedEquipment = resource.value.equipment
-        ?.filter(item => item.checked)
-        .map(item => ({
-            name: item.name,
-            price: item.price,
-            quantity: item.quantity,
-        }));
+    // Prepare optional booking items for submission
+    const bookingItemsPayload = selectedBookingItems.value.map(item => ({
+        id: item.id,
+        name: item.name,
+        price_per_hour: item.price_per_hour,
+        quantity: item.selectedQuantity || 1
+    }));
     
+    // Prepare FIXED equipment (used to be in old payload, keeping structure)
+    // NOTE: This array assumes the base equipment is included/free and just listed for context
+    const fixedEquipmentPayload = resource.value?.equipment?.map(item => ({
+        name: item.name,
+        price: item.price,
+        quantity: 1, 
+    })) || [];
+
+
     const bookingPayload = {
         resourceId: resource.value.id,
         date: bookingData.value.date,
         startTime: bookingData.value.startTime,
         endTime: bookingData.value.endTime,
         purpose: bookingData.value.purpose,
-        equipment: selectedEquipment,
+        
+        // Include both types of items in the final payload
+        fixedEquipment: fixedEquipmentPayload, 
+        optionalItems: bookingItemsPayload, 
+        
+        totalPrice: calculateTotalPrice(), // This is the total price per hour
         status: 'pending', 
         createdAt: new Date().toISOString(),
     };
     
     console.log("Submitting Booking Payload:", bookingPayload);
     
-    alert(`Booking Request Sent for ${resource.value.name}! Status: Pending Review.`);
+    alert(`Booking Request Sent for ${resource.value.name}! \nTotal Estimated Price: Rs. ${calculateTotalPrice().toFixed(2)}/hour\nStatus: Pending Review.`);
 
     router.push('/master-admin/booking'); 
 };
@@ -479,6 +643,9 @@ onMounted(() => {
         loading.value = false;
         resource.value = null;
     }
+    
+    // Load booking items when component mounts
+    loadBookingItems();
 });
 </script>
 
@@ -608,11 +775,11 @@ onMounted(() => {
 
 /* --- Button & Color Classes --- */
 .btn-outline-dark-teal {
-  --bs-btn-color: #1e4449;
-  --bs-btn-border-color: #1e4449;
-  --bs-btn-hover-bg: #fcc300;
-  --bs-btn-hover-color: #ffffff;
-  --bs-btn-hover-border-color: #fcc300;
+    --bs-btn-color: #1e4449;
+    --bs-btn-border-color: #1e4449;
+    --bs-btn-hover-bg: #fcc300;
+    --bs-btn-hover-color: #ffffff;
+    --bs-btn-hover-border-color: #fcc300;
 }
 .btn-success {
     background-color: #4BB66D;
@@ -635,5 +802,75 @@ onMounted(() => {
 }
 .text-dark {
     color: #212529 !important;
+}
+
+
+/* --- CORRECTED STYLES FOR BOOKING ITEMS --- */
+.booking-items-section {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    /* Crucial: Set this to relative so the absolute dropdown positions correctly */
+    position: relative; 
+}
+
+.dropdown-items-list {
+    /* Crucial: Position the list absolutely */
+    position: absolute;
+    z-index: 10;
+    /* Calculate width: 100% of the parent minus padding (15px left/right) */
+    width: calc(100% - 30px); 
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    background: white;
+    /* Position left and top based on the relative parent */
+    left: 15px; 
+    top: 100%; /* Move it below the search input field which is inside the section */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Added box shadow for better visibility */
+}
+
+.dropdown-item {
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.dropdown-item:hover {
+    background-color: #fcc30040;
+}
+
+.selected-item {
+    background: white;
+}
+
+.quantity-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.quantity-controls button {
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.booking-summary {
+    background: #f8f9fa !important;
+}
+
+.summary-item {
+    font-size: 0.9rem;
+}
+
+.summary-total {
+    font-size: 1rem;
+}
+
+.text-dark-teal {
+    color: #1e4449;
 }
 </style>
