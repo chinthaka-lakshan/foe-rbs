@@ -83,12 +83,40 @@ class BookingItemController extends Controller
             'item_code' => 'sometimes|string|unique:booking_items,item_code,' . $id,
             'description' => 'nullable|string',
             'price_per_hour' => 'sometimes|numeric|min:0',
-            'available_quantity' => 'sometimes|integer|min:1',
+            'available_quantity' => 'sometimes|integer|min:0',
+            'assigned_admin_id' => 'nullable|integer',
             'status' => 'sometimes|in:Available,Unavailable,Maintenance',
         ]);
 
         DB::beginTransaction();
         try {
+            // Auto-update status based on quantity
+            if (isset($validatedData['available_quantity'])) {
+                if ($validatedData['available_quantity'] == 0) {
+                    // If quantity is 0, set status to Unavailable (unless it's in Maintenance)
+                    if (!isset($validatedData['status']) || $validatedData['status'] !== 'Maintenance') {
+                        $validatedData['status'] = 'Unavailable';
+                    }
+                } elseif ($validatedData['available_quantity'] > 0) {
+                    // If quantity > 0 and status is Unavailable, set to Available
+                    if ($item->status === 'Unavailable' && !isset($validatedData['status'])) {
+                        $validatedData['status'] = 'Available';
+                    }
+                }
+            }
+
+            // If status is manually set to Available but quantity is 0, prevent it
+            if (isset($validatedData['status']) && $validatedData['status'] === 'Available') {
+                $quantity = $validatedData['available_quantity'] ?? $item->available_quantity;
+                if ($quantity == 0) {
+                    DB::rollBack();
+                    return response()->json([
+                        'message' => 'Cannot set status to Available when quantity is 0',
+                        'error' => 'Invalid status for zero quantity'
+                    ], 422);
+                }
+            }
+
             $item->update($validatedData);
 
             DB::commit();
