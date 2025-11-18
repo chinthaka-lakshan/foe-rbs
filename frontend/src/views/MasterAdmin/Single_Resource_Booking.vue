@@ -9,6 +9,7 @@
       </button>
     </div>
 
+
     <div v-if="loading" class="alert alert-info text-center">
         Loading resource details...
     </div>
@@ -29,6 +30,19 @@
             </p>
             <p class="text-muted small mb-0">Category: {{ resource.category }} | Base Price: Rs. {{ resource.price?.toFixed(2) || '0.00' }}/hour</p>
           </div>
+
+          
+            <div class="fw-bold mb-3">
+                    <label for="userEmailInput" class="form-label">E-Mail</label>
+                    <input
+                        type="email"
+                        class="form-control"
+                        id="userEmailInput"
+                        placeholder="Enter e-mail (e.g. abc@gmail.com)"
+                        v-model="userEmail"
+                        required
+                    >
+            </div>
 
           <div class="col-lg-6">
               <h5 class="fw-bold mb-3 section-subtitle">Booking History Calendar</h5>
@@ -385,6 +399,8 @@ const getStoredResources = (): Resource[] => {
     const storedResourcesString = localStorage.getItem('resources');
     return storedResourcesString ? JSON.parse(storedResourcesString) : [];
 };
+
+const userEmail = ref<string>('');
 
 const parseDate = (dateString: string) => {
     // Converts YYYY-MM-DD string to a number (YYYYMMDD) for numerical comparison
@@ -872,5 +888,9 @@ onMounted(() => {
 
 .text-dark-teal {
     color: #1e4449;
+}
+.form-label{
+    color: #1e4449;
+    font-size: 1.1rem;
 }
 </style>
