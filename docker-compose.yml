@@ -117,6 +117,7 @@ services:
       DB_HOST: db_booking
       DB_PORT: 5432
       DB_DATABASE: booking_db
+      RESOURCE_SERVICE_URL: http://resource_service/api
     networks:
       - foe_rbs_network
     depends_on:
