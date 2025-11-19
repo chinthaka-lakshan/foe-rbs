@@ -9,7 +9,6 @@
       </button>
     </div>
 
-
     <div v-if="loading" class="alert alert-info text-center">
         Loading resource details...
     </div>
@@ -31,255 +30,256 @@
             <p class="text-muted small mb-0">Category: {{ resource.category }} | Base Price: Rs. {{ resource.price?.toFixed(2) || '0.00' }}/hour</p>
           </div>
 
-          
-            <div class="fw-bold mb-3">
-                    <label for="userEmailInput" class="form-label">E-Mail</label>
-                    <input
-                        type="email"
-                        class="form-control"
-                        id="userEmailInput"
-                        placeholder="Enter e-mail (e.g. abc@gmail.com)"
-                        v-model="userEmail"
-                        required
-                    >
-            </div>
-
-          <div class="col-lg-6">
-              <h5 class="fw-bold mb-3 section-subtitle">Booking History Calendar</h5>
-              
-              <div class="calendar-card border p-3 rounded bg-light mb-4">
-                  <div class="d-flex justify-content-between align-items-center mb-3">
-                      <button class="btn btn-sm btn-outline-dark-teal" type="button" @click="changeMonth(-1)">
-                          <i class="bi bi-chevron-left"></i>
-                      </button>
-                      <h6 class="mb-0 calendar-title-header">{{ currentMonthName }} {{ currentYear }}</h6>
-                      <button class="btn btn-sm btn-outline-dark-teal" type="button" @click="changeMonth(1)">
-                          <i class="bi bi-chevron-right"></i>
-                      </button>
-                  </div>
-
-                  <div class="calendar-grid">
-                      <div v-for="day in weekdays" :key="day" class="calendar-header">{{ day }}</div>
-                      
-                      <div 
-                        v-for="day in daysInMonth" 
-                        :key="day.dateString" 
-                        class="calendar-day"
-                        :class="{ 
-                            'day-outside-month': day.isOutsideMonth,
-                            'day-is-booked': day.isBooked,
-                            'day-is-selected': day.dateString && day.dateString === dateFilter,
-                        }"
-                        @click="day.dateString && selectDate(day.dateString)"
-                        :title="day.isBooked ? 'Already Booked' : 'Available'"
-                      >
-                        <span class="day-number">{{ day.dayNumber }}</span>
-                      </div>
-                  </div>
-              </div>
-
-              <h5 class="fw-bold mb-3 section-subtitle">Upcoming Bookings (Filtered by Calendar)</h5>
-              <div class="booking-table-placeholder border p-3 rounded bg-white">
-                  <div v-if="filteredUpcomingBookings.length === 0" class="text-muted text-center py-4 small">
-                      No upcoming bookings found.
-                  </div>
-                  <div v-else class="table-responsive history-list">
-                      <table class="table table-sm table-striped mb-0 small">
-                          <thead>
-                              <tr>
-                                  <th>Date</th>
-                                  <th>Time</th>
-                                  <th>User</th>
-                                  <th>Status</th>
-                              </tr>
-                          </thead>
-                          <tbody>
-                              <tr v-for="booking in filteredUpcomingBookings" :key="booking.id">
-                                  <td>{{ booking.date }}</td>
-                                  <td>{{ booking.startTime }} - {{ booking.endTime }}</td>
-                                  <td>{{ booking.userId }}</td>
-                                  <td>
-                                      <span class="badge" :class="getBookingStatusClass(booking.status)">
-                                          {{ booking.status }}
-                                      </span>
-                                  </td>
-                              </tr>
-                          </tbody>
-                      </table>
-                  </div>
-              </div>
+          <div class="fw-bold mb-3">
+            <label for="userEmailInput" class="form-label">E-Mail</label>
+            <input
+              type="email"
+              class="form-control"
+              id="userEmailInput"
+              placeholder="Enter e-mail (e.g. abc@gmail.com)"
+              v-model="userEmail"
+              required
+            >
           </div>
 
+          <div class="col-lg-6">
+            <h5 class="fw-bold mb-3 section-subtitle">Booking History Calendar</h5>
+            
+            <div class="calendar-card border p-3 rounded bg-light mb-4">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <button class="btn btn-sm btn-outline-dark-teal" type="button" @click="changeMonth(-1)">
+                  <i class="bi bi-chevron-left"></i>
+                </button>
+                <h6 class="mb-0 calendar-title-header">{{ currentMonthName }} {{ currentYear }}</h6>
+                <button class="btn btn-sm btn-outline-dark-teal" type="button" @click="changeMonth(1)">
+                  <i class="bi bi-chevron-right"></i>
+                </button>
+              </div>
+
+              <div class="calendar-grid">
+                <div v-for="day in weekdays" :key="day" class="calendar-header">{{ day }}</div>
+                
+                <div 
+                  v-for="day in daysInMonth" 
+                  :key="day.dateString" 
+                  class="calendar-day"
+                  :class="{ 
+                    'day-outside-month': day.isOutsideMonth,
+                    'day-is-booked': day.isBooked,
+                    'day-is-selected': day.dateString && day.dateString === dateFilter,
+                  }"
+                  @click="day.dateString && selectDate(day.dateString)"
+                  :title="day.isBooked ? 'Already Booked' : 'Available'"
+                >
+                  <span class="day-number">{{ day.dayNumber }}</span>
+                </div>
+              </div>
+            </div>
+
+            <h5 class="fw-bold mb-3 section-subtitle">Upcoming Bookings (Filtered by Calendar)</h5>
+            <div class="booking-table-placeholder border p-3 rounded bg-white">
+              <div v-if="filteredUpcomingBookings.length === 0" class="text-muted text-center py-4 small">
+                No upcoming bookings found.
+              </div>
+              <div v-else class="table-responsive history-list">
+                <table class="table table-sm table-striped mb-0 small">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Time</th>
+                      <th>User</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="booking in filteredUpcomingBookings" :key="booking.id">
+                      <td>{{ booking.date }}</td>
+                      <td>{{ booking.startTime }} - {{ booking.endTime }}</td>
+                      <td>{{ booking.userId }}</td>
+                      <td>
+                        <span class="badge" :class="getBookingStatusClass(booking.status)">
+                          {{ booking.status }}
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
 
           <div class="col-lg-6">
             <h5 class="fw-bold mb-3 section-subtitle">1. Reservation Details</h5>
 
             <div class="date-time-box border p-3 rounded">
-                <label for="bookingDate" class="form-label fw-bold">Select Date <span class="text-danger">*</span></label>
-                <input 
-                  type="date" 
-                  class="form-control mb-3" 
-                  id="bookingDate" 
-                  v-model="bookingData.date" 
-                  required
-                  :min="todayDateString"
-                >
+              <label for="bookingDate" class="form-label fw-bold">Select Date <span class="text-danger">*</span></label>
+              <input 
+                type="date" 
+                class="form-control mb-3" 
+                id="bookingDate" 
+                v-model="bookingData.date" 
+                required
+                :min="todayDateString"
+              >
 
-                <div class="row g-2 mb-3">
-                    <div class="col-6">
-                        <label for="startTime" class="form-label small-label">Start Time <span class="text-danger">*</span></label>
-                        <input 
-                          type="time" 
-                          class="form-control" 
-                          id="startTime" 
-                          v-model="bookingData.startTime" 
-                          required
-                        >
-                    </div>
-                    <div class="col-6">
-                        <label for="endTime" class="form-label small-label">End Time <span class="text-danger">*</span></label>
-                        <input 
-                          type="time" 
-                          class="form-control" 
-                          id="endTime" 
-                          v-model="bookingData.endTime" 
-                          required
-                        >
-                    </div>
+              <div class="row g-2 mb-3">
+                <div class="col-6">
+                  <label for="startTime" class="form-label small-label">Start Time <span class="text-danger">*</span></label>
+                  <input 
+                    type="time" 
+                    class="form-control" 
+                    id="startTime" 
+                    v-model="bookingData.startTime" 
+                    required
+                  >
                 </div>
+                <div class="col-6">
+                  <label for="endTime" class="form-label small-label">End Time <span class="text-danger">*</span></label>
+                  <input 
+                    type="time" 
+                    class="form-control" 
+                    id="endTime" 
+                    v-model="bookingData.endTime" 
+                    required
+                  >
+                </div>
+              </div>
 
-                <small v-if="isCurrentDayAvailable" class="text-success fw-bold">
-                    <i class="bi bi-check-circle-fill me-1"></i> Resource is AVAILABLE for reservation.
-                </small>
-                <small v-else class="text-danger fw-bold">
-                    <i class="bi bi-x-circle-fill me-1"></i> Resource is UNAVAILABLE on this day. (Check weekly schedule)
-                </small>
+              <small v-if="isCurrentDayAvailable" class="text-success fw-bold">
+                <i class="bi bi-check-circle-fill me-1"></i> Resource is AVAILABLE for reservation.
+              </small>
+              <small v-else class="text-danger fw-bold">
+                <i class="bi bi-x-circle-fill me-1"></i> Resource is UNAVAILABLE on this day. (Check weekly schedule)
+              </small>
             </div>
             
             <div class="schedule-reference mt-4 border p-3 rounded bg-light">
-                <h6 class="fw-bold mb-2 section-subtitle">Weekly Schedule Summary</h6>
-                <ul class="list-unstyled mb-0 small">
-                    <li v-for="day in resource.schedule" :key="day.dayName" class="d-flex justify-content-between py-1">
-                        <span class="fw-medium">{{ day.dayName }}</span>
-                        <span :class="day.available ? 'text-success' : 'text-danger'">
-                            <span v-if="day.available">
-                                {{ day.startTime }} - {{ day.endTime }}
-                            </span>
-                            <span v-else>
-                                Unavailable
-                            </span>
-                        </span>
-                    </li>
-                </ul>
+              <h6 class="fw-bold mb-2 section-subtitle">Weekly Schedule Summary</h6>
+              <ul class="list-unstyled mb-0 small">
+                <li v-for="day in resource.schedule" :key="day.dayName" class="d-flex justify-content-between py-1">
+                  <span class="fw-medium">{{ day.dayName }}</span>
+                  <span :class="day.available ? 'text-success' : 'text-danger'">
+                    <span v-if="day.available">
+                      {{ day.startTime }} - {{ day.endTime }}
+                    </span>
+                    <span v-else>
+                      Unavailable
+                    </span>
+                  </span>
+                </li>
+              </ul>
             </div>
             
             <h5 class="fw-bold mb-3 mt-4 section-subtitle">2. Resource Equipment & Optional Items</h5>
             
             <div class="equipment-selection-box border p-3 rounded bg-light mb-4">
-                <h6 class="fw-bold mb-2 small">Included Resource Equipment</h6>
-                <div v-if="!resource.equipment || resource.equipment.length === 0" class="text-muted text-center py-2 small">
-                    No fixed equipment included with this resource.
+              <h6 class="fw-bold mb-2 small">Included Resource Equipment</h6>
+              <div v-if="!resource.equipment || resource.equipment.length === 0" class="text-muted text-center py-2 small">
+                No fixed equipment included with this resource.
+              </div>
+              
+              <div 
+                v-for="item in resource.equipment" 
+                :key="item.name" 
+                class="d-flex align-items-center justify-content-between mb-2 border-bottom pb-2"
+              >
+                <div class="flex-grow-1">
+                  <span class="fw-medium text-dark">
+                    <i class="bi bi-check-circle-fill text-success me-2"></i> {{ item.name }} 
+                  </span>
                 </div>
-                
-                <div 
-                    v-for="item in resource.equipment" 
-                    :key="item.name" 
-                    class="d-flex align-items-center justify-content-between mb-2 border-bottom pb-2"
-                >
-                    <div class="flex-grow-1">
-                        <span class="fw-medium text-dark">
-                            <i class="bi bi-check-circle-fill text-success me-2"></i> {{ item.name }} 
-                        </span>
-                    </div>
-                </div>
+              </div>
             </div>
-            <div class="booking-items-section border p-3 rounded bg-light mb-4">
-                <h6 class="fw-bold mb-2 small">Optional Booking Items (Add Ons)</h6>
-                <div class="mb-3">
-                    <input 
-                        type="text" 
-                        class="form-control" 
-                        placeholder="Search & Add Rentable Items (e.g. Projector, Tennis Racket)" 
-                        v-model="bookingItemSearch"
-                        @input="filterBookingItems"
-                    >
-                    <div class="dropdown-items-list mt-2 shadow-sm" v-if="bookingItemSearch && filteredBookingItems.length > 0">
-                        <div 
-                            v-for="item in filteredBookingItems" 
-                            :key="item.id" 
-                            class="dropdown-item p-2 small"
-                            @click="addBookingItem(item)"
-                        >
-                            <span class="fw-medium text-dark">{{ item.name }}</span> 
-                            <span class="text-muted small ms-2">({{ item.description }})</span>
-                            <span class="badge bg-info text-dark float-end">Rs. {{ item.price_per_hour.toFixed(2) }}/hr | Qty: {{ item.quantity }}</span>
-                        </div>
-                    </div>
-                    <div class="text-muted text-center py-2 small" v-else-if="bookingItemSearch">
-                        No items found matching "{{ bookingItemSearch }}".
-                    </div>
-                </div>
 
-                <div v-if="selectedBookingItems.length === 0" class="text-muted text-center py-2 small">
-                    No optional items selected. Use the search bar to add.
+            <div class="booking-items-section border p-3 rounded bg-light mb-4">
+              <h6 class="fw-bold mb-2 small">Optional Booking Items (Add Ons)</h6>
+              <div class="mb-3">
+                <input 
+                  type="text" 
+                  class="form-control" 
+                  placeholder="Search & Add Rentable Items (e.g. Projector, Tennis Racket)" 
+                  v-model="bookingItemSearch"
+                  @input="filterBookingItems"
+                >
+                <div class="dropdown-items-list mt-2 shadow-sm" v-if="bookingItemSearch && filteredBookingItems.length > 0">
+                  <div 
+                    v-for="item in filteredBookingItems" 
+                    :key="item.id" 
+                    class="dropdown-item p-2 small"
+                    @click="addBookingItem(item)"
+                  >
+                    <span class="fw-medium text-dark">{{ item.name }}</span> 
+                    <span class="text-muted small ms-2">({{ item.description }})</span>
+                    <span class="badge bg-info text-dark float-end">Rs. {{ item.price_per_hour.toFixed(2) }}/hr | Qty: {{ item.quantity }}</span>
+                  </div>
                 </div>
-                
-                <ul class="list-unstyled mb-0 selected-items-list">
-                    <li 
-                        v-for="(item, index) in selectedBookingItems" 
-                        :key="item.id" 
-                        class="d-flex align-items-center justify-content-between py-2 selected-item border-bottom"
-                    >
-                        <div class="d-flex align-items-center flex-grow-1">
-                            <i class="bi bi-gear-fill text-dark-teal me-2"></i>
-                            <span class="fw-medium text-dark">{{ item.name }}</span>
-                            <span class="text-muted small ms-2">(Rs. {{ item.price_per_hour.toFixed(2) }}/hr)</span>
-                        </div>
-                        <div class="d-flex align-items-center">
-                            <div class="quantity-controls me-3">
-                                <button type="button" class="btn btn-sm btn-outline-secondary" @click="decreaseQuantity(index)" :disabled="item.selectedQuantity! <= 1">
-                                    <i class="bi bi-dash"></i>
-                                </button>
-                                <span class="fw-bold">{{ item.selectedQuantity }}</span>
-                                <button type="button" class="btn btn-sm btn-outline-secondary" @click="increaseQuantity(index)" :disabled="item.selectedQuantity! >= item.quantity">
-                                    <i class="bi bi-plus"></i>
-                                </button>
-                            </div>
-                            <button type="button" class="btn btn-sm btn-outline-danger" @click="removeBookingItem(index)">
-                                <i class="bi bi-x"></i>
-                            </button>
-                        </div>
-                    </li>
-                </ul>
+                <div class="text-muted text-center py-2 small" v-else-if="bookingItemSearch">
+                  No items found matching "{{ bookingItemSearch }}".
+                </div>
+              </div>
+
+              <div v-if="selectedBookingItems.length === 0" class="text-muted text-center py-2 small">
+                No optional items selected. Use the search bar to add.
+              </div>
+              
+              <ul class="list-unstyled mb-0 selected-items-list">
+                <li 
+                  v-for="(item, index) in selectedBookingItems" 
+                  :key="item.id" 
+                  class="d-flex align-items-center justify-content-between py-2 selected-item border-bottom"
+                >
+                  <div class="d-flex align-items-center flex-grow-1">
+                    <i class="bi bi-gear-fill text-dark-teal me-2"></i>
+                    <span class="fw-medium text-dark">{{ item.name }}</span>
+                    <span class="text-muted small ms-2">(Rs. {{ item.price_per_hour.toFixed(2) }}/hr)</span>
+                  </div>
+                  <div class="d-flex align-items-center">
+                    <div class="quantity-controls me-3">
+                      <button type="button" class="btn btn-sm btn-outline-secondary" @click="decreaseQuantity(index)" :disabled="item.selectedQuantity! <= 1">
+                        <i class="bi bi-dash"></i>
+                      </button>
+                      <span class="fw-bold">{{ item.selectedQuantity }}</span>
+                      <button type="button" class="btn btn-sm btn-outline-secondary" @click="increaseQuantity(index)" :disabled="item.selectedQuantity! >= item.quantity">
+                        <i class="bi bi-plus"></i>
+                      </button>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-danger" @click="removeBookingItem(index)">
+                      <i class="bi bi-x"></i>
+                    </button>
+                  </div>
+                </li>
+              </ul>
             </div>
+
             <h5 class="fw-bold mb-3 mt-4 section-subtitle">3. Purpose & Summary</h5>
 
             <div class="col-12 mb-4">
-                <label for="purpose" class="form-label fw-bold small-label">Purpose/Notes</label>
-                <textarea 
-                  class="form-control" 
-                  id="purpose" 
-                  v-model="bookingData.purpose"
-                  rows="2"
-                  placeholder="e.g., Team meeting, presentation practice, etc."
-                ></textarea>
+              <label for="purpose" class="form-label fw-bold small-label">Purpose/Notes</label>
+              <textarea 
+                class="form-control" 
+                id="purpose" 
+                v-model="bookingData.purpose"
+                rows="2"
+                placeholder="e.g., Team meeting, presentation practice, etc."
+              ></textarea>
             </div>
             
             <div class="border p-3 rounded booking-summary">
-                <div class="d-flex justify-content-between summary-item">
-                    <span>Base Resource Price:</span>
-                    <span class="fw-bold">Rs. {{ resource.price?.toFixed(2) || '0.00' }}/hr</span>
-                </div>
-                 <div v-for="item in selectedBookingItems" :key="item.id" class="d-flex justify-content-between summary-item text-muted">
-                    <span class="ms-3">- {{ item.name }} (x{{ item.selectedQuantity }}) Rental Price:</span>
-                    <span>Rs. {{ (item.price_per_hour * item.selectedQuantity!).toFixed(2) }}/hr</span>
-                </div>
-                <div class="border-top mt-2 pt-2 d-flex justify-content-between summary-total">
-                    <span class="fw-bold fs-6">Total Estimated Price:</span>
-                    <span class="fw-bold fs-6 text-dark-teal">Rs. {{ calculateTotalPrice().toFixed(2) }}/hr</span>
-                </div>
-                <p class="text-muted small mt-2 mb-0">Note: Total price is an hourly estimate and is subject to approval.</p>
+              <div class="d-flex justify-content-between summary-item">
+                <span>Base Resource Price:</span>
+                <span class="fw-bold">Rs. {{ resource.price?.toFixed(2) || '0.00' }}/hr</span>
+              </div>
+              <div v-for="item in selectedBookingItems" :key="item.id" class="d-flex justify-content-between summary-item text-muted">
+                <span class="ms-3">- {{ item.name }} (x{{ item.selectedQuantity }}) Rental Price:</span>
+                <span>Rs. {{ (item.price_per_hour * item.selectedQuantity!).toFixed(2) }}/hr</span>
+              </div>
+              <div class="border-top mt-2 pt-2 d-flex justify-content-between summary-total">
+                <span class="fw-bold fs-6">Total Estimated Price:</span>
+                <span class="fw-bold fs-6 text-dark-teal">Rs. {{ calculateTotalPrice().toFixed(2) }}/hr</span>
+              </div>
+              <p class="text-muted small mt-2 mb-0">Note: Total price is an hourly estimate and is subject to approval.</p>
             </div>
+
             <div class="d-flex justify-content-end mt-4 pt-3 border-top">
               <button 
                 type="submit" 
@@ -292,6 +292,88 @@
           </div>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Email Verification Popup -->
+  <div v-if="showEmailVerificationPopup" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Email Verification Required</h5>
+        <button type="button" class="btn-close" @click="closeEmailVerificationPopup"></button>
+      </div>
+      <div class="modal-body">
+        <p>We need to verify your email address before submitting the booking request.</p>
+        <div class="alert alert-info">
+          <strong>Email:</strong> {{ userEmail }}
+        </div>
+        <p>An OTP (One-Time Password) will be sent to your email address.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" @click="closeEmailVerificationPopup">Cancel</button>
+        <button type="button" class="btn btn-primary" @click="sendOTP">Send OTP</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- OTP Verification Popup -->
+  <div v-if="showOTPVerificationPopup" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Enter OTP Code</h5>
+        <button type="button" class="btn-close" @click="closeOTPVerificationPopup"></button>
+      </div>
+      <div class="modal-body">
+        <p>Please enter the 6-digit OTP sent to your email:</p>
+        <div class="alert alert-info mb-3">
+          <strong>Email:</strong> {{ userEmail }}
+        </div>
+        <div class="otp-input-group">
+          <input 
+            type="text" 
+            class="form-control otp-input" 
+            v-model="otpCode"
+            placeholder="Enter 6-digit OTP"
+            maxlength="6"
+          >
+        </div>
+        <div v-if="otpError" class="alert alert-danger mt-2">
+          {{ otpError }}
+        </div>
+        <div class="text-muted small mt-2">
+          Didn't receive the code? <a href="#" @click.prevent="resendOTP">Resend OTP</a>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" @click="closeOTPVerificationPopup">Cancel</button>
+        <button type="button" class="btn btn-primary" @click="verifyOTP" :disabled="!otpCode || otpCode.length !== 6">
+          Verify & Submit
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Success Popup -->
+  <div v-if="showSuccessPopup" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title text-success">
+          <i class="bi bi-check-circle-fill me-2"></i>Booking Request Submitted
+        </h5>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-success">
+          <p class="mb-2"><strong>Your booking request has been submitted successfully!</strong></p>
+          <p class="mb-1">Resource: {{ resource?.name }}</p>
+          <p class="mb-1">Date: {{ bookingData.date }}</p>
+          <p class="mb-1">Time: {{ bookingData.startTime }} - {{ bookingData.endTime }}</p>
+          <p class="mb-0">Total Estimated Price: Rs. {{ calculateTotalPrice().toFixed(2) }}/hour</p>
+        </div>
+        <p class="text-muted">You will receive a confirmation email once your booking is approved.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-success" @click="redirectToBookings">View My Bookings</button>
+      </div>
     </div>
   </div>
 </template>
@@ -393,14 +475,22 @@ const MOCK_BOOKING_ITEMS: BookingItem[] = [
   { id: 6, name: 'Whiteboard', description: 'Large magnetic whiteboard.', price_per_hour: 25.00, quantity: 8, available: true },
 ];
 
+// --- POPUP STATE ---
+const showEmailVerificationPopup = ref(false);
+const showOTPVerificationPopup = ref(false);
+const showSuccessPopup = ref(false);
+const otpCode = ref('');
+const otpError = ref('');
+const generatedOTP = ref(''); // Store the generated OTP for verification
+
+const userEmail = ref<string>('');
+
 // --- UTILITIES & FETCHING ---
 
 const getStoredResources = (): Resource[] => {
     const storedResourcesString = localStorage.getItem('resources');
     return storedResourcesString ? JSON.parse(storedResourcesString) : [];
 };
-
-const userEmail = ref<string>('');
 
 const parseDate = (dateString: string) => {
     // Converts YYYY-MM-DD string to a number (YYYYMMDD) for numerical comparison
@@ -599,16 +689,82 @@ const calculateTotalPrice = () => {
     return total;
 };
 
-
-// --- SUBMISSION LOGIC ---
+// --- POPUP FUNCTIONS ---
 
 const submitBooking = () => {
     if (resource.value?.status !== 'active') { 
-    alert("Cannot book: Resource is inactive or not loaded."); 
-    return;}
-    if (!bookingData.value.date || !bookingData.value.startTime || !bookingData.value.endTime) { alert("Please select a valid date, start time, and end time."); return; }
-    if (!isCurrentDayAvailable.value) { alert("Booking failed: Resource is not available on the selected day according to its weekly schedule."); return; }
+        alert("Cannot book: Resource is inactive or not loaded."); 
+        return;
+    }
+    if (!bookingData.value.date || !bookingData.value.startTime || !bookingData.value.endTime) { 
+        alert("Please select a valid date, start time, and end time."); 
+        return; 
+    }
+    if (!isCurrentDayAvailable.value) { 
+        alert("Booking failed: Resource is not available on the selected day according to its weekly schedule."); 
+        return; 
+    }
+    if (!userEmail.value) {
+        alert("Please enter your email address.");
+        return;
+    }
 
+    // Show email verification popup instead of directly submitting
+    showEmailVerificationPopup.value = true;
+};
+
+const closeEmailVerificationPopup = () => {
+    showEmailVerificationPopup.value = false;
+};
+
+const closeOTPVerificationPopup = () => {
+    showOTPVerificationPopup.value = false;
+    otpCode.value = '';
+    otpError.value = '';
+};
+
+const generateOTP = (): string => {
+    // Generate a 6-digit OTP
+    return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+const sendOTP = () => {
+    // Generate and "send" OTP (in real app, this would call an API)
+    generatedOTP.value = generateOTP();
+    
+    console.log(`OTP sent to ${userEmail.value}: ${generatedOTP.value}`); // For testing
+    
+    // Close email popup and show OTP popup
+    showEmailVerificationPopup.value = false;
+    showOTPVerificationPopup.value = true;
+    
+    // In a real application, you would call an API to send the OTP to the user's email
+    // For demo purposes, we'll just log it and show the OTP popup
+};
+
+const resendOTP = () => {
+    sendOTP();
+    otpError.value = '';
+    alert('New OTP has been sent to your email.');
+};
+
+const verifyOTP = () => {
+    if (otpCode.value.length !== 6) {
+        otpError.value = 'Please enter a valid 6-digit OTP code.';
+        return;
+    }
+
+    // In a real app, this would verify against the OTP sent to the user
+    // For demo purposes, we'll just check if it matches our generated OTP
+    if (otpCode.value === generatedOTP.value) {
+        // OTP is correct - proceed with booking submission
+        completeBookingSubmission();
+    } else {
+        otpError.value = 'Invalid OTP code. Please try again.';
+    }
+};
+
+const completeBookingSubmission = () => {
     // Prepare optional booking items for submission
     const bookingItemsPayload = selectedBookingItems.value.map(item => ({
         id: item.id,
@@ -618,13 +774,11 @@ const submitBooking = () => {
     }));
     
     // Prepare FIXED equipment (used to be in old payload, keeping structure)
-    // NOTE: This array assumes the base equipment is included/free and just listed for context
     const fixedEquipmentPayload = resource.value?.equipment?.map(item => ({
         name: item.name,
         price: item.price,
         quantity: 1, 
     })) || [];
-
 
     const bookingPayload = {
         resourceId: resource.value.id,
@@ -632,6 +786,7 @@ const submitBooking = () => {
         startTime: bookingData.value.startTime,
         endTime: bookingData.value.endTime,
         purpose: bookingData.value.purpose,
+        userEmail: userEmail.value,
         
         // Include both types of items in the final payload
         fixedEquipment: fixedEquipmentPayload, 
@@ -644,8 +799,16 @@ const submitBooking = () => {
     
     console.log("Submitting Booking Payload:", bookingPayload);
     
-    alert(`Booking Request Sent for ${resource.value.name}! \nTotal Estimated Price: Rs. ${calculateTotalPrice().toFixed(2)}/hour\nStatus: Pending Review.`);
+    // In a real application, you would save the booking to your backend here
+    // For demo purposes, we'll just show the success popup
+    
+    // Close OTP popup and show success popup
+    showOTPVerificationPopup.value = false;
+    showSuccessPopup.value = true;
+};
 
+const redirectToBookings = () => {
+    showSuccessPopup.value = false;
     router.push('/master-admin/booking'); 
 };
 
@@ -788,7 +951,6 @@ onMounted(() => {
     font-size: 0.85rem;
 }
 
-
 /* --- Button & Color Classes --- */
 .btn-outline-dark-teal {
     --bs-btn-color: #1e4449;
@@ -820,30 +982,25 @@ onMounted(() => {
     color: #212529 !important;
 }
 
-
 /* --- CORRECTED STYLES FOR BOOKING ITEMS --- */
 .booking-items-section {
     background-color: #f8f9fa;
     border: 1px solid #dee2e6;
-    /* Crucial: Set this to relative so the absolute dropdown positions correctly */
     position: relative; 
 }
 
 .dropdown-items-list {
-    /* Crucial: Position the list absolutely */
     position: absolute;
     z-index: 10;
-    /* Calculate width: 100% of the parent minus padding (15px left/right) */
     width: calc(100% - 30px); 
     max-height: 200px;
     overflow-y: auto;
     border: 1px solid #dee2e6;
     border-radius: 4px;
     background: white;
-    /* Position left and top based on the relative parent */
     left: 15px; 
-    top: 100%; /* Move it below the search input field which is inside the section */
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Added box shadow for better visibility */
+    top: 100%;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .dropdown-item {
@@ -892,5 +1049,76 @@ onMounted(() => {
 .form-label{
     color: #1e4449;
     font-size: 1.1rem;
+}
+
+/* --- MODAL STYLES --- */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1050;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    width: 90%;
+    max-width: 500px;
+    animation: modalFadeIn 0.3s ease;
+}
+
+.modal-header {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    justify-content: between;
+    align-items: center;
+}
+
+.modal-title {
+    margin: 0;
+    font-weight: 600;
+    color: #1e4449;
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.modal-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid #dee2e6;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+.otp-input-group {
+    margin-bottom: 1rem;
+}
+
+.otp-input {
+    text-align: center;
+    font-size: 1.2rem;
+    font-weight: 600;
+    letter-spacing: 0.5em;
+}
+
+@keyframes modalFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 </style>
