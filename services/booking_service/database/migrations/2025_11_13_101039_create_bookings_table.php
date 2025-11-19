@@ -11,6 +11,11 @@ return new class extends Migration
         Schema::create('bookings', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('user_id');
+            $table->string('user_email');
+            $table->enum('user_type',['internal','external']);
+            $table->boolean('is_verified')->default(false);
+            $table->string('otp_code')->nullable();
+            $table->timestamp('otp_expires_at')->nullable();
             $table->string('booking_reference')->unique();
             $table->date('booking_date');
             $table->time('start_time');
