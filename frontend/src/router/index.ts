@@ -2,7 +2,7 @@ import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
 import Login from '../views/Login.vue';
 import Register from '../views/Register.vue';
 import ForgotPassword from '../views/ForgotPassword.vue';
-import Dashboard from '../views/MasterAdmin/Dashboard.vue';
+import Master_Admin_Dashboard from '../views/MasterAdmin/Master_Admin_Dashboard.vue';
 import Resources from '../views/MasterAdmin/Resources.vue';
 import Booking from '../views/MasterAdmin/Booking.vue';
 import Users from '../views/MasterAdmin/Users.vue';
@@ -13,8 +13,10 @@ import Templates from '../views/MasterAdmin/Templates.vue';
 import Add_Resource from '../views/MasterAdmin/Add_Resource.vue';
 import Use_Template from '../views/MasterAdmin/Use_Template.vue';
 import Single_Resource from '../views/MasterAdmin/Single_Resource.vue';
-import Single_Resource_Booking from '/Users/hasi0/Documents/GitHub/foe-rbs/frontend/src/views/MasterAdmin/Single_Resource_Booking.vue';
+import Single_Resource_Booking from '../views/MasterAdmin/Single_Resource_Booking.vue';
 import Booking_Item from '../views/MasterAdmin/Booking_Item.vue';
+import User_Dashboard from '../views/User/User_Dashboard.vue';
+import Admin_Dashboard from '../views/Admin/Admin_Dashboard.vue';
 
 
 const routes: Array<RouteRecordRaw> = [
@@ -162,9 +164,25 @@ const routes: Array<RouteRecordRaw> = [
   {
     path: '/master-admin/dashboard',
     name: 'master-admin-dashboard',
-    component: Dashboard,
-    meta: { requiresAuth: true, role: 'master-admin' }
+    component: Master_Admin_Dashboard,
+    meta: { requiresAuth: true, role: 'Master Admin' }
   },
+
+  {
+    path: '/user/dashboard',
+    name: 'user-dashboard',
+    component: User_Dashboard,
+    meta: { requiresAuth: true, role: 'User' }
+  },
+
+   {
+    path: '/admin/dashboard',
+    name: 'admin-dashboard',
+    component: Admin_Dashboard,
+    meta: { requiresAuth: true, role: 'admin' }
+  },
+
+ 
   
 
 ];

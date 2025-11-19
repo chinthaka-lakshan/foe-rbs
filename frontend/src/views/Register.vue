@@ -2,12 +2,16 @@
   <div class="auth-container">
     <div class="auth-card">
       <div class="text-center mb-4">
-         <img src="../assets/logo.png" alt="University Logo" class="auth-logo mb-3">
+        <img src="../assets/logo.png" alt="University Logo" class="auth-logo mb-3">
         <h2 class="auth-title">FOE</h2>
         <h4 class="auth-title">Resource Booking System</h4>
       </div>
 
       <form @submit.prevent="handleRegister">
+        <div v-if="error" class="alert alert-danger" role="alert">
+            {{ error }}
+        </div>
+        
         <div class="mb-3">
           <label for="fullName" class="form-label">Full Name</label>
           <input
@@ -17,6 +21,7 @@
             v-model="fullName"
             required
             placeholder="Enter your full name"
+            :disabled="isLoading"
           >
         </div>
 
@@ -29,6 +34,7 @@
             v-model="email"
             required
             placeholder="Enter your email"
+            :disabled="isLoading"
           >
         </div>
 
@@ -41,6 +47,7 @@
             v-model="password"
             required
             placeholder="Create a password"
+            :disabled="isLoading"
           >
         </div>
 
@@ -53,17 +60,24 @@
             v-model="confirmPassword"
             required
             placeholder="Confirm your password"
+            :disabled="isLoading"
           >
         </div>
 
         <div class="mb-3 form-check">
-          <input class="form-check-input" type="checkbox" id="terms" v-model="acceptTerms" required>
+          <input class="form-check-input" type="checkbox" id="terms" v-model="acceptTerms" required :disabled="isLoading">
           <label class="form-check-label" for="terms">
             I agree to the terms and conditions
           </label>
         </div>
 
-        <button type="submit" class="btn btn-primary w-100 mb-3">Create Account</button>
+        <button 
+            type="submit" 
+            class="btn btn-primary w-100 mb-3"
+            :disabled="isLoading || !acceptTerms" >
+            <span v-if="isLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            {{ isLoading ? 'Registering...' : 'Create Account' }}
+        </button>
 
         <div class="text-center">
           <span class="text-muted">Already have an account? </span>
@@ -78,21 +92,96 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 
+// !!! IMPORTANT: REPLACE THIS WITH YOUR ACTUAL LARAVEL API GATEWAY URL !!!
+const API_URL = 'http://localhost:8000/api/users'; 
+
 const router = useRouter();
+
+// Form Data State
 const fullName = ref('');
 const email = ref('');
 const password = ref('');
 const confirmPassword = ref('');
 const acceptTerms = ref(false);
 
-const handleRegister = () => {
+// UI/Request State
+const isLoading = ref(false);
+const error = ref<string | null>(null);
+
+const handleRegister = async () => {
+  // 1. Reset state and basic client-side validation
+  error.value = null;
   if (password.value !== confirmPassword.value) {
-    alert('Passwords do not match');
+    error.value = 'Passwords do not match.';
+    return;
+  }
+  if (!acceptTerms.value) {
+    error.value = 'You must accept the terms and conditions.';
     return;
   }
 
-  alert('Registration successful! Please login.');
-  router.push('/login');
+  // 2. Prepare payload
+  const payload = {
+    // 'name' maps to the 'name' field required by your Laravel controller
+    name: fullName.value,
+    email: email.value,
+    password: password.value,
+  };
+
+  isLoading.value = true;
+
+  try {
+    // 3. Send POST request to the Laravel API Gateway
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await response.json();
+
+    // 4. Handle response statuses
+    if (response.ok) { // Status codes 200-299 (including your 201 Created)
+      console.log('Registration successful:', data);
+      // Use a more subtle notification system in a real app (like a toast)
+      alert('Registration successful! Please login.');
+      router.push('/login');
+    } else {
+      // Handle Laravel Validation Errors (Status 422)
+      if (response.status === 422 && data.errors) {
+        // Example: If email validation fails, display the first error for that field
+        const validationErrors = data.errors;
+        if (validationErrors.email) {
+            error.value = validationErrors.email[0];
+        } else if (validationErrors.name) {
+            error.value = validationErrors.name[0];
+        } else if (validationErrors.password) {
+            error.value = validationErrors.password[0];
+        } else {
+            error.value = 'Validation failed. Check your input.';
+        }
+      } 
+      // Handle Gateway Timeout/Service Unavailable (503 from your gateway)
+      else if (response.status === 503 && data.message) {
+          error.value = data.message;
+      }
+      // General API error
+      else {
+        // Fallback for any other error status code
+        error.value = data.message || `Registration failed with status: ${response.status}`;
+      }
+      console.error('Registration failed:', data);
+    }
+
+  } catch (e) {
+    // 5. Handle Network or CORS errors
+    console.error('Network or connection error:', e);
+    error.value = 'Could not connect to the server. Please check your network and API URL.';
+  } finally {
+    isLoading.value = false;
+  }
 };
 </script>
 
@@ -148,7 +237,7 @@ a:hover {
 }
 
 .auth-logo {
-    max-height: 120px; /* You can change this value (e.g., 80px, 150px) */
+    max-height: 120px;
     width: auto;
 }
 </style>
