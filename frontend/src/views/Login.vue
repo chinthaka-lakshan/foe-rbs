@@ -111,7 +111,7 @@ const handleLogin = async () => {
                 case 'admin':
                     router.push('/admin/dashboard');
                     break;
-                case 'user':
+                case 'User':
                 default:
                     router.push('/user/dashboard');
                     break;

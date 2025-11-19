@@ -172,7 +172,7 @@ const routes: Array<RouteRecordRaw> = [
     path: '/user/dashboard',
     name: 'user-dashboard',
     component: User_Dashboard,
-    meta: { requiresAuth: true, role: 'user' }
+    meta: { requiresAuth: true, role: 'User' }
   },
 
    {
