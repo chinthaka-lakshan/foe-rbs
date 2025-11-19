@@ -19,3 +19,7 @@ Route::post('/bookings', [BookingController::class, 'store']);
 Route::get('/bookings/{id}', [BookingController::class, 'show']);
 Route::patch('/bookings/{id}/status', [BookingController::class, 'updateStatus']);
 Route::post('/bookings/{id}/cancel', [BookingController::class, 'cancel']);
+
+// OTP verification routes
+Route::post('/bookings/{id}/verify-otp', [BookingController::class, 'verifyOTP']);
+Route::post('/bookings/{id}/resend-otp', [BookingController::class, 'resendOTP']);
