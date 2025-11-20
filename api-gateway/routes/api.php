@@ -486,3 +486,59 @@ Route::post('/bookings/{id}/resend-otp', function (Request $request, $id) {
         return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
     }
 });
+
+// Resource Templates
+Route::get('/resource-templates', function (Request $request) {
+    try {
+        $response = Http::timeout(30)
+            ->withToken($request->bearerToken())
+            ->get('http://resource_service/api/resource-templates');
+        return handleProxyResponse($response, 'Failed to fetch templates.');
+    } catch (Exception $e) {
+        return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
+    }
+});
+
+Route::post('/resource-templates', function (Request $request) {
+    try {
+        $response = Http::timeout(30)
+            ->withToken($request->bearerToken())
+            ->post('http://resource_service/api/resource-templates', $request->all());
+        return handleProxyResponse($response, 'Template creation failed.');
+    } catch (Exception $e) {
+        return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
+    }
+});
+
+Route::get('/resource-templates/{id}', function (Request $request, $id) {
+    try {
+        $response = Http::timeout(30)
+            ->withToken($request->bearerToken())
+            ->get("http://resource_service/api/resource-templates/{$id}");
+        return handleProxyResponse($response, 'Failed to fetch template.');
+    } catch (Exception $e) {
+        return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
+    }
+});
+
+Route::put('/resource-templates/{id}', function (Request $request, $id) {
+    try {
+        $response = Http::timeout(30)
+            ->withToken($request->bearerToken())
+            ->put("http://resource_service/api/resource-templates/{$id}", $request->all());
+        return handleProxyResponse($response, 'Template update failed.');
+    } catch (Exception $e) {
+        return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
+    }
+});
+
+Route::delete('/resource-templates/{id}', function (Request $request, $id) {
+    try {
+        $response = Http::timeout(30)
+            ->withToken($request->bearerToken())
+            ->delete("http://resource_service/api/resource-templates/{$id}");
+        return handleProxyResponse($response, 'Template deletion failed.');
+    } catch (Exception $e) {
+        return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
+    }
+});
