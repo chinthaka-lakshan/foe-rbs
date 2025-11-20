@@ -14,7 +14,9 @@ return new class extends Migration
                 $table->string('location_name');
                 $table->text('description')->nullable();
                 $table->decimal('base_price', 8, 2);
-                $table->foreignId('category_id')->constrained()->onDelete('restrict'); 
+                $table->foreignId('category_id')->constrained()->onDelete('restrict');
+                $table->foreignId('template_id')->constrained('resource_templates')->onDelete('set null')->nullable();
+                $table->json('template_data')->nullable();
                 $table->unsignedBigInteger('assigned_admin_id')->nullable();
                 $table->enum('status', ['Active', 'Inactive', 'Maintenance'])->default('Active');
                 $table->timestamps();
