@@ -1,5 +1,6 @@
 # foe-rbs/frontend/Dockerfile.dev
 FROM node:20-alpine
+EXPOSE 5173
 WORKDIR /app
 COPY package*.json ./
 RUN npm install

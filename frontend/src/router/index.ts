@@ -8,7 +8,7 @@ import Booking from '../views/MasterAdmin/Booking.vue';
 import Users from '../views/MasterAdmin/Users.vue';
 import Reports from '../views/MasterAdmin/Reports.vue';
 import Setting from '../views/MasterAdmin/Setting.vue';
-import Categories from '../../../frontend/src/views/MasterAdmin/Categories.vue';
+import Categories from '../views/MasterAdmin/Categories.vue';
 import Templates from '../views/MasterAdmin/Templates.vue';
 import Add_Resource from '../views/MasterAdmin/Add_Resource.vue';
 import Use_Template from '../views/MasterAdmin/Use_Template.vue';

@@ -30,8 +30,10 @@ return new class extends Migration
             $table->index(['booking_date', 'status']);
         });
     }
+    
     public function down()
     {
         Schema::dropIfExists('bookings');
     }
+
 };

@@ -5,6 +5,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 
+
 class Resource extends Model
 {
     protected $fillable = [
@@ -14,6 +15,8 @@ class Resource extends Model
         'base_price',
         'category_id',
         'assigned_admin_id',
+        'tamplate_data' => 'array',
+        'template_id',
         'status',
     ];
 
@@ -33,4 +36,8 @@ class Resource extends Model
     {
         return $this->hasMany(ResourceAvailability::class)->orderBy('day_of_week');
     }
-};
+    public function template(): BelongsTo
+    {
+        return $this->belongsTo(ResourceTemplate::class, 'template_id');
+    }
+}
