@@ -1,180 +1,197 @@
 <template>
-  <navbar/>
-  <master-admin-sidebar/>
-  <div class="category-page section"> <h2 class="section-title">Resource Categories</h2>
-    
-    <div class="page-header">
-      <div class="input-group mb-3 mb-md-0 w-100 w-md-auto me-md-3" style="max-width: 300px;">
-        <span class="input-group-text"><i class="bi bi-search"></i></span>
-        <input
-          type="text"
-          class="form-control"
-          placeholder="Search Category..."
-          v-model="searchTerm"
-        />
-      </div>
-      <button
-        @click="openAddCategoryModal"
-        class="btn btn-success add-new-btn" 
-      >
-        <i class="bi bi-plus-circle me-2"></i>Add New Category
-      </button>
+    <navbar/>
+    <master-admin-sidebar/>
+    <div class="category-page section">
+        <h2 class="section-title">Resource Categories</h2>
+        
+        <div v-if="successMessage" class="alert alert-success alert-dismissible fade show" role="alert">
+            {{ successMessage }}
+            <button type="button" class="btn-close" @click="successMessage = ''"></button>
+        </div>
+        <div v-if="errorMessage" class="alert alert-danger alert-dismissible fade show" role="alert">
+            {{ errorMessage }}
+            <button type="button" class="btn-close" @click="errorMessage = ''"></button>
+        </div>
+
+        <div class="page-header">
+            <div class="input-group mb-3 mb-md-0 w-100 w-md-auto me-md-3" style="max-width: 300px;">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input
+                    type="text"
+                    class="form-control"
+                    placeholder="Search Category..."
+                    v-model="searchTerm"
+                />
+            </div>
+            <button
+                @click="openAddCategoryModal"
+                class="btn btn-success add-new-btn" 
+                :disabled="loading"
+            >
+                <i class="bi bi-plus-circle me-2"></i>Add New Category
+            </button>
+        </div>
+        <div class="table-card">
+            
+            <h5 class="mb-3">Category List</h5>
+
+            <div v-if="loading" class="text-center py-5 text-muted">
+                 <span class="spinner-border spinner-border-sm me-2" role="status"></span> Loading categories...
+            </div>
+
+            <div v-else-if="filteredCategories.length === 0" class="text-center py-5 text-muted">
+                {{ searchTerm ? 'No categories found matching your search.' : 'No categories yet. Add your first category!' }}
+            </div>
+
+            <div v-else class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Category Name</th>
+                            <th>Description</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="(category, index) in filteredCategories" :key="category.id">
+                            <td>{{ index + 1 }}</td>
+                            <td>{{ category.name }}</td>
+                            <td>{{ category.description }}</td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <button
+                                        @click="openEditCategoryModal(category)"
+                                        class="btn btn-outline-primary"
+                                        title="Edit"
+                                        :disabled="saving"
+                                    >
+                                        <i class="bi bi-pencil-square"></i>
+                                    </button>
+                                    <button
+                                        @click="openDeleteConfirmation(category)"
+                                        class="btn btn-outline-danger ms-1"
+                                        title="Delete"
+                                        :disabled="saving"
+                                    >
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
-    <div class="table-card">
-      
-      <h5 class="mb-3">Category List</h5>
 
-      <div v-if="loading" class="text-center py-5 text-muted">Loading categories...</div>
-
-      <div v-else-if="filteredCategories.length === 0" class="text-center py-5 text-muted">
-        {{ searchTerm ? 'No categories found matching your search.' : 'No categories yet. Add your first category!' }}
-      </div>
-
-      <div v-else class="table-responsive">
-        <table class="table table-hover">
-          <thead>
-            <tr>
-              <th>Category List Number</th>
-              <th>Category Name</th>
-              <th>Description</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="category in filteredCategories" :key="category.id">
-              <td>{{ category.category_list_number }}</td>
-              <td>{{ category.category_list }}</td>
-              <td>{{ category.description }}</td>
-              <td>
-                <div class="btn-group btn-group-sm">
-                  <button
-                    @click="openEditCategoryModal(category)"
-                    class="btn btn-outline-primary"
-                    title="Edit"
-                  >
-                    <i class="bi bi-pencil-square"></i>
-                  </button>
-                  <button
-                    @click="openDeleteConfirmation(category)"
-                    class="btn btn-outline-danger ms-1"
-                    title="Delete"
-                  >
-                    <i class="bi bi-trash"></i>
-                  </button>
+    <div class="modal fade" id="categoryModal" tabindex="-1" aria-labelledby="categoryModalLabel" aria-hidden="true" ref="categoryModalRef">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="categoryModalLabel">{{ isEditMode ? 'Edit Category' : 'Add New Category' }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal fade" id="categoryModal" tabindex="-1" aria-labelledby="categoryModalLabel" aria-hidden="true" ref="categoryModalRef">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="categoryModalLabel">{{ isEditMode ? 'Edit Category' : 'Add New Category' }}</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <div class="modal-body">
+                    <form @submit.prevent="handleSave">
+                        <div class="mb-3">
+                            <label for="categoryName" class="form-label">Category Name</label>
+                            <input
+                                type="text"
+                                class="form-control"
+                                id="categoryName"
+                                placeholder="Enter category name (e.g., Academic Space)"
+                                v-model="modalData.name"
+                                required
+                                :disabled="saving"
+                            >
+                            <small class="text-danger" v-if="validationErrors.name">{{ validationErrors.name[0] }}</small>
+                        </div>
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description</label>
+                            <input
+                                type="text"
+                                class="form-control"
+                                id="description"
+                                placeholder="Enter description (e.g., Lecture Halls)"
+                                v-model="modalData.description"
+                                :disabled="saving"
+                            >
+                            <small class="text-danger" v-if="validationErrors.description">{{ validationErrors.description[0] }}</small>
+                        </div>
+                        <div class="d-flex justify-content-end">
+                            <button type="submit" class="btn btn-success" :disabled="saving">
+                                <span v-if="saving" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                {{ saving ? (isEditMode ? 'Updating...' : 'Saving...') : (isEditMode ? 'Update' : 'Save') }}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
         </div>
-        <div class="modal-body">
-          <form @submit.prevent="handleSave">
-            <div class="mb-3">
-              <label for="categoryList" class="form-label">Category Name</label>
-              <input
-                type="text"
-                class="form-control"
-                id="categoryList"
-                placeholder="Enter category name (e.g., Academic Space)"
-                v-model="modalData.category_list"
-                required
-              >
+    </div>
+
+    <div class="modal fade" id="deleteConfirmationModal" tabindex="-1" aria-labelledby="deleteConfirmationModalLabel" aria-hidden="true" ref="deleteModalRef">
+        <div class="modal-dialog delete-modal-top"> 
+            <div class="modal-content">
+
+                <template v-if="deleteStep === 'confirm'">
+                    <div class="modal-header bg-warning text-dark">
+                        <h5 class="modal-title" id="deleteConfirmationModalLabel"><i class="bi bi-question-circle-fill me-2"></i>Confirmation</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body text-center">
+                        <p class="mb-0">Are you sure you want to delete the category **{{ categoryToDelete?.name }}**?</p>
+                    </div>
+                    <div class="modal-footer justify-content-center">
+                        <button type="button" class="btn btn-secondary" @click="handleCancelDeletion" :disabled="saving">No</button>
+                        <button type="button" class="btn btn-warning text-dark" @click="handleFirstConfirmation" :disabled="saving">Yes</button>
+                    </div>
+                </template>
+
+                <template v-else-if="deleteStep === 'final'">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title" id="deleteConfirmationModalLabel"><i class="bi bi-exclamation-triangle-fill me-2"></i>Confirm Permanent Deletion</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body text-center">
+                        <p class="mb-0">This action will permanently delete the category **{{ categoryToDelete?.name }}**. Are you sure?</p>
+                    </div>
+                    <div class="modal-footer justify-content-center">
+                        <button type="button" class="btn btn-secondary" @click="handleCancelDeletion" :disabled="saving">Cancel</button>
+                        <button type="button" class="btn btn-danger" @click="handleDelete" :disabled="saving">
+                            <span v-if="saving" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            {{ saving ? 'Deleting...' : 'Confirm' }}
+                        </button>
+                    </div>
+                </template>
             </div>
-            <div class="mb-3">
-              <label for="description" class="form-label">Description</label>
-              <input
-                type="text"
-                class="form-control"
-                id="description"
-                placeholder="Enter description (e.g., Lecture Halls)"
-                v-model="modalData.description"
-                required
-              >
-            </div>
-            <div class="d-flex justify-content-end">
-              <button type="submit" class="btn btn-success" :disabled="saving">
-                <span v-if="saving" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                {{ saving ? (isEditMode ? 'Updating...' : 'Saving...') : (isEditMode ? 'Update' : 'Save') }}
-              </button>
-            </div>
-          </form>
         </div>
-      </div>
     </div>
-  </div>
-
-  <div class="modal fade" id="deleteConfirmationModal" tabindex="-1" aria-labelledby="deleteConfirmationModalLabel" aria-hidden="true" ref="deleteModalRef">
-    <div class="modal-dialog delete-modal-top"> 
-      <div class="modal-content">
-
-        <template v-if="deleteStep === 'confirm'">
-            <div class="modal-header bg-warning text-dark">
-                <h5 class="modal-title" id="deleteConfirmationModalLabel"><i class="bi bi-question-circle-fill me-2"></i>Confirmation</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body text-center">
-                <p class="mb-0">Are you sure you want to delete the category {{ categoryToDelete?.category_list }}?</p>
-            </div>
-            <div class="modal-footer justify-content-center">
-                <button type="button" class="btn btn-secondary" @click="handleCancelDeletion">No</button>
-                <button type="button" class="btn btn-warning text-dark" @click="handleFirstConfirmation">Yes</button>
-            </div>
-        </template>
-
-        <template v-else-if="deleteStep === 'final'">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title" id="deleteConfirmationModalLabel"><i class="bi bi-exclamation-triangle-fill me-2"></i>Confirm Permanent Deletion</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body text-center">
-                <p class="mb-0">This action will permanently delete the category {{ categoryToDelete?.category_list }}. Are you sure?</p>
-            </div>
-            <div class="modal-footer justify-content-center">
-                <button type="button" class="btn btn-secondary" @click="handleCancelDeletion">Cancel</button>
-                <button type="button" class="btn btn-danger" @click="handleDelete" :disabled="saving">
-                    <span v-if="saving" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                    {{ saving ? 'Deleting...' : 'Confirm' }}
-                </button>
-            </div>
-        </template>
-      </div>
-    </div>
-  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { Modal } from 'bootstrap'; 
-// Assuming these components are available in your structure
 import Navbar from '../../components/Navbar.vue';
 import MasterAdminSidebar from '../../components/Sidebar/MasterAdminSidebar.vue';
 
-// --- TYPES AND MOCK DATA ---
+// --- API CONFIG ---
+const API_BASE_URL = 'http://localhost:8000/api'; 
+const CATEGORIES_API_URL = `${API_BASE_URL}/categories`; 
+const getAuthToken = () => localStorage.getItem('authToken');
 
+// --- TYPES ---
 interface Category {
-  id: number;
-  category_list_number: number;
-  category_list: string;
-  description: string;
+    id: number;
+    // Keys match backend: name, description
+    name: string; 
+    description: string;
 }
 
-// Initial data source (simulating database records)
-const initialCategories: Category[] = [
-  { id: 1, category_list_number: 1, category_list: 'Academic Space', description: 'Lecture Halls' },
-  { id: 2, category_list_number: 2, category_list: 'Residential Space', description: 'Dorms and Hostels' },
-  { id: 3, category_list_number: 3, category_list: 'Administrative', description: 'Offices and Records' },
-  { id: 4, category_list_number: 4, category_list: 'Recreational', description: 'Gyms and Fields' },
-];
+interface ValidationErrors {
+    [key: string]: string[];
+}
 
 // --- STATE ---
 
@@ -182,16 +199,18 @@ const categories = ref<Category[]>([]);
 const searchTerm = ref('');
 const loading = ref(true);
 const saving = ref(false);
+const successMessage = ref('');
+const errorMessage = ref('');
+const validationErrors = ref<ValidationErrors>({});
+
 
 // Modal state
 const isEditMode = ref(false);
 const modalData = ref<Partial<Category>>({
-  category_list: '',
-  description: '',
+    name: '',
+    description: '',
 });
 const categoryToDelete = ref<Category | null>(null);
-
-// NEW STATE FOR TWO-STEP DELETE
 const deleteStep = ref<'confirm' | 'final'>('confirm');
 
 // Bootstrap Modal References and Instances
@@ -203,275 +222,326 @@ let deleteModalInstance: Modal | null = null;
 // --- COMPUTED PROPERTIES ---
 
 const filteredCategories = computed(() => {
-  const term = searchTerm.value.toLowerCase();
-  
-  const filtered = categories.value.filter(
-    (category) =>
-      category.category_list.toLowerCase().includes(term) ||
-      category.description.toLowerCase().includes(term)
-  );
-
-  return filtered.sort((a, b) => a.category_list_number - b.category_list_number);
+    const term = searchTerm.value.toLowerCase();
+    
+    return categories.value.filter(
+        (category) =>
+            category.name.toLowerCase().includes(term) ||
+            category.description.toLowerCase().includes(term)
+    );
 });
 
-// --- API MOCKING LOGIC ---
+// --- API METHODS ---
 
-const fetchCategories = async () => {
-  loading.value = true;
-  await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API delay
-  
-  // 1. Sort the "database" by ID (or creation time)
-  const sortedInitial = initialCategories.sort((a, b) => a.id - b.id);
-  
-  // 2. Map and re-assign sequential category_list_number
-  categories.value = sortedInitial.map((c, index) => ({ 
-    ...c, 
-    category_list_number: index + 1 
-  }));
-    
-  loading.value = false;
+const handleApiError = (data: any, status: number) => {
+    validationErrors.value = {};
+    if (status === 422 && data.errors) {
+        validationErrors.value = data.errors;
+        errorMessage.value = "Validation failed. Check the modal fields.";
+    } else {
+        errorMessage.value = data.message || `An error occurred (Status: ${status}).`;
+    }
 };
 
-// --- MODAL AND CRUD HANDLERS ---
+/**
+ * GET: Fetches all categories from the backend.
+ */
+const fetchCategories = async () => {
+    loading.value = true;
+    errorMessage.value = '';
+    const token = getAuthToken();
+    if (!token) {
+        errorMessage.value = "Authentication token missing. Please log in.";
+        loading.value = false;
+        return;
+    }
+
+    try {
+        const response = await fetch(CATEGORIES_API_URL, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+        });
+        
+        // Handle non-JSON response from a potential 500 crash
+        const contentType = response.headers.get('content-type');
+        let data;
+        if (contentType && contentType.includes('application/json')) {
+            data = await response.json();
+        } else {
+            // Log for debugging but return an array to prevent frontend crash
+            console.error("Gateway returned non-JSON data on GET /categories.");
+            data = [];
+        }
+
+
+        if (response.ok) { 
+            // Assume the backend index returns an array of objects matching the Category interface
+            categories.value = Array.isArray(data) ? data : []; 
+        } else {
+            handleApiError(data, response.status);
+        }
+    } catch (e) {
+        console.error('Network or connection error during fetch:', e);
+        errorMessage.value = 'Network error: Could not reach the API server to fetch categories.';
+    } finally {
+        loading.value = false;
+    }
+};
+
+/**
+ * POST/PUT: Handles creating or updating a category.
+ */
+const handleSave = async () => {
+    if (!modalData.value.name) {
+        errorMessage.value = 'Category Name is required.';
+        return;
+    }
+
+    saving.value = true;
+    errorMessage.value = '';
+    validationErrors.value = {};
+    successMessage.value = '';
+    
+    const token = getAuthToken();
+    if (!token) {
+        saving.value = false;
+        errorMessage.value = "Authentication token missing.";
+        return;
+    }
+    
+    const isUpdate = isEditMode.value && modalData.value.id;
+    const url = isUpdate ? `${CATEGORIES_API_URL}/${modalData.value.id}` : CATEGORIES_API_URL;
+    const method = isUpdate ? 'PUT' : 'POST';
+
+    try {
+        const payload = {
+            // CRITICAL MAPPING: Frontend name maps to backend 'name'
+            name: modalData.value.name.trim(),
+            description: modalData.value.description ? modalData.value.description.trim() : null,
+        };
+
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) { // 200 OK or 201 CREATED
+            successMessage.value = isUpdate ? 'Category updated successfully!' : 'Category added successfully!';
+            
+            await fetchCategories(); // Re-fetch list to update the table
+            categoryModalInstance?.hide();
+        } else {
+            handleApiError(data, response.status);
+        }
+    } catch (e) {
+        console.error('Failed to save category:', e);
+        errorMessage.value = 'Failed to save category due to a network error.';
+    } finally {
+        saving.value = false;
+    }
+};
+
+/**
+ * DELETE: Handles deleting a category.
+ */
+const handleDelete = async () => {
+    if (deleteStep.value !== 'final' || !categoryToDelete.value) return; 
+    
+    saving.value = true;
+    errorMessage.value = '';
+    successMessage.value = '';
+    
+    const token = getAuthToken();
+    const categoryId = categoryToDelete.value.id;
+
+    try {
+        const response = await fetch(`${CATEGORIES_API_URL}/${categoryId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+            },
+        });
+        
+        const data = await response.json().catch(() => ({ message: 'No content', status: response.status }));
+
+        if (response.ok) { // 200 OK
+            successMessage.value = data.message || 'Category deleted successfully.';
+            await fetchCategories();
+            deleteModalInstance?.hide();
+        } else {
+            handleApiError(data, response.status);
+            // Show error, but don't hide modal immediately
+        }
+    } catch (e) {
+        console.error('Failed to delete category:', e);
+        errorMessage.value = 'Failed to delete category due to a network error.';
+        deleteModalInstance?.hide();
+    } finally {
+        saving.value = false;
+        // Only reset deletion state if successful or final error handled
+        if (successMessage.value || errorMessage.value) {
+            categoryToDelete.value = null;
+            deleteStep.value = 'confirm'; 
+        }
+    }
+};
+
+// --- MODAL AND UI HANDLERS ---
 
 const resetModalData = () => {
-  modalData.value = {
-    category_list: '',
-    description: '',
-  };
+    modalData.value = {
+        name: '',
+        description: '',
+    };
+    validationErrors.value = {};
 };
 
 const openAddCategoryModal = () => {
-  isEditMode.value = false;
-  resetModalData();
-  categoryModalInstance?.show();
+    isEditMode.value = false;
+    resetModalData();
+    categoryModalInstance?.show();
 };
 
 const openEditCategoryModal = (category: Category) => {
-  isEditMode.value = true;
-  modalData.value = {
-    id: category.id,
-    category_list: category.category_list,
-    description: category.description,
-  };
-  categoryModalInstance?.show();
+    isEditMode.value = true;
+    modalData.value = {
+        id: category.id,
+        name: category.name,
+        description: category.description,
+    };
+    validationErrors.value = {};
+    categoryModalInstance?.show();
 };
-
-const handleSave = async () => {
-  if (!modalData.value.category_list || !modalData.value.description) {
-    alert('Please fill in both Category Name and Description.');
-    return;
-  }
-
-  saving.value = true;
-  await new Promise(resolve => setTimeout(resolve, 800)); // Simulate API delay
-
-  try {
-    if (isEditMode.value && modalData.value.id) {
-      // UPDATE Logic (Mock)
-      const indexInInitial = initialCategories.findIndex(c => c.id === modalData.value.id);
-      if (indexInInitial !== -1) {
-        initialCategories[indexInInitial].category_list = modalData.value.category_list.trim();
-        initialCategories[indexInInitial].description = modalData.value.description.trim();
-      }
-    } else {
-      // INSERT Logic (Mock)
-      const newId = initialCategories.length > 0 ? Math.max(...initialCategories.map(c => c.id)) + 1 : 1;
-      const newCategory: Category = {
-        id: newId,
-        category_list_number: 0,
-        category_list: modalData.value.category_list.trim(),
-        description: modalData.value.description.trim(),
-      };
-      
-      initialCategories.push(newCategory); 
-    }
-    
-    await fetchCategories(); 
-    categoryModalInstance?.hide();
-  } catch (error) {
-    console.error('Failed to save category:', error);
-    alert('Failed to save category. Please try again.');
-  } finally {
-    saving.value = false;
-  }
-};
-
-// --- DELETE HANDLERS (Modified for Two Steps) ---
 
 const openDeleteConfirmation = (category: Category) => {
-  categoryToDelete.value = category;
-  deleteStep.value = 'confirm'; // Start with the first confirmation step
-  deleteModalInstance?.show();
+    categoryToDelete.value = category;
+    deleteStep.value = 'confirm'; 
+    deleteModalInstance?.show();
 };
 
 const handleFirstConfirmation = () => {
-    // Logic for "Yes" on the first popup
-    deleteStep.value = 'final'; // Move to the second, permanent delete confirmation step
+    deleteStep.value = 'final'; 
 };
 
 const handleCancelDeletion = () => {
-    // Logic for "No" (Step 1) and "Cancel" (Step 2)
     deleteModalInstance?.hide();
     categoryToDelete.value = null;
-    deleteStep.value = 'confirm'; // Reset state
-};
-
-const handleDelete = async () => {
-  // Only proceed if we are on the final confirmation step
-  if (deleteStep.value !== 'final' || !categoryToDelete.value) return; 
-  
-  saving.value = true;
-  await new Promise(resolve => setTimeout(resolve, 800)); // Simulate API delay
-
-  try {
-    // DELETE Logic (Mock) - Triggered by "Confirm" on Step 2
-    const deletedId = categoryToDelete.value.id;
-    
-    // Remove from initial data source (simulated permanent delete)
-    const indexInInitial = initialCategories.findIndex(c => c.id === deletedId);
-    if (indexInInitial !== -1) {
-      initialCategories.splice(indexInInitial, 1);
-    }
-    
-    await fetchCategories();
-    deleteModalInstance?.hide();
-  } catch (error) {
-    console.error('Failed to delete category:', error);
-    alert('Failed to delete category. Please try again.');
-  } finally {
-    saving.value = false;
-    categoryToDelete.value = null;
-    deleteStep.value = 'confirm'; // Reset step for next time
-  }
+    deleteStep.value = 'confirm'; 
 };
 
 // --- LIFECYCLE ---
 
 onMounted(() => {
-  // Initialize Bootstrap Modals
-  if (categoryModalRef.value) {
-    categoryModalInstance = new Modal(categoryModalRef.value);
-    categoryModalRef.value.addEventListener('hidden.bs.modal', resetModalData);
-  }
-  if (deleteModalRef.value) {
-    deleteModalInstance = new Modal(deleteModalRef.value);
-    // Add listener to reset state if modal is closed via 'X' or backdrop click
-    deleteModalRef.value.addEventListener('hidden.bs.modal', handleCancelDeletion);
-  }
-  
-  fetchCategories();
+    // Initialize Bootstrap Modals
+    if (categoryModalRef.value) {
+        categoryModalInstance = new Modal(categoryModalRef.value);
+        categoryModalRef.value.addEventListener('hidden.bs.modal', resetModalData);
+    }
+    if (deleteModalRef.value) {
+        deleteModalInstance = new Modal(deleteModalRef.value);
+        deleteModalRef.value.addEventListener('hidden.bs.modal', handleCancelDeletion);
+    }
+    
+    // Fetch initial data
+    fetchCategories();
 });
 </script>
 
 <style scoped>
-
+/* --- General Section & Sidebar Layout --- */
 .section {
-  animation: fadeIn 0.3s ease;
-  padding: 20px; /* Added padding for consistency */
-  margin-left: 260px; /* Standard sidebar width */
-  
+    animation: fadeIn 0.3s ease;
+    padding: 20px; 
+    margin-left: 260px; /* Standard sidebar width */
 }
-
 @media (max-width: 768px) {
-  .section {
-    margin-left: 80px; /* Collapsed sidebar width */
-  }
+    .section {
+        margin-left: 80px; /* Collapsed sidebar width */
+    }
 }
-
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
-
 .section-title {
-  color: #1e4449; /* Dark Teal color */
-  font-weight: 600;
-  margin-bottom: 24px;
+    color: #1e4449;
+    font-weight: 600;
+    margin-bottom: 24px;
 }
-
-
 .page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px; 
-  gap: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px; 
+    gap: 20px;
 }
-
 /* Custom Success Button Color */
 .btn-success {
-  background-color: #4BB66D;
-  border-color: #4BB66D;
+    background-color: #4BB66D;
+    border-color: #4BB66D;
 }
-
 .btn-success:hover {
-  background-color: #3f975b;
-  border-color: #3f975b;
+    background-color: #3f975b;
+    border-color: #3f975b;
 }
-
 .btn-success.add-new-btn {
-
-  padding: 10px 20px;
-  border-radius: 8px; 
+    padding: 10px 20px;
+    border-radius: 8px; 
 }
-
-
 /* Table card structure */
 .table-card {
-  background: white;
-  border-radius: 8px;
-  padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); /* Soft shadow */
+    background: white;
+    border-radius: 8px;
+    padding: 24px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); 
 }
-
 .table thead {
-  background: #f8f9fa; /* Light grey header background */
+    background: #f8f9fa; 
 }
-
 .table thead th {
-  background-color: #f8f9fa; /* Ensure consistency */
-  font-weight: 600;
-  border-bottom: 1px solid #dee2e6; /* Standard border */
-  padding: 12px 15px;
+    background-color: #f8f9fa; 
+    font-weight: 600;
+    border-bottom: 1px solid #dee2e6; 
+    padding: 12px 15px;
 }
-
 .table tbody td {
-  padding: 12px 15px; 
-  vertical-align: middle;
+    padding: 12px 15px; 
+    vertical-align: middle;
 }
-
 /* Ensure outline buttons are visible */
 .btn-outline-primary {
-  --bs-btn-color: #0d6efd;
-  --bs-btn-border-color: #0d6efd;
+    --bs-btn-color: #0d6efd;
+    --bs-btn-border-color: #0d6efd;
 }
-
 .btn-outline-danger {
-  --bs-btn-color: #dc3545;
-  --bs-btn-border-color: #dc3545;
+    --bs-btn-color: #dc3545;
+    --bs-btn-border-color: #dc3545;
 }
-
 /* Action button sizing */
 .btn-group-sm .btn {
-  padding: 0.25rem 0.5rem; 
+    padding: 0.25rem 0.5rem; 
 }
-
 /* NEW STYLING TO MOVE DELETE MODAL TO THE TOP */
 .modal-dialog.delete-modal-top {
-    /* Override standard Bootstrap modal positioning */
-    align-items: flex-start; /* Ensures content aligns to the top of the viewport */
-    margin-top: 50px; /* Optional: Adds some space from the absolute top */
-    /* Ensure modal-dialog has full height to allow flex-start alignment if using display:flex on modal parent */
+    align-items: flex-start; 
+    margin-top: 50px; 
     height: auto; 
 }
-
 /* Custom style for the first step button (Modal) */
 .btn-warning {
     color: #212529 !important;
@@ -482,32 +552,24 @@ onMounted(() => {
     background-color: #e0a800 !important;
     border-color: #e0a800 !important;
 }
-
 /* Modal styling (Already consistent, just ensuring defaults are here) */
 .modal-dialog.modal-lg {
     max-width: 900px !important;
 }
-
-
 @media (max-width: 768px) {
-  .page-header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  /* Ensuring search and button take full width on mobile */
-  .input-group {
-    width: 100% !important;
-    max-width: 100% !important;
-  }
-
-  .btn-success.add-new-btn {
-    width: 100%;
-  }
-
-  /* Modal sizing for mobile */
-  .modal-dialog.modal-lg {
-    max-width: 95% !important;
-  }
+    .page-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .input-group {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    .btn-success.add-new-btn {
+        width: 100%;
+    }
+    .modal-dialog.modal-lg {
+        max-width: 95% !important;
+    }
 }
 </style>
