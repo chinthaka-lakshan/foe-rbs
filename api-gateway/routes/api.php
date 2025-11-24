@@ -120,6 +120,20 @@ Route::middleware('auth:sanctum')->group(function () {
             ], 503);
         }
     });
+    // Delete category route
+    Route::delete('/categories/{id}', function (Request $request, $id) {
+        try {
+            $response = Http::timeout(30)->withToken($request->bearerToken())
+                ->delete("http://resource_service/api/categories/{$id}");
+            
+            return $response->json();
+        } catch (Exception $e) {
+            return response()->json([
+                'message' => 'Cannot connect to resource service',
+                'error' => $e->getMessage()
+            ], 503);
+        }
+    });
     // List all resources
     Route::get('/resources', function (Request $request) {
         try {
