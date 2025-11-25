@@ -184,7 +184,6 @@ const getAuthToken = () => localStorage.getItem('authToken');
 // --- TYPES ---
 interface Category {
     id: number;
-    // Keys match backend: name, description
     name: string; 
     description: string;
 }
@@ -236,9 +235,14 @@ const filteredCategories = computed(() => {
 const handleApiError = (data: any, status: number) => {
     validationErrors.value = {};
     if (status === 422 && data.errors) {
+        // Laravel validation errors
         validationErrors.value = data.errors;
         errorMessage.value = "Validation failed. Check the modal fields.";
+    } else if (status === 503) {
+        // Gateway connection error
+        errorMessage.value = data.message || "Failed to connect to the resource service.";
     } else {
+        // General error
         errorMessage.value = data.message || `An error occurred (Status: ${status}).`;
     }
 };
@@ -265,20 +269,14 @@ const fetchCategories = async () => {
             },
         });
         
-        // Handle non-JSON response from a potential 500 crash
-        const contentType = response.headers.get('content-type');
-        let data;
-        if (contentType && contentType.includes('application/json')) {
-            data = await response.json();
-        } else {
-            // Log for debugging but return an array to prevent frontend crash
-            console.error("Gateway returned non-JSON data on GET /categories.");
-            data = [];
-        }
+        const data = await response.json().catch(() => {
+            // Handle case where response body is empty or non-JSON (like a 405/500 crash returning only status)
+            return response.status === 200 ? [] : null; 
+        });
 
 
         if (response.ok) { 
-            // Assume the backend index returns an array of objects matching the Category interface
+            // If the POST works, the GET should return an array of Category objects
             categories.value = Array.isArray(data) ? data : []; 
         } else {
             handleApiError(data, response.status);
@@ -318,7 +316,6 @@ const handleSave = async () => {
 
     try {
         const payload = {
-            // CRITICAL MAPPING: Frontend name maps to backend 'name'
             name: modalData.value.name.trim(),
             description: modalData.value.description ? modalData.value.description.trim() : null,
         };
@@ -332,10 +329,14 @@ const handleSave = async () => {
             body: JSON.stringify(payload),
         });
 
-        const data = await response.json();
+        // The Gateway returns the response JSON directly, but we must handle empty body cases
+        const data = await response.json().catch(() => ({ 
+            message: response.statusText, 
+            status: response.status 
+        }));
 
         if (response.ok) { // 200 OK or 201 CREATED
-            successMessage.value = isUpdate ? 'Category updated successfully!' : 'Category added successfully!';
+            successMessage.value = data.message || (isUpdate ? 'Category updated successfully!' : 'Category added successfully!');
             
             await fetchCategories(); // Re-fetch list to update the table
             categoryModalInstance?.hide();
@@ -371,7 +372,8 @@ const handleDelete = async () => {
             },
         });
         
-        const data = await response.json().catch(() => ({ message: 'No content', status: response.status }));
+        // The Gateway returns the response JSON directly.
+        const data = await response.json().catch(() => ({ message: 'Request successful but no content received.', status: response.status }));
 
         if (response.ok) { // 200 OK
             successMessage.value = data.message || 'Category deleted successfully.';
@@ -379,12 +381,10 @@ const handleDelete = async () => {
             deleteModalInstance?.hide();
         } else {
             handleApiError(data, response.status);
-            // Show error, but don't hide modal immediately
         }
     } catch (e) {
         console.error('Failed to delete category:', e);
         errorMessage.value = 'Failed to delete category due to a network error.';
-        deleteModalInstance?.hide();
     } finally {
         saving.value = false;
         // Only reset deletion state if successful or final error handled
@@ -469,14 +469,8 @@ onMounted(() => {
     }
 }
 @keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 .section-title {
     color: #1e4449;
@@ -491,18 +485,9 @@ onMounted(() => {
     gap: 20px;
 }
 /* Custom Success Button Color */
-.btn-success {
-    background-color: #4BB66D;
-    border-color: #4BB66D;
-}
-.btn-success:hover {
-    background-color: #3f975b;
-    border-color: #3f975b;
-}
-.btn-success.add-new-btn {
-    padding: 10px 20px;
-    border-radius: 8px; 
-}
+.btn-success { background-color: #4BB66D; border-color: #4BB66D; }
+.btn-success:hover { background-color: #3f975b; border-color: #3f975b; }
+.btn-success.add-new-btn { padding: 10px 20px; border-radius: 8px; }
 /* Table card structure */
 .table-card {
     background: white;
@@ -510,38 +495,21 @@ onMounted(() => {
     padding: 24px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); 
 }
-.table thead {
-    background: #f8f9fa; 
-}
+.table thead { background: #f8f9fa; }
 .table thead th {
     background-color: #f8f9fa; 
     font-weight: 600;
     border-bottom: 1px solid #dee2e6; 
     padding: 12px 15px;
 }
-.table tbody td {
-    padding: 12px 15px; 
-    vertical-align: middle;
-}
+.table tbody td { padding: 12px 15px; vertical-align: middle; }
 /* Ensure outline buttons are visible */
-.btn-outline-primary {
-    --bs-btn-color: #0d6efd;
-    --bs-btn-border-color: #0d6efd;
-}
-.btn-outline-danger {
-    --bs-btn-color: #dc3545;
-    --bs-btn-border-color: #dc3545;
-}
+.btn-outline-primary { --bs-btn-color: #0d6efd; --bs-btn-border-color: #0d6efd; }
+.btn-outline-danger { --bs-btn-color: #dc3545; --bs-btn-border-color: #dc3545; }
 /* Action button sizing */
-.btn-group-sm .btn {
-    padding: 0.25rem 0.5rem; 
-}
+.btn-group-sm .btn { padding: 0.25rem 0.5rem; }
 /* NEW STYLING TO MOVE DELETE MODAL TO THE TOP */
-.modal-dialog.delete-modal-top {
-    align-items: flex-start; 
-    margin-top: 50px; 
-    height: auto; 
-}
+.modal-dialog.delete-modal-top { align-items: flex-start; margin-top: 50px; height: auto; }
 /* Custom style for the first step button (Modal) */
 .btn-warning {
     color: #212529 !important;
@@ -553,23 +521,11 @@ onMounted(() => {
     border-color: #e0a800 !important;
 }
 /* Modal styling (Already consistent, just ensuring defaults are here) */
-.modal-dialog.modal-lg {
-    max-width: 900px !important;
-}
+.modal-dialog.modal-lg { max-width: 900px !important; }
 @media (max-width: 768px) {
-    .page-header {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    .input-group {
-        width: 100% !important;
-        max-width: 100% !important;
-    }
-    .btn-success.add-new-btn {
-        width: 100%;
-    }
-    .modal-dialog.modal-lg {
-        max-width: 95% !important;
-    }
+    .page-header { flex-direction: column; align-items: stretch; }
+    .input-group { width: 100% !important; max-width: 100% !important; }
+    .btn-success.add-new-btn { width: 100%; }
+    .modal-dialog.modal-lg { max-width: 95% !important; }
 }
 </style>
