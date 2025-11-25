@@ -93,7 +93,19 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // Category CRUD routes proxying to resource service
-        // Create category route
+    Route::get('/categories', function (Request $request) {
+        try {
+            $response = Http::timeout(30)->withToken($request->bearerToken())
+                ->get('http://resource_service/api/categories');
+            return $response->json();
+        } catch (Exception $e) {
+            return response()->json([
+                'message' => 'Cannot connect to resource service',
+                'error' => $e->getMessage()
+            ], 503);
+        }
+    });
+        // Create category 
     Route::post('/categories', function (Request $request) {
         try {
             $response = Http::timeout(30)->withToken($request->bearerToken())
