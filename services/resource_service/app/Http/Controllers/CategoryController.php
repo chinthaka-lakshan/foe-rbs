@@ -8,6 +8,12 @@ use Illuminate\Http\Response;
 
 class CategoryController extends Controller
 {
+    // Get all categories
+    public function index()
+    {
+        $categories = Category::all();
+        return response()->json($categories, Response::HTTP_OK);
+    }
     // Create a new category
     public function store(Request $request)
     {
