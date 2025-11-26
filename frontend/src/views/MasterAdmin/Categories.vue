@@ -47,7 +47,7 @@
                 <table class="table table-hover">
                     <thead>
                         <tr>
-                            <th>#</th>
+                            <th>Category ID</th>
                             <th>Category Name</th>
                             <th>Description</th>
                             <th>Action</th>

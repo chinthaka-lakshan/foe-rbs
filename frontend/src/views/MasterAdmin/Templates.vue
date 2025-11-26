@@ -214,7 +214,7 @@
                     <div class="modal-footer">
                         <button class="btn btn-success" @click="saveTemplate" :disabled="isSaving">
                             <span v-if="isSaving" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                            <i v-else class="bi bi-save me-2"></i> {{ isEditMode ? 'Update' : 'Save' }}
+                            <i v-else class="bi bi-save me-2"></i> {{ saving ? (isEditMode ? 'Updating...' : 'Saving...') : (isEditMode ? 'Update' : 'Save') }}
                         </button>
                     </div>
                 </div>
@@ -274,6 +274,7 @@ const API_BASE_URL = 'http://localhost:8000/api';
 const TEMPLATES_API_URL = `${API_BASE_URL}/resource-templates`; 
 const CATEGORIES_API_URL = `${API_BASE_URL}/categories`; 
 const getAuthToken = () => localStorage.getItem('authToken');
+const saving = ref(false);
 
 // --- Interfaces (Mapping to Backend) ---
 interface Field {
@@ -552,7 +553,7 @@ const resetFormData = () => {
 
 
 const openAddModal = () => {  
-    selectedTemplate.value = null;
+    isEditMode.value = false;
     resetFormData();
     templateModalInstance?.show();
 };
