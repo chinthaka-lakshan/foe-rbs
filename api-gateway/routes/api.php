@@ -568,3 +568,41 @@ Route::delete('/resource-templates/{id}', function (Request $request, $id) {
         return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
     }
 });
+
+// In api_gateway routes/api.php
+Route::get('/settings', function (Request $request) {
+    try {
+        $response = Http::timeout(30)
+            ->withToken($request->bearerToken())
+            ->get('http://system_settings_service/api/settings');
+        
+        return handleProxyResponse($response, 'Failed to fetch system settings.');
+    } catch (Exception $e) {
+        \Log::error('System settings fetch gateway error: ' . $e->getMessage());
+        return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
+    }
+});
+Route::post('/settings', function (Request $request) {
+    try {
+        $response = Http::timeout(30)
+            ->withToken($request->bearerToken())
+            ->post('http://system_settings_service/api/settings', $request->all());
+        
+    if ($request->hasFile('logo')) {
+            $file = $request->file('logo');
+            $response = Http::timeout(30)
+                ->withToken($request->bearerToken())
+                ->attach(
+                    'logo',
+                    file_get_contents($file->getRealPath()),
+                    $file->getClientOriginalName()
+                )
+                ->post('http://system_settings_service/api/settings');
+        }
+        
+        return handleProxyResponse($response, 'Failed to update system settings.');
+    } catch (Exception $e) {
+        \Log::error('System settings update gateway error: ' . $e->getMessage());
+        return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
+    }
+});
