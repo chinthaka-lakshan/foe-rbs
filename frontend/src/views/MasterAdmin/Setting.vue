@@ -40,7 +40,7 @@
               <textarea class="form-control" rows="3" v-model="settings.address"></textarea>
             </div>
 
-            <div class="d-flex justify-content-end pt-3 mt-4 border-top">
+           <div class="d-flex justify-content-end pt-3 mt-4 border-top">
                 <button type="submit" class="btn btn-success">
                     <i class="bi bi-save me-1"></i>Save Changes
                 </button>
@@ -142,12 +142,11 @@ const saveSettings = () => {
 .btn-success {
   background-color: #4BB66D;
   border-color: #4BB66D;
-  
 }
 
 .btn-success:hover {
-  background-color:  #3f975b;
-  border-color:  #3f975b;
+  background-color: #3f975b;
+  border-color: #3f975b;
 }
 /* Removed unused status/info item styles */
 </style>
