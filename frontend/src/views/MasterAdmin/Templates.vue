@@ -551,7 +551,7 @@ const resetFormData = () => {
 };
 
 
-const openAddModal = () => {
+const openAddModal = () => {  
     selectedTemplate.value = null;
     resetFormData();
     templateModalInstance?.show();
