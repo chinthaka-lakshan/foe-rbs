@@ -344,6 +344,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
 
+    // Booking Service routes
     // Booking Items Routes
     Route::get('/booking-items', function (Request $request) {
         try {
@@ -356,7 +357,7 @@ Route::middleware('auth:sanctum')->group(function () {
             return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
         }
     });
-
+    // Available booking items for selection
     Route::get('/booking-items/available', function (Request $request) {
         try {
             $response = Http::timeout(30)
@@ -368,7 +369,7 @@ Route::middleware('auth:sanctum')->group(function () {
             return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
         }
     });
-
+    // Create booking item
     Route::post('/booking-items', function (Request $request) {
         try {
             $response = Http::timeout(30)
@@ -380,7 +381,7 @@ Route::middleware('auth:sanctum')->group(function () {
             return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
         }
     });
-
+    // Get single booking item
     Route::get('/booking-items/{id}', function (Request $request, $id) {
         try {
             $response = Http::timeout(30)
@@ -392,7 +393,7 @@ Route::middleware('auth:sanctum')->group(function () {
             return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
         }
     });
-
+    // Update booking item
     Route::put('/booking-items/{id}', function (Request $request, $id) {
         try {
             $response = Http::timeout(30)
@@ -404,7 +405,7 @@ Route::middleware('auth:sanctum')->group(function () {
             return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
         }
     });
-
+    // Delete booking item
     Route::delete('/booking-items/{id}', function (Request $request, $id) {
         try {
             $response = Http::timeout(30)
@@ -418,10 +419,8 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 });
 
-// ============================================
-// BOOKING ROUTES (Booking Service)
-// ============================================
 
+// BOOKING ROUTES (Booking Service)
 // Get all bookings
 Route::get('/bookings', function (Request $request) {
     try {
@@ -513,7 +512,26 @@ Route::post('/bookings/{id}/resend-otp', function (Request $request, $id) {
     }
 });
 
+// Get all bookings for assigned admin
+Route::get('/bookings/admin/assigned', function (Request $request) {
+    try {
+        $response = Http::timeout(30)
+            ->withToken($request->bearerToken())
+            ->get('http://booking_service/api/bookings/admin/assigned', $request->all());
+        
+        return handleProxyResponse($response, 'Failed to fetch admin bookings.');
+    } catch (Exception $e) {
+        \Log::error('Admin bookings gateway error: ' . $e->getMessage());
+        return response()->json([
+            'message' => 'Gateway error',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+});
+
+
 // Resource Templates
+// List all resource templates
 Route::get('/resource-templates', function (Request $request) {
     try {
         $response = Http::timeout(30)
@@ -524,7 +542,7 @@ Route::get('/resource-templates', function (Request $request) {
         return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
     }
 });
-
+// Create resource template
 Route::post('/resource-templates', function (Request $request) {
     try {
         $response = Http::timeout(30)
@@ -535,7 +553,7 @@ Route::post('/resource-templates', function (Request $request) {
         return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
     }
 });
-
+// Get single resource template
 Route::get('/resource-templates/{id}', function (Request $request, $id) {
     try {
         $response = Http::timeout(30)
@@ -546,7 +564,7 @@ Route::get('/resource-templates/{id}', function (Request $request, $id) {
         return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
     }
 });
-
+// Update resource template
 Route::put('/resource-templates/{id}', function (Request $request, $id) {
     try {
         $response = Http::timeout(30)
@@ -557,7 +575,7 @@ Route::put('/resource-templates/{id}', function (Request $request, $id) {
         return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
     }
 });
-
+// Delete resource template
 Route::delete('/resource-templates/{id}', function (Request $request, $id) {
     try {
         $response = Http::timeout(30)
@@ -582,6 +600,7 @@ Route::get('/settings', function (Request $request) {
         return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
     }
 });
+// Update system settings
 Route::post('/settings', function (Request $request) {
     try {
         $response = Http::timeout(30)
