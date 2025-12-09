@@ -2,7 +2,7 @@
   <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
     <div class="container-fluid px-4">
       <a class="navbar-brand fw-bold" href="#">
-        <span class="brand-text">University Resources</span>
+        <span class="brand-text">{{ settings.systemName }}</span>
       </a>
 
       <div class="d-flex align-items-center">
@@ -18,13 +18,18 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { useSettingsStore } from '../stores/useSettingsStore'; 
 
 const router = useRouter();
 const userName = ref(localStorage.getItem('userName') || 'User');
+// Get the reactive settings object from the store
+const { settings } = useSettingsStore();
 
 const handleLogout = () => {
   localStorage.clear();
   router.push('/login');
+
+  
 };
 </script>
 

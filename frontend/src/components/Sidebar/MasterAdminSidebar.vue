@@ -1,8 +1,8 @@
 <template>
   <div class="sidebar">
     <div class="logo-container">
-      <img src="/logo.png" alt="FOE RBS" class="logo" />
-      <h4 class="logo-text">FOE RBS</h4>
+      <img :src="settings.logoPath" alt="System Logo" class="logo" />
+      <h4 class="logo-text">{{ settings.organizationName }}</h4>
     </div>
 
     <nav class="nav-menu">
@@ -65,8 +65,12 @@
 
 <script setup lang="ts">
 import { useRoute } from 'vue-router';
+// NOTE: Assuming the path is correct relative to the component
+import { useSettingsStore } from '../../stores/useSettingsStore'; 
 
 const route = useRoute();
+// Get the reactive settings object from the store
+const { settings } = useSettingsStore();
 
 const isActive = (path: string): boolean => {
   return route.path === path;
@@ -76,9 +80,7 @@ const isActive = (path: string): boolean => {
 <style scoped>
 .sidebar {
   width: 250px;
-  /* Key change: Start the sidebar 60px from the top (assuming a top Navbar height) */
   top: 60px; 
-  /* Reduce height by 60px to ensure it doesn't extend past the bottom of the viewport */
   height: calc(100vh - 60px); 
   background-color: #2c3e50;
   color: white;
@@ -86,7 +88,7 @@ const isActive = (path: string): boolean => {
   left: 0;
   padding: 20px 0;
   overflow-y: auto;
-  z-index: 1000; /* Added z-index to ensure it sits above dashboard content */
+  z-index: 1000;
 }
 
 .logo-container {
