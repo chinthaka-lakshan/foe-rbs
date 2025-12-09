@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
+import { createRouter, createWebHistory, routeLocationKey, RouteRecordRaw } from 'vue-router';
 import Login from '../views/Login.vue';
 import Register from '../views/Register.vue';
 import ForgotPassword from '../views/ForgotPassword.vue';
@@ -123,43 +123,34 @@ const routes: Array<RouteRecordRaw> = [
     component:Use_Template
   },
 
-  {
-    path:'/',
-    redirect: '/master-admin/booking'
-  },
+
   {
     path: '/master-admin/booking',
     name: 'master-admin-booking',
-    component:Booking
+    component:Booking,
+    meta: {requiresAuth: true, role: 'Master Admin'}
   },
 
-  {
-    path:'/',
-    redirect: '/master-admin/users'
-  },
+ 
   {
     path: '/master-admin/users',
     name: 'master-admin-users',
-    component:Users
+    component:Users,
+    meta: {requiresAuth: true, role: 'Master Admin'}
   },
 
   {
-    path:'/',
-    redirect: '/master-admin/reports'
-  },
-  {
     path: '/master-admin/reports',
     name: 'master-admin-reports',
-    component:Reports
+    component:Reports,
+    meta: {requiresAuth: true, role: 'Master Admin'}
   },
-  {
-    path:'/',
-    redirect:'/master-admin/setting'
-  },
+ 
   {
     path:'/master-admin/setting',
     name:'master-admin-setting',
-    component:Setting
+    component:Setting,
+    meta: {requiresAuth: true, role: 'Master Admin'}
   },
   {
     path: '/master-admin/dashboard',
