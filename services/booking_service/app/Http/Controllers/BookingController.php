@@ -29,7 +29,50 @@ class BookingController
     public function show($id): JsonResponse
     {
         $booking = Booking::with('details')->findOrFail($id);
-        return response()->json($booking);
+
+        $resourceDetails = [];
+        $bookingItemDetails = [];
+        $resourceServiceUrl = env('RESOURCE_SERVICE_URL', 'http://resource_service/api');
+        
+        foreach ($booking->details as $detail) {
+            if ($detail->item_type === 'resource') {
+                $resourceResponse = Http::timeout(10)->get("{$resourceServiceUrl}/resources/{$detail->item_id}");
+                if ($resourceResponse->successful()) {
+                    $resource = $resourceResponse->json();
+                    $resourceDetails[] = [
+                        'resource_id' => $resource['id'],
+                        'name' => $resource['name'],
+                        'description' => $resource['description'] ?? null,
+                        'location' => $resource['location'] ?? null,
+                        'assigned_admin_id' => $resource['assigned_admin_id'] ?? null,
+                        'assigned_admin_name' => $resource['assigned_admin_name'] ?? null,
+                        'price_per_hour' => $detail->price_per_hour,
+                        'hours' => $detail->hours,
+                        'subtotal' => $detail->subtotal,
+                    ];
+                }
+            } elseif ($detail->item_type === 'booking_item') {
+                $itemResponse = Http::timeout(10)->get("{$resourceServiceUrl}/booking-items/{$detail->item_id}");
+                if ($itemResponse->successful()) {
+                    $item = $itemResponse->json();
+                    $bookingItemDetails[] = [
+                        'item_id' => $item['id'],
+                        'name' => $item['name'],
+                        'item_code' => $item['item_code'],
+                        'price_per_hour' => $detail->price_per_hour,
+                        'quantity' => $detail->quantity,
+                        'hours' => $detail->hours,
+                        'subtotal' => $detail->subtotal,
+                    ];
+                }
+            }
+        }
+
+        return response()->json([
+            'booking' => $booking,
+            'resource_details' => $resourceDetails,
+            'booking_item_details' => $bookingItemDetails,
+        ]);
     }
 
     /**
