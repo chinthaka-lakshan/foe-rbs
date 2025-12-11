@@ -32,81 +32,117 @@
       </div>
     </div>
 
-    <div class="mb-4">
-      <div class="row g-3">
-        <div class="col-md-8">
-          <input
-            type="text"
-            class="form-control"
-            placeholder="Search resources by name..."
-            v-model="searchQuery"
-          >
-        </div>
-        <div class="col-md-4">
-          <select class="form-select" v-model="selectedCategory">
-            <option value="">All Categories</option>
-            <option value="academic">Academic Space</option>
-            <option value="medical">Medical & Health</option>
-            <option value="sports">Sports & Recreational</option>
-          </select>
-        </div>
+    <!-- Loading State -->
+    <div v-if="isLoading" class="text-center py-5">
+      <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
       </div>
+      <p class="mt-2 text-muted">Loading resources...</p>
     </div>
 
-    <div class="row g-4">
-      <div v-for="resource in filteredResources" :key="resource.id" class="col-md-4">
-        <div class="resource-card">
-          <div class="resource-actions">
-            <button 
-                class="btn btn-sm btn-action-edit" 
-                @click.stop="navigateToEditResource(resource.id)" 
-                title="Edit Resource"
+    <!-- Error State -->
+    <div v-if="errorMessage && !isLoading" class="alert alert-danger" role="alert">
+      <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ errorMessage }}
+      <button class="btn btn-sm btn-outline-danger ms-3" @click="fetchResources">
+        <i class="bi bi-arrow-clockwise me-1"></i>Retry
+      </button>
+    </div>
+
+    <!-- Main Content -->
+    <div v-if="!isLoading && !errorMessage">
+      <div class="mb-4">
+        <div class="row g-3">
+          <div class="col-md-8">
+            <input
+              type="text"
+              class="form-control"
+              placeholder="Search resources by name..."
+              v-model="searchQuery"
             >
-              <i class="bi bi-pencil-square"></i>
-            </button>
-            <button 
-                class="btn btn-sm btn-action-delete" 
-                @click.stop="openDeleteResourceConfirmation(resource)" 
-                title="Delete Resource"
-            >
-              <i class="bi bi-trash"></i>
-            </button>
           </div>
+          <div class="col-md-4">
+            <select class="form-select" v-model="selectedCategory">
+              <option value="">All Categories</option>
+              <option v-for="category in categories" :key="category.id" :value="category.id">
+                {{ category.name }}
+              </option>
+            </select>
+          </div>
+        </div>
+      </div>
 
-          <div @click="navigateToSingleResource(resource.id)">
-            <div class="resource-image">
-              <img :src="resource.image || 'https://via.placeholder.com/300x180?text=No+Image'" :alt="resource.name">
+      <!-- Empty State -->
+      <div v-if="filteredResources.length === 0" class="text-center py-5">
+        <i class="bi bi-inbox" style="font-size: 3rem; color: #ccc;"></i>
+        <p class="text-muted mt-3">No resources found</p>
+        <button class="btn btn-success" @click="showAddModal = true">
+          <i class="bi bi-plus-circle me-1"></i>Add Your First Resource
+        </button>
+      </div>
+
+      <!-- Resources Grid -->
+      <div v-else class="row g-4">
+        <div v-for="resource in filteredResources" :key="resource.id" class="col-md-4">
+          <div class="resource-card">
+            <div class="resource-actions">
+              <button 
+                  class="btn btn-sm btn-action-edit" 
+                  @click.stop="navigateToEditResource(resource.id)" 
+                  title="Edit Resource"
+              >
+                <i class="bi bi-pencil-square"></i>
+              </button>
+              <button 
+                  class="btn btn-sm btn-action-delete" 
+                  @click.stop="openDeleteResourceConfirmation(resource)" 
+                  title="Delete Resource"
+              >
+                <i class="bi bi-trash"></i>
+              </button>
             </div>
-            <div class="resource-body">
-              <h5>{{ resource.name }}</h5>
-              <p v-if="resource.location" class="text-muted mb-1 small">{{ resource.location }}</p>
-              <p class="text-muted mb-2">{{ resource.category }}</p>
 
-              <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                
-                <div class="d-flex align-items-center gap-2">
-                    <span class="badge" :class="resource.status === 'active' ? 'bg-success' : 'bg-secondary'">
-                      {{ resource.status }}
-                    </span>
-                    <div class="form-check form-switch" @click.stop>
-                      <input
-                        class="form-check-input"
-                        type="checkbox"
-                        :checked="resource.status === 'active'"
-                        @change="toggleResourceStatus(resource.id)"
-                      >
-                    </div>
+            <div @click="navigateToSingleResource(resource.id)">
+              <div class="resource-image">
+                <img :src="getImageUrl(resource)" :alt="resource.name">
+              </div>
+              <div class="resource-body">
+                <h5>{{ resource.name }}</h5>
+                <p v-if="resource.location_name" class="text-muted mb-1 small">
+                  <i class="bi bi-geo-alt me-1"></i>{{ resource.location_name }}
+                </p>
+                <p class="text-muted mb-2">
+                  <i class="bi bi-tag me-1"></i>{{ getCategoryName(resource.category_id) }}
+                </p>
+                <p class="text-muted mb-2 small">
+                  <i class="bi bi-currency-rupee me-1"></i>Rs. {{ resource.base_price }}
+                </p>
+
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                  
+                  <div class="d-flex align-items-center gap-2">
+                      <span class="badge" :class="getStatusClass(resource.status)">
+                        {{ resource.status }}
+                      </span>
+                      <div class="form-check form-switch" @click.stop>
+                        <input
+                          class="form-check-input"
+                          type="checkbox"
+                          :checked="resource.status === 'Active'"
+                          @change="toggleResourceStatus(resource.id)"
+                        >
+                      </div>
+                  </div>
+
+                  <button 
+                      v-if="resource.status === 'Active'"
+                      class="btn btn-sm btn-reserve-card" 
+                      @click.stop="handleReserveClick(resource.id)"
+                  >
+                      <i class="bi bi-calendar-check me-1"></i> Reserve
+                  </button>
                 </div>
 
-                <button 
-                    v-if="resource.status === 'active'"
-                    class="btn btn-sm btn-reserve-card" 
-                    @click.stop="handleReserveClick(resource.id)"
-                >
-                    <i class="bi bi-calendar-check me-1"></i> Reserve
-                </button>
               </div>
-
             </div>
           </div>
         </div>
@@ -114,6 +150,7 @@
     </div>
   </div>
 
+  <!-- Add Modal -->
   <div class="modal fade" :class="{ 'show d-block': showAddModal }" tabindex="-1" @click.self="showAddModal = false" style="background-color: rgba(0,0,0,0.5);" v-if="showAddModal">
     <div class="modal-dialog modal-sm modal-dialog-centered">
       <div class="modal-content">
@@ -136,6 +173,7 @@
     </div>
   </div>
   
+  <!-- Template Selection Modal -->
   <div class="modal fade" :class="{ 'show d-block': showTemplateSelectionModal }" tabindex="-1" @click.self="showTemplateSelectionModal = false" style="background-color: rgba(0,0,0,0.5);" v-if="showTemplateSelectionModal">
     <div class="modal-dialog modal-sm modal-dialog-centered">
       <div class="modal-content">
@@ -167,6 +205,7 @@
     </div>
   </div>
 
+  <!-- Delete Confirmation Modal -->
   <div class="modal fade" :class="{ 'show d-block': showDeleteConfirmation }" tabindex="-1" @click.self="handleCancelDeletion" style="background-color: rgba(0,0,0,0.5);" v-if="showDeleteConfirmation">
     <div class="modal-dialog delete-modal-top"> 
       <div class="modal-content">
@@ -177,7 +216,7 @@
                 <button type="button" class="btn-close" @click="handleCancelDeletion"></button>
             </div>
             <div class="modal-body text-center">
-                <p class="mb-0">Are you sure you want to delete the resource **{{ resourceToDelete?.name }}**?</p>
+                <p class="mb-0">Are you sure you want to delete the resource <strong>{{ resourceToDelete?.name }}</strong>?</p>
             </div>
             <div class="modal-footer justify-content-center">
                 <button type="button" class="btn btn-secondary" @click="handleCancelDeletion">No</button>
@@ -191,12 +230,13 @@
                 <button type="button" class="btn-close btn-close-white" @click="handleCancelDeletion"></button>
             </div>
             <div class="modal-body text-center">
-                <p class="mb-0">This action will permanently delete the resource {{ resourceToDelete?.name }}. Are you sure?</p>
+                <p class="mb-0">This action will permanently delete the resource <strong>{{ resourceToDelete?.name }}</strong>. Are you sure?</p>
             </div>
             <div class="modal-footer justify-content-center">
                 <button type="button" class="btn btn-secondary" @click="handleCancelDeletion">Cancel</button>
-                <button type="button" class="btn btn-danger" @click="handleDeleteResource">
-                    Confirm
+                <button type="button" class="btn btn-danger" @click="handleDeleteResource" :disabled="isDeleting">
+                    <span v-if="isDeleting" class="spinner-border spinner-border-sm me-1"></span>
+                    {{ isDeleting ? 'Deleting...' : 'Confirm' }}
                 </button>
             </div>
         </template>
@@ -206,88 +246,207 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-// NOTE: Adjust these paths if necessary
+import axios from 'axios';
 import Navbar from '../../components/Navbar.vue';
 import MasterAdminSidebar from '../../components/Sidebar/MasterAdminSidebar.vue';
 
-// Define the structure for a resource
+const router = useRouter();
+
+// API Configuration
+const API_BASE_URL = 'http://localhost:8000/api';
+const STORAGE_URL_ROOT = 'http://localhost:8000/storage';
+
+// Get auth token
+const getAuthToken = () => {
+    return localStorage.getItem('authToken') || 
+           localStorage.getItem('auth_token') || 
+           localStorage.getItem('token');
+};
+
+// Resource Interface
 interface Resource {
     id: number;
     name: string;
-    location?: string;
-    category: string;
-    assignee?: string;
+    location_name?: string;
+    category_id: number;
+    base_price: number;
+    assigned_admin_id?: number;
     description?: string;
-    status: 'active' | 'inactive';
-    image: string;
+    status: 'Active' | 'Inactive' | 'Maintenance';
+    resourceImages?: Array<{
+        file_path: string;
+        file_name: string;
+    }>;
 }
 
+interface Category {
+    id: number;
+    name: string;
+}
+
+// State
 const searchQuery = ref('');
 const selectedCategory = ref('');
-const router = useRouter();
+const resources = ref<Resource[]>([]);
+const categories = ref<Category[]>([]);
+const isLoading = ref(false);
+const isDeleting = ref(false);
+const errorMessage = ref('');
 
-// State for modals
+// Modal States
 const showAddModal = ref(false);
-const showTemplateSelectionModal = ref(false); 
-const showDeleteConfirmation = ref(false); // NEW: Delete modal visibility
-const resourceToDelete = ref<Resource | null>(null); // NEW: Resource selected for deletion
-const deleteStep = ref<'confirm' | 'final'>('confirm'); // NEW: Two-step delete state
+const showTemplateSelectionModal = ref(false);
+const showDeleteConfirmation = ref(false);
+const resourceToDelete = ref<Resource | null>(null);
+const deleteStep = ref<'confirm' | 'final'>('confirm');
 
-// Function to load all resources: defaults + user-added
-const getCombinedResources = (): Resource[] => {
-    const storedResourcesString = localStorage.getItem('resources');
-    
-    // If local storage is not set or empty, return an empty array.
-    if (!storedResourcesString || JSON.parse(storedResourcesString).length === 0) {
-        return [];
-    }
-    
-    return JSON.parse(storedResourcesString);
-};
-
-const resources = ref<Resource[]>(getCombinedResources());
-
-// Function to update local storage
-const updateLocalStorage = () => {
-    localStorage.setItem('resources', JSON.stringify(resources.value));
-};
-
+// Computed
 const filteredResources = computed(() => {
   return resources.value.filter(resource => {
     const matchesSearch = resource.name.toLowerCase().includes(searchQuery.value.toLowerCase());
-    
-    const matchesCategory = !selectedCategory.value || resource.category.toLowerCase().includes(
-        selectedCategory.value === 'academic' ? 'academic space' : 
-        selectedCategory.value === 'medical' ? 'medical & health' : 
-        selectedCategory.value === 'sports' ? 'sports & recreational' : 
-        ''
-    );
+    const matchesCategory = !selectedCategory.value || resource.category_id.toString() === selectedCategory.value;
     return matchesSearch && matchesCategory;
   });
 });
 
-const toggleResourceStatus = (id: number) => {
-  const resource = resources.value.find(r => r.id === id);
-  if (resource) {
-    resource.status = resource.status === 'active' ? 'inactive' : 'active';
-    updateLocalStorage();
-  }
+// Helper Functions
+const getImageUrl = (resource: Resource): string => {
+    if (resource.resourceImages && resource.resourceImages.length > 0) {
+        const filePath = resource.resourceImages[0].file_path;
+        
+        // This is the correct, host-accessible URL format
+        return `${STORAGE_URL_ROOT}/${filePath}`; 
+    }
+    
+    return 'https://via.placeholder.com/300x180?text=No+Image';
 };
 
-// --- NAVIGATION HANDLERS ---
-
-const navigateToBooking_Item = () =>{
-  router.push('/booking_item');
-}
-
-const navigateToCategories = () =>{
-  router.push('/categories');
+const getCategoryName = (categoryId: number): string => {
+    const category = categories.value.find(c => c.id === categoryId);
+    return category ? category.name : 'Unknown';
 };
 
-const navigateToTemplates = () =>{
-  router.push('/templates');
+const getStatusClass = (status: string): string => {
+    switch (status) {
+        case 'Active':
+            return 'bg-success';
+        case 'Inactive':
+            return 'bg-secondary';
+        case 'Maintenance':
+            return 'bg-warning';
+        default:
+            return 'bg-secondary';
+    }
+};
+
+// API Calls
+const fetchResources = async () => {
+    isLoading.value = true;
+    errorMessage.value = '';
+    
+    try {
+        const token = getAuthToken();
+        const response = await axios.get(`${API_BASE_URL}/resources`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json',
+            }
+        });
+        
+        resources.value = response.data.resources || response.data;
+        console.log('Resources loaded:', resources.value.length);
+    } catch (error: any) {
+        console.error('Error fetching resources:', error);
+        if (error.response?.status === 401) {
+            errorMessage.value = 'Authentication required. Please login again.';
+            setTimeout(() => router.push('/login'), 2000);
+        } else {
+            errorMessage.value = 'Failed to load resources. Please try again.';
+        }
+    } finally {
+        isLoading.value = false;
+    }
+};
+
+const fetchCategories = async () => {
+    try {
+        const token = getAuthToken();
+        const response = await axios.get(`${API_BASE_URL}/categories`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json',
+            }
+        });
+        
+        categories.value = response.data.categories || response.data;
+    } catch (error) {
+        console.error('Error fetching categories:', error);
+    }
+};
+
+const toggleResourceStatus = async (id: number) => {
+    const resource = resources.value.find(r => r.id === id);
+    if (!resource) return;
+    
+    const newStatus = resource.status === 'Active' ? 'Inactive' : 'Active';
+    
+    try {
+        const token = getAuthToken();
+        await axios.put(`${API_BASE_URL}/resources/${id}`, 
+            { status: newStatus },
+            {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json',
+                }
+            }
+        );
+        
+        resource.status = newStatus;
+    } catch (error) {
+        console.error('Error updating status:', error);
+        errorMessage.value = 'Failed to update resource status.';
+    }
+};
+
+const handleDeleteResource = async () => {
+    if (!resourceToDelete.value) return;
+    
+    isDeleting.value = true;
+    
+    try {
+        const token = getAuthToken();
+        await axios.delete(`${API_BASE_URL}/resources/${resourceToDelete.value.id}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json',
+            }
+        });
+        
+        // Remove from local array
+        resources.value = resources.value.filter(r => r.id !== resourceToDelete.value!.id);
+        
+        handleCancelDeletion();
+    } catch (error) {
+        console.error('Error deleting resource:', error);
+        errorMessage.value = 'Failed to delete resource.';
+        isDeleting.value = false;
+    }
+};
+
+// Navigation Handlers
+const navigateToBooking_Item = () => {
+    router.push('/booking_item');
+};
+
+const navigateToCategories = () => {
+    router.push('/categories');
+};
+
+const navigateToTemplates = () => {
+    router.push('/templates');
 };
 
 const navigateToSingleResource = (id: number) => {
@@ -303,13 +462,21 @@ const navigateToEditResource = (id: number) => {
     router.push({ path: '/add-resource', query: { id: id, mode: 'edit' } });
 };
 
-// **NAVIGATION FOR RESERVE BUTTON**
 const handleReserveClick = (id: number) => {
     router.push({ path: '/single-resource-booking', query: { resourceId: id } });
 };
 
-// --- DELETE HANDLERS ---
+const openTemplateSelectionModal = () => {
+    showAddModal.value = false;
+    showTemplateSelectionModal.value = true;
+};
 
+const navigateToTemplateCategory = (categoryKey: string) => {
+    showTemplateSelectionModal.value = false;
+    router.push({ path: '/use-template', query: { category: categoryKey } }); 
+};
+
+// Delete Modal Handlers
 const openDeleteResourceConfirmation = (resource: Resource) => {
     resourceToDelete.value = resource;
     deleteStep.value = 'confirm';
@@ -324,42 +491,25 @@ const handleCancelDeletion = () => {
     showDeleteConfirmation.value = false;
     resourceToDelete.value = null;
     deleteStep.value = 'confirm';
+    isDeleting.value = false;
 };
 
-const handleDeleteResource = () => {
-    if (!resourceToDelete.value) return;
-
-    const index = resources.value.findIndex(r => r.id === resourceToDelete.value!.id);
-    if (index !== -1) {
-        resources.value.splice(index, 1);
-        updateLocalStorage();
-    }
-    
-    handleCancelDeletion();
-};
-
-// --- Template Modal Handlers (Unchanged) ---
-const openTemplateSelectionModal = () => {
-    showAddModal.value = false;
-    showTemplateSelectionModal.value = true;
-};
-
-const navigateToTemplateCategory = (categoryKey: string) => {
-    showTemplateSelectionModal.value = false;
-    router.push({ path: '/use-template', query: { category: categoryKey } }); 
-};
+// Initialization
+onMounted(async () => {
+    await Promise.all([fetchResources(), fetchCategories()]);
+});
 </script>
 
 <style scoped>
-/* --- General Section & Sidebar Layout --- */
+/* General Section & Sidebar Layout */
 .section {
   animation: fadeIn 0.3s ease;
-  margin-left: 260px; /* Space for desktop sidebar */
+  margin-left: 260px;
   padding: 20px;
 }
 @media (max-width: 768px) {
   .section {
-    margin-left: 80px; /* Space for mobile/collapsed sidebar */
+    margin-left: 80px;
   }
 }
 
@@ -369,7 +519,7 @@ const navigateToTemplateCategory = (categoryKey: string) => {
   margin-bottom: 24px;
 }
 
-/* --- Button Styling --- */
+/* Button Styling */
 .btn-outline-dark-teal {
   --bs-btn-color: #1e4449;
   --bs-btn-border-color: #1e4449;
@@ -386,9 +536,9 @@ const navigateToTemplateCategory = (categoryKey: string) => {
   border-color: #3f975b;
 }
 
-/* --- Resource Card Styling --- */
+/* Resource Card Styling */
 .resource-card {
-  position: relative; 
+  position: relative;
   background: white;
   border-radius: 8px;
   overflow: hidden;
@@ -396,9 +546,8 @@ const navigateToTemplateCategory = (categoryKey: string) => {
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-/* Clicking the main content navigates to single view */
 .resource-card > div:not(.resource-actions) {
-  cursor: pointer; 
+  cursor: pointer;
 }
 
 .resource-card:hover {
@@ -424,20 +573,18 @@ const navigateToTemplateCategory = (categoryKey: string) => {
   color: #1e4449;
 }
 
-/* Status switch color */
 .form-check-input:checked {
   background-color: #fcc300;
   border-color: #fcc300;
 }
 
-/* --- RESERVE BUTTON on Card --- */
 .btn-reserve-card {
     background-color: #1e4449;
     color: white;
     border-color: #1e4449;
     font-size: 0.8rem;
     padding: 0.25rem 0.6rem;
-    line-height: 1; /* Ensure button height is small */
+    line-height: 1;
 }
 .btn-reserve-card:hover {
     background-color: #fcc300;
@@ -445,12 +592,12 @@ const navigateToTemplateCategory = (categoryKey: string) => {
     border-color: #fcc300;
 }
 
-/* --- Action Buttons Overlay --- */
+/* Action Buttons Overlay */
 .resource-actions {
   position: absolute;
   top: 10px;
   right: 10px;
-  z-index: 10; 
+  z-index: 10;
   display: flex;
   gap: 5px;
   opacity: 0;
@@ -486,7 +633,7 @@ const navigateToTemplateCategory = (categoryKey: string) => {
   color: white;
 }
 
-/* --- Responsive Modal Styles (Delete Modal Top Positioning) --- */
+/* Modal Styles */
 .modal {
   position: fixed;
   top: 0;
@@ -508,7 +655,7 @@ const navigateToTemplateCategory = (categoryKey: string) => {
 .modal-dialog {
   position: relative;
   width: auto;
-  margin: 0.5rem; 
+  margin: 0.5rem;
   pointer-events: none;
   transition: transform 0.3s ease-out;
   transform: translate(0, -50px);
@@ -530,7 +677,7 @@ const navigateToTemplateCategory = (categoryKey: string) => {
   flex-direction: column;
   width: 100%;
   pointer-events: auto;
-  background-color: #ffffff; 
+  background-color: #ffffff;
   border: 1px solid rgba(0, 0, 0, 0.2);
   border-radius: 0.3rem;
   outline: 0;
@@ -538,7 +685,7 @@ const navigateToTemplateCategory = (categoryKey: string) => {
 
 @media (min-width: 576px) {
     .modal-dialog {
-        max-width: 300px; 
+        max-width: 300px;
         margin: 1.75rem auto;
     }
     .modal-dialog-centered {
@@ -546,19 +693,16 @@ const navigateToTemplateCategory = (categoryKey: string) => {
     }
 }
 
-
-/* --- DELETE MODAL STYLES (Ensures consistent width and colors) --- */
-
 .modal-dialog.delete-modal-top {
     align-items: flex-start;
     margin-top: 50px;
-    height: auto; 
+    height: auto;
 }
 
 @media (min-width: 576px) {
     .modal-dialog.delete-modal-top {
-        max-width: 500px; 
-        margin: 1.75rem auto; 
+        max-width: 500px;
+        margin: 1.75rem auto;
     }
 }
 
@@ -575,10 +719,20 @@ const navigateToTemplateCategory = (categoryKey: string) => {
 
 .bg-danger { background-color: #dc3545 !important; }
 .btn-danger {
-    background-color: #dc3545 !important;
-    border-color: #dc3545 !important;
+  background-color: #dc3545 !important;
+  border-color: #dc3545 !important;
+}
+.btn-danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 .btn-close-white {
     filter: invert(1);
+}
+
+.spinner-border-sm {
+  width: 1rem;
+  height: 1rem;
+  border-width: 0.15em;
 }
 </style>
