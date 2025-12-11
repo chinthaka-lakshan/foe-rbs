@@ -14,6 +14,9 @@ use App\Http\Controllers\UserController;
 Route::post('/login', [AuthController::class, 'login']);
 Route::middleware('auth:sanctum')->post('/logout', [AuthController::class, 'logout']);
 Route::post('/users', [UserController::class, 'store']);
+Route::post('/forgot-password/email', [AuthController::class, 'sendResetOtp']);
+Route::post('/forgot-password/verify-otp', [AuthController::class, 'verifyOtp']);
+Route::post('/forgot-password/reset', [AuthController::class, 'resetPassword']);
 
 Route::middleware(['auth:sanctum', 'role:Master Admin,Admin'])->group(function () {
     // Route::post('/users', [UserController::class, 'store']);

@@ -7,10 +7,15 @@
       </div>
 
       <div v-if="showSuccessMessage" class="success-popup">
-        Password reset successfully!
+        Password reset successfully! Redirecting...
+      </div>
+      
+      <div v-if="errorMessage" class="alert alert-danger" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ errorMessage }}
       </div>
 
       <form @submit.prevent="handleSubmit">
+        
         <div v-if="step === 1" class="mb-3">
           <label for="email" class="form-label">Email Address</label>
           <input
@@ -20,6 +25,7 @@
             v-model="email"
             required
             placeholder="Enter your email"
+            :disabled="isLoading"
           >
         </div>
 
@@ -33,8 +39,9 @@
             required
             placeholder="Enter 6-digit OTP"
             maxlength="6"
+            :disabled="isLoading"
           >
-          <small class="text-muted">Check your email for the OTP code</small>
+          <small class="text-muted">OTP sent to {{ email }}. Code expires in 15 minutes.</small>
         </div>
 
         <div v-if="step === 3">
@@ -46,7 +53,9 @@
               id="newPassword"
               v-model="newPassword"
               required
-              placeholder="Enter new password"
+              minlength="6"
+              placeholder="Enter new password (min 6 characters)"
+              :disabled="isLoading"
             >
           </div>
           <div class="mb-3">
@@ -57,12 +66,15 @@
               id="confirmPassword"
               v-model="confirmPassword"
               required
+              minlength="6"
               placeholder="Confirm new password"
+              :disabled="isLoading"
             >
           </div>
         </div>
 
-        <button type="submit" class="btn btn-primary w-100 mb-3">
+        <button type="submit" class="btn btn-primary w-100 mb-3" :disabled="isLoading">
+          <span v-if="isLoading" class="spinner-border spinner-border-sm me-1"></span>
           {{ getButtonText() }}
         </button>
 
@@ -79,6 +91,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import axios from 'axios'; // 🛑 Import axios
 
 const router = useRouter();
 const step = ref(1);
@@ -87,6 +100,10 @@ const otp = ref('');
 const newPassword = ref('');
 const confirmPassword = ref('');
 const showSuccessMessage = ref(false);
+const isLoading = ref(false);
+const errorMessage = ref('');
+
+const API_BASE_URL = 'http://localhost:8000/api';
 
 const getStepDescription = () => {
   if (step.value === 1) return 'Enter your email to receive reset instructions';
@@ -100,37 +117,87 @@ const getButtonText = () => {
   return 'Save Password';
 };
 
-const handleSubmit = () => {
-  if (step.value === 1) {
-    alert(`OTP has been sent to ${email.value}`);
-    step.value = 2;
-  } else if (step.value === 2) {
-    if (otp.value.length === 6) {
-      step.value = 3;
+const clearError = () => {
+    errorMessage.value = '';
+};
+
+const handleApiError = (error: any) => {
+    // Tries to get the specific message from Laravel validation errors
+    const responseMessage = error.response?.data?.message;
+    const validationErrors = error.response?.data?.errors;
+    
+    if (validationErrors) {
+        // Concatenate all validation messages
+        errorMessage.value = Object.values(validationErrors).flat().join(' | ');
     } else {
-      alert('Please enter a valid 6-digit OTP');
+        errorMessage.value = responseMessage || 'An unknown server error occurred.';
     }
-  } else if (step.value === 3) {
-    if (newPassword.value !== confirmPassword.value) {
-      alert('Passwords do not match');
-      return;
-    }
-    if (newPassword.value.length < 6) {
-      alert('Password must be at least 6 characters');
-      return;
-    }
+    console.error('API Error:', error);
+};
 
-    showSuccessMessage.value = true;
+const handleSubmit = async () => {
+    clearError();
+    isLoading.value = true;
 
-    setTimeout(() => {
-      showSuccessMessage.value = false;
-      router.push('/login');
-    }, 2000);
-  }
+    try {
+        if (step.value === 1) {
+            // STEP 1: SEND OTP
+            await axios.post(`${API_BASE_URL}/forgot-password/email`, { 
+                email: email.value 
+            });
+            step.value = 2;
+            
+        } else if (step.value === 2) {
+            // STEP 2: VERIFY OTP
+            if (otp.value.length !== 6) { 
+                errorMessage.value = 'Please enter a valid 6-digit OTP'; 
+                isLoading.value = false;
+                return;
+            }
+            
+            await axios.post(`${API_BASE_URL}/forgot-password/verify-otp`, {
+                email: email.value,
+                otp: otp.value
+            });
+            step.value = 3;
+
+        } else if (step.value === 3) {
+            // STEP 3: RESET PASSWORD
+            if (newPassword.value !== confirmPassword.value) { 
+                errorMessage.value = 'Passwords do not match.'; 
+                isLoading.value = false;
+                return;
+            }
+            if (newPassword.value.length < 6) {
+                errorMessage.value = 'Password must be at least 6 characters.';
+                isLoading.value = false;
+                return;
+            }
+
+            await axios.post(`${API_BASE_URL}/forgot-password/reset`, {
+                email: email.value,
+                otp: otp.value, 
+                password: newPassword.value,
+                password_confirmation: confirmPassword.value, // Required by backend
+            });
+            
+            // Success: Show popup and redirect
+            showSuccessMessage.value = true;
+            setTimeout(() => {
+                showSuccessMessage.value = false;
+                router.push('/login');
+            }, 2000);
+        }
+    } catch (error: any) {
+        handleApiError(error);
+    } finally {
+        isLoading.value = false;
+    }
 };
 </script>
 
 <style scoped>
+/* ... (Keep your existing styles here) ... */
 .auth-container {
   min-height: 100vh;
   display: flex;
@@ -176,14 +243,14 @@ const handleSubmit = () => {
 }
 
 .form-control:focus {
-  border-color:  #4BB66D;
+  border-color:  #4BB66D;
   box-shadow: 0 0 0 0.2rem rgba(38, 213, 22, 0.25);
   outline: none;
 }
 
 .btn-primary {
-  background-color:  #4BB66D;
-  border-color:  #4BB66D;
+  background-color:  #4BB66D;
+  border-color:  #4BB66D;
   font-weight: 500;
   padding: 12px;
   border-radius: 8px;
@@ -193,8 +260,8 @@ const handleSubmit = () => {
 }
 
 .btn-primary:hover {
-  background-color:  #3f975b;
-  border-color:  #3f975b;
+  background-color:  #3f975b;
+  border-color:  #3f975b;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(38, 213, 22, 0.3);
 }
@@ -217,13 +284,13 @@ const handleSubmit = () => {
 
 .text-decoration-none {
   text-decoration: none;
-  color:  #4BB66D;
+  color:  #4BB66D;
   font-weight: 500;
   transition: color 0.3s ease;
 }
 
 .text-decoration-none:hover {
-  color:   #3f975b;
+  color:   #3f975b;
 }
 
 .success-popup {
@@ -231,7 +298,7 @@ const handleSubmit = () => {
   top: 20px;
   left: 50%;
   transform: translateX(-50%);
-  background-color:  #4BB66D;
+  background-color:  #4BB66D;
   color: white;
   padding: 16px 32px;
   border-radius: 8px;
@@ -239,6 +306,11 @@ const handleSubmit = () => {
   font-weight: 500;
   z-index: 1000;
   animation: slideDown 0.3s ease;
+}
+.alert-danger {
+    margin-top: 15px;
+    padding: 10px;
+    font-size: 0.9rem;
 }
 
 @keyframes slideDown {
