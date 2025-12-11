@@ -35,6 +35,24 @@ Route::post('/login', function (Request $request) {
     }
 });
 
+// Password reset routes
+Route::post('/forgot-password/{path}', function ($path, Request $request) {
+    try {
+        // Forward the POST request to the Auth Service, including the specific path (/email, /verify-otp, or /reset)
+        $response = Http::timeout(30)->post("http://auth_service/api/forgot-password/{$path}", $request->all());
+        
+        // Use the helper function to pass the original status code (200, 401, 422) and body
+        return handleProxyResponse($response, 'Password reset request failed.');
+        
+    } catch (Exception $e) {
+        // Handle connection failure (e.g., Auth Service container is down)
+        return response()->json([
+            'message' => 'Cannot connect to authentication service',
+            'error' => $e->getMessage()
+        ], 503);
+    }
+})->where('path', '.*');
+
 //User registration route
 Route::post('/users', function (Request $request) {
     try {
