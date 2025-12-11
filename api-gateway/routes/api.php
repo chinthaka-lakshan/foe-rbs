@@ -92,6 +92,20 @@ Route::middleware('auth:sanctum')->group(function () {
             : response()->json(['message' => 'User deletion failed'], $response->status());
     });
 
+    //get all admins
+    Route::get('/admins', function (Request $request) {
+        try {
+            $response = Http::timeout(30)->withToken($request->bearerToken())
+                ->get('http://auth_service/api/admins');
+            return $response->json();
+        } catch (Exception $e) {
+            return response()->json([
+                'message' => 'Cannot connect to authentication service',
+                'error' => $e->getMessage()
+            ], 503);
+        }
+    });
+
     // Category CRUD routes proxying to resource service
     Route::get('/categories', function (Request $request) {
         try {
