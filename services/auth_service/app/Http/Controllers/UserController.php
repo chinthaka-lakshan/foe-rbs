@@ -66,6 +66,19 @@ class UserController extends Controller
         return response()->json($user->load('roles'));
     }
 
+    //get all admins
+    public function getAdmins()
+    {
+        $adminRole = Role::where('name', 'Admin')->first();
+        if (!$adminRole) {
+            return response()->json([], 200);
+        }
+        $admins = User::whereHas('roles', function ($query) use ($adminRole) {
+            $query->where('role_id', $adminRole->id);
+        })->with('roles')->get();
+        return response()->json($admins, 200);
+    }
+
     // destroy
     public function destroy(User $user)
     {
