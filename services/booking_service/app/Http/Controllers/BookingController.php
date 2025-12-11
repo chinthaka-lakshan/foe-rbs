@@ -29,7 +29,50 @@ class BookingController
     public function show($id): JsonResponse
     {
         $booking = Booking::with('details')->findOrFail($id);
-        return response()->json($booking);
+
+        $resourceDetails = [];
+        $bookingItemDetails = [];
+        $resourceServiceUrl = env('RESOURCE_SERVICE_URL', 'http://resource_service/api');
+        
+        foreach ($booking->details as $detail) {
+            if ($detail->item_type === 'resource') {
+                $resourceResponse = Http::timeout(10)->get("{$resourceServiceUrl}/resources/{$detail->item_id}");
+                if ($resourceResponse->successful()) {
+                    $resource = $resourceResponse->json();
+                    $resourceDetails[] = [
+                        'resource_id' => $resource['id'],
+                        'name' => $resource['name'],
+                        'description' => $resource['description'] ?? null,
+                        'location' => $resource['location'] ?? null,
+                        'assigned_admin_id' => $resource['assigned_admin_id'] ?? null,
+                        'assigned_admin_name' => $resource['assigned_admin_name'] ?? null,
+                        'price_per_hour' => $detail->price_per_hour,
+                        'hours' => $detail->hours,
+                        'subtotal' => $detail->subtotal,
+                    ];
+                }
+            } elseif ($detail->item_type === 'booking_item') {
+                $itemResponse = Http::timeout(10)->get("{$resourceServiceUrl}/booking-items/{$detail->item_id}");
+                if ($itemResponse->successful()) {
+                    $item = $itemResponse->json();
+                    $bookingItemDetails[] = [
+                        'item_id' => $item['id'],
+                        'name' => $item['name'],
+                        'item_code' => $item['item_code'],
+                        'price_per_hour' => $detail->price_per_hour,
+                        'quantity' => $detail->quantity,
+                        'hours' => $detail->hours,
+                        'subtotal' => $detail->subtotal,
+                    ];
+                }
+            }
+        }
+
+        return response()->json([
+            'booking' => $booking,
+            'resource_details' => $resourceDetails,
+            'booking_item_details' => $bookingItemDetails,
+        ]);
     }
 
     /**
@@ -384,5 +427,172 @@ public function resendOTP($id): JsonResponse
             'message' => 'Booking cancelled successfully',
             'booking' => $booking
         ]);
+    }
+
+    /**
+     * Get all bookings for resources assigned to a specific admin
+     */
+    public function getByAssignedAdmin(Request $request): JsonResponse
+{
+    $validated = $request->validate([
+        'admin_id'   => 'required|integer',
+        'status'     => 'nullable|in:Pending,Confirmed,Cancelled,Completed',
+        'date_from'  => 'nullable|date',
+        'date_to'    => 'nullable|date|after_or_equal:date_from',
+    ]);
+
+    $adminId = $validated['admin_id'];
+    $resourceServiceUrl = env('RESOURCE_SERVICE_URL', 'http://resource_service/api');
+
+    try {
+
+        /** STEP 1 — Fetch resource list (only ONE API call) */
+        $resourcesResponse = Http::timeout(10)->get("{$resourceServiceUrl}/resources");
+
+        if (!$resourcesResponse->successful()) {
+            return response()->json([
+                'message' => 'Failed to fetch resources',
+                'error'   => 'Resource service unavailable'
+            ], 500);
+        }
+
+        $resourcesMap   = collect($resourcesResponse->json())->keyBy('id');
+        $adminResourceIds = $resourcesMap
+            ->where('assigned_admin_id', $adminId)
+            ->pluck('id')
+            ->toArray();
+
+        if (empty($adminResourceIds)) {
+            return response()->json([
+                'total' => 0,
+                'bookings' => [],
+                'message' => 'No resources assigned to this admin'
+            ]);
+        }
+
+        /** STEP 2 — Get bookings with filters */
+        $bookingsQuery = Booking::with('details');
+
+        if (!empty($validated['status']))
+            $bookingsQuery->where('status', $validated['status']);
+
+        if (!empty($validated['date_from']))
+            $bookingsQuery->where('booking_date', '>=', $validated['date_from']);
+
+        if (!empty($validated['date_to']))
+            $bookingsQuery->where('booking_date', '<=', $validated['date_to']);
+
+        $allBookings = $bookingsQuery->orderBy('booking_date', 'desc')->get();
+
+        /** STEP 3 — Filter bookings containing this admin’s resources */
+        $adminBookings = $allBookings->filter(function ($booking) use ($adminResourceIds) {
+            return $booking->details->contains(function ($d) use ($adminResourceIds) {
+                return $d->item_type === 'resource' && in_array($d->item_id, $adminResourceIds);
+            });
+        });
+
+        /** STEP 4 — Format response output */
+        $formattedBookings = $adminBookings->values()->map(function ($booking) use ($resourcesMap, $adminResourceIds) {
+
+            $resourceDetails      = [];
+            $bookingItemDetails   = [];
+
+            foreach ($booking->details as $detail) {
+
+                /** RESOURCE ITEMS */
+                if ($detail->item_type === 'resource' && in_array($detail->item_id, $adminResourceIds)) {
+
+                    $resource     = $resourcesMap->get($detail->item_id);
+                    $adminDetails = $this->fetchAdminDetails($resource['assigned_admin_id'] ?? null);
+
+                    $resourceDetails[] = [
+                        'resource_id'          => $detail->item_id,
+                        'name'                 => $resource['name'] ?? $detail->item_name,
+                        'description'          => $resource['description'] ?? null,
+                        'location'             => $resource['location_name'] ?? null,
+                        'assigned_admin_id'    => $resource['assigned_admin_id'] ?? null,
+                        'assigned_admin_name'  => $adminDetails['name'] ?? null,
+                        'assigned_admin_email' => $adminDetails['email'] ?? null,
+                        'price_per_hour'       => $detail->price_per_hour,
+                        'hours'                => $detail->hours,
+                        'subtotal'             => $detail->subtotal,
+                    ];
+                }
+
+                /** OTHER BOOKING ITEMS */
+                elseif ($detail->item_type === 'booking_item') {
+                    $bookingItemDetails[] = [
+                        'item_id'        => $detail->item_id,
+                        'name'           => $detail->item_name,
+                        'item_code'      => $detail->item_code,
+                        'price_per_hour' => $detail->price_per_hour,
+                        'quantity'       => $detail->quantity,
+                        'hours'          => $detail->hours,
+                        'subtotal'       => $detail->subtotal,
+                    ];
+                }
+            }
+
+            return [
+                'booking' => [
+                    'id'               => $booking->id,
+                    'booking_reference'=> $booking->booking_reference,
+                    'user_id'          => $booking->user_id,
+                    'user_email'       => $booking->user_email,
+                    'user_type'        => $booking->user_type,
+                    'booking_date'     => $booking->booking_date,
+                    'start_time'       => $booking->start_time,
+                    'end_time'         => $booking->end_time,
+                    'total_amount'     => $booking->total_amount,
+                    'status'           => $booking->status,
+                    'is_verified'      => $booking->is_verified,
+                    'notes'            => $booking->notes,
+                    'created_at'       => $booking->created_at,
+                ],
+                'resource_details'      => $resourceDetails,
+                'booking_item_details'  => $bookingItemDetails,
+            ];
+        })
+
+        /** STEP 5 — Sort so ADMIN-owned resource bookings appear first */
+        ->sortByDesc(fn($b) => count($b['resource_details']) > 0)
+        ->values();
+
+        return response()->json([
+            'total'    => $formattedBookings->count(),
+            'bookings' => $formattedBookings
+        ]);
+
+    } catch (\Exception $e) {
+        \Log::error("Failed to fetch admin bookings: " . $e->getMessage());
+        return response()->json([
+            'message' => 'Failed to fetch bookings',
+            'error'   => $e->getMessage()
+        ], 500);
+    }
+}
+    /**
+     * Helper to fetch admin details from User Service
+     */
+    private function fetchAdminDetails($adminId)
+    {
+        if (empty($adminId)) {
+            return null;
+        }
+
+        $userServiceUrl = env('USER_SERVICE_URL', 'http://user_service/api');
+
+        try {
+            $response = Http::timeout(10)->get("{$userServiceUrl}/users/{$adminId}");
+
+            if ($response->successful()) {
+                return $response->json();
+            }
+
+        } catch (\Exception $e) {
+            \Log::error("Failed to fetch admin details for ID {$adminId}: " . $e->getMessage());
+        }
+
+        return null;
     }
 }
