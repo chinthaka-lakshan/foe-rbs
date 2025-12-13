@@ -18,8 +18,8 @@ services:
       POSTGRES_PASSWORD: password
     volumes:
       - auth_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    # ports:
+    #   - "5432:5432"
     networks:
       - foe_rbs_network
 
@@ -32,8 +32,8 @@ services:
       POSTGRES_PASSWORD: password
     volumes:
       - resource_data:/var/lib/postgresql/data
-    ports:
-      - "5433:5432"
+    # ports:
+    #   - "5433:5432"
     networks:
       - foe_rbs_network
  
@@ -46,8 +46,8 @@ services:
       POSTGRES_PASSWORD: password
     volumes:
       - settings_data:/var/lib/postgresql/data
-    ports:
-      - "5435:5432"
+    # ports:
+    #   - "5435:5432"
     networks:
       - foe_rbs_network
 
@@ -60,8 +60,8 @@ services:
       POSTGRES_PASSWORD: password
     volumes:
       - booking_data:/var/lib/postgresql/data
-    ports:
-      - "5434:5432"
+    # ports:
+    #   - "5434:5432"
     networks:
       - foe_rbs_network
 
