@@ -24,10 +24,22 @@ class Resource extends Model
     {
         return $this->belongsTo(Category::class);
     }
-    public function resourceImages()
+    public function images()
     {
         return $this->hasMany(ResourceImage::class, 'resource_id')->orderBy('order_index');
     }
+    public function getFeaturedImageAttribute()
+    {
+        return $this->images()->first();
+    }
+    public function getImageUrlsAttribute()
+    {
+        return $this->images->pluck('image_url');
+    }
+    // public function resourceImages()
+    // {
+    //     return $this->hasMany(ResourceImage::class, 'resource_id')->orderBy('order_index');
+    // }
     public function equipment(): HasMany
     {
         return $this->hasMany(ResourceEquipment::class);
