@@ -32,7 +32,7 @@ class ResetPasswordOtpMail extends Mailable
     public function content(): Content
     {
         return new Content(
-            view: 'emails.reset_otp', // Points to resources/views/emails/reset_otp.blade.php
+            view: 'emails.reset_otp', 
             with: [
                 'otpCode' => $this->otp,
             ],
