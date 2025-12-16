@@ -156,27 +156,31 @@ class ResourceController extends Controller
             'availability.*.end_time' => 'nullable|date_format:H:i',
         ]);
 
+        $resourceData = collect($validatedData)->except([
+            'images', 
+            'equipment', 
+            'removeImages', 
+            'delete_equipment',
+            'availability'
+        ])->toArray();
+        
+        $imagesToRemoveIds = $validatedData['removeImages'] ?? [];
+        $equipmentUpdates = $validatedData['equipment'] ?? [];
+        $availabilityUpdates = $validatedData['availability'] ?? [];
+
+
         DB::beginTransaction();
         try {
-            // 1. Update base resource data
-            $resourceData = collect($validatedData)->except([
-                'images', 
-                'equipment', 
-                'removeImages', 
-                'delete_equipment',
-                'availability'
-            ])->toArray();
-            
+            // Update base resource data
             $resource->update($resourceData);
 
-            $imagesToRemove = $validatedData['removeImages'] ?? [];
-            // 2. Handle image deletions
-            if ($request->has('removeImages') && !empty($request->removedImages)) {
-                $removedImages = ResourceImage::where('resource_id', $resource->id)
-                    ->whereIn('id', $request->removedImages)
+            // Handle image deletions (LOGIC FIX APPLIED)
+            if (!empty($imagesToRemoveIds)) {
+                $imagesToDelete = ResourceImage::where('resource_id', $resource->id)
+                    ->whereIn('id', $imagesToRemoveIds)
                     ->get();
-                
-                foreach ($removedImages as $image) {
+
+                foreach ($imagesToDelete as $image) {
                     if (Storage::disk('public')->exists($image->file_path)) {
                         Storage::disk('public')->delete($image->file_path);
                     }
@@ -184,21 +188,21 @@ class ResourceController extends Controller
                 }
             }
 
-            // 3. Handle new image uploads
+            // Handle new image uploads
             if ($request->hasFile('images')) {
                 $this->processImages($resource, $request->file('images'));
             }
 
-            // 4. Handle equipment deletions
+            // Handle equipment deletions
             if (!empty($validatedData['delete_equipment'])) {
                 ResourceEquipment::where('resource_id', $resource->id)
                     ->whereIn('id', $validatedData['delete_equipment'])
                     ->delete();
             }
 
-            // 5. Handle equipment updates/creates
-            if (!empty($validatedData['equipment'])) {
-                foreach ($validatedData['equipment'] as $equipmentItem) {
+            // Handle equipment updates/creates
+            if (!empty($equipmentUpdates)) {
+                foreach ($equipmentUpdates as $equipmentItem) {
                     if (isset($equipmentItem['id'])) {
                         // Update existing equipment
                         $equipment = ResourceEquipment::where('resource_id', $resource->id)
@@ -221,9 +225,9 @@ class ResourceController extends Controller
                 }
             }
 
-            // 6. Handle availability updates/creates
-            if (!empty($validatedData['availability'])) {
-                foreach ($validatedData['availability'] as $availabilityItem) {
+            // Handle availability updates/creates
+            if (!empty($availabilityUpdates)) {
+                foreach ($availabilityUpdates as $availabilityItem) {
                     $dayName = $availabilityItem['day_of_week'];
                     $dayNumber = ResourceAvailability::getDayNumber($dayName);
                     $isAvailable = in_array($availabilityItem['is_available'], [true, 1, '1', 'true'], true);
@@ -246,7 +250,7 @@ class ResourceController extends Controller
                             $availability->update($availabilityData);
                         }
                     } else {
-                        // Create new availability or update by day
+                        // Create new availability or update by day (UPSERT)
                         ResourceAvailability::updateOrCreate(
                             [
                                 'resource_id' => $resource->id,
@@ -266,7 +270,7 @@ class ResourceController extends Controller
             return response()->json([
                 'message' => 'Resource updated successfully',
                 'resource' => $resource
-            ]);
+            ], 200);
             
         } catch (Exception $e) {
             DB::rollBack();
@@ -330,14 +334,14 @@ class ResourceController extends Controller
         try {
             $resource = Resource::with(['images', 'equipment', 'availability'])->findOrFail($id);
             
-            // 1. Delete all associated images from storage
+            // Delete all associated images from storage
             foreach ($resource->images as $image) {
                 if (Storage::disk('public')->exists($image->file_path)) {
                     Storage::disk('public')->delete($image->file_path);
                 }
             }
             
-            // 2. Delete the resource (cascade will handle images and equipment in DB)
+            // Delete the resource (cascade will handle images and equipment in DB)
             $resource->delete();
             
             DB::commit();
