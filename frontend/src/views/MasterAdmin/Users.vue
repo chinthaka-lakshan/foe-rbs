@@ -99,7 +99,10 @@
              <td>
                 <div class="btn-group btn-group-sm">
                   <button class="btn btn-outline-danger">Delete</button>
-                  <button class="btn btn-outline-warning">Role</button>
+                  <button 
+                    class="btn btn-outline-warning" 
+                    @click="openRoleModal(user)"> Role
+                  </button>
                   <button class="btn btn-outline-info">Permissions</button>
                 </div>
              </td>
@@ -184,13 +187,144 @@
             </div>
         </div>
     </div>
+
+    <div class="modal fade" id="roleModal" tabindex="-1" aria-labelledby="roleModalLabel" aria-hidden="true" ref="roleModalRef">
+        <div class="modal-dialog modal-sm modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title" id="roleModalLabel">Change User Role</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form @submit.prevent="handleRoleUpdate">
+                    <div class="modal-body">
+                        <div v-if="roleErrorMessage" class="alert alert-danger">{{ roleErrorMessage }}</div>
+
+                        <p class="mb-3">
+                            <span class="fw-bold">{{ userToEdit?.name }}</span>'s current role: 
+                            <span class="badge" :class="userToEdit?.primaryRole.toLowerCase().includes('admin') ? 'bg-primary' : 'bg-info'">
+                                {{ userToEdit?.primaryRole }}
+                            </span>
+                        </p>
+
+                        <div class="mb-3">
+                            <label for="roleSelect" class="form-label fw-bold">New Role</label>
+                            <select id="roleSelect" class="form-select" v-model="selectedNewRole" :disabled="isRoleUpdating">
+                                <option 
+                                    v-for="role in availableRoles" 
+                                    :key="role" 
+                                    :value="role">
+                                    {{ role }}
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" :disabled="isRoleUpdating">Cancel</button>
+                        <button type="submit" class="btn btn-warning text-dark" :disabled="isRoleUpdating">
+                            <span v-if="isRoleUpdating" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            <i v-else class="bi bi-person-gear me-1"></i> Update Role
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
   </div>
 </template>
+
+
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { Modal } from 'bootstrap'; 
 import Navbar from '../../components/Navbar.vue';
 import MasterAdminSidebar from '../../components/Sidebar/MasterAdminSidebar.vue';
+
+// ... (Keep existing interfaces and states)
+
+// NEW STATES FOR ROLE MODAL
+const isRoleUpdating = ref(false);
+const roleErrorMessage = ref('');
+const userToEdit = ref<User | null>(null);
+const selectedNewRole = ref('');
+const availableRoles = ref(['Master Admin', 'Admin', 'User']); // Hardcoded based on your data
+
+// NEW Modal reference and instance
+const roleModalRef = ref<HTMLElement | null>(null);
+let roleModalInstance: Modal | null = null;
+
+// ... (Keep existing fetchUsers function)
+
+// --- ROLE CHANGE LOGIC (PUT) ---
+
+const openRoleModal = (user: User) => {
+    roleErrorMessage.value = '';
+    userToEdit.value = user;
+    // Pre-select the current role to start
+    selectedNewRole.value = user.primaryRole; 
+    roleModalInstance?.show();
+};
+
+const handleRoleUpdate = async () => {
+    if (!userToEdit.value || !selectedNewRole.value || selectedNewRole.value === userToEdit.value.primaryRole) {
+        roleErrorMessage.value = 'Please select a new role to update.';
+        return;
+    }
+
+    isRoleUpdating.value = true;
+    roleErrorMessage.value = '';
+    errorMessage.value = '';
+    const token = getAuthToken();
+
+    if (!token) {
+        isRoleUpdating.value = false;
+        errorMessage.value = "Authentication token missing.";
+        return;
+    }
+
+    const userId = userToEdit.value.id;
+    const url = `${USERS_API_URL}/${userId}`;
+
+    try {
+        const response = await fetch(url, {
+            method: 'PUT',
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json' 
+            },
+            body: JSON.stringify({
+                // Only sending the role name to the backend PUT endpoint
+                role: selectedNewRole.value, 
+            }),
+        });
+
+        const responseText = await response.text();
+        let data = null;
+        
+        try {
+            data = JSON.parse(responseText);
+        } catch (e) {
+            roleErrorMessage.value = `Error: Failed to process request (Status: ${response.status}).`;
+            isRoleUpdating.value = false;
+            return;
+        }
+
+        if (response.ok) { // Status 200 OK
+            errorMessage.value = `Role for ${userToEdit.value.name} updated to ${selectedNewRole.value} successfully!`;
+            
+            roleModalInstance?.hide();
+            await fetchUsers(); // Refresh the user list
+        } else {
+            // Display general error or validation error in the role modal
+            roleErrorMessage.value = data.message || `Update failed (Status: ${response.status}).`;
+        }
+    } catch (e) {
+        roleErrorMessage.value = 'Network error: Could not connect to the API Gateway.';
+    } finally {
+        isRoleUpdating.value = false;
+    }
+};
+
+// ... (Keep existing fetchUsers, filteredUsers, etc.)
 
 // --- API CONFIG ---
 const API_BASE_URL = 'http://localhost:8000/api'; 
@@ -421,6 +555,22 @@ onMounted(() => {
         userModalRef.value.addEventListener('hidden.bs.modal', resetNewUserForm);
     }
     fetchUsers();
+});
+
+// --- LIFECYCLE HOOK ---
+onMounted(() => {
+    // Initialize Bootstrap Modal for User Form
+    if (userModalRef.value) {
+        userModalInstance = new Modal(userModalRef.value);
+        userModalRef.value.addEventListener('hidden.bs.modal', resetNewUserForm);
+    }
+    
+    // Initialize Bootstrap Modal for Role Change
+    if (roleModalRef.value) {
+        roleModalInstance = new Modal(roleModalRef.value);
+    }
+
+  fetchUsers();
 });
 </script>
 
