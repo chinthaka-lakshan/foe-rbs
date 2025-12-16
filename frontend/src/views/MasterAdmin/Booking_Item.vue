@@ -24,13 +24,9 @@
                     :disabled="loading"
                 />
             </div>
-            <button
-                @click="openAddItemModal"
-                class="btn btn-success add-new-btn" 
-                :disabled="loading"
-            >
-                <i class="bi bi-plus-circle me-2"></i>Add Booking Item
-            </button>
+                 <button class="btn btn-success btn-sm" @click="openAddItemModal" :disabled="loading">
+                    <i class="bi bi-plus-circle me-2"></i>Add Booking Item
+                 </button>
         </div>
         
         <div class="table-card">
@@ -171,7 +167,7 @@
                                 >
                                 <small class="text-danger" v-if="validationErrors.available_quantity">{{ validationErrors.available_quantity[0] }}</small>
                             </div>
-                            <div class="col-md-4 mb-3 d-flex align-items-center pt-md-4">
+                           <div class="col-md-4 mb-3 d-flex align-items-center pt-md-4">
                                 <div class="form-check form-switch">
                                     <input 
                                         class="form-check-input" 
@@ -182,7 +178,7 @@
                                         :disabled="saving || modalData.available_quantity <= 0"
                                     >
                                     <label class="form-check-label" for="itemAvailability">
-                                        {{ modalData.available_quantity <= 0 ? 'Out of Stock' : 'Currently Available' }}
+                                        {{ modalData.available_quantity <= 0 ? 'Out of Stock' : (modalData.status === 'Available' ? 'Currently Available' : 'Manually Unavailable') }}
                                     </label>
                                 </div>
                             </div>
@@ -311,16 +307,24 @@ const filteredItems = computed(() => {
 });
 
 // --- WATCHERS ---
-// Auto-update status logic based on quantity, preventing manual input errors
-watch(() => modalData.value.available_quantity, (newQty) => {
+// Auto-update status logic based on quantity
+watch(() => modalData.value.available_quantity, (newQty, oldQty) => {
+    // 1. If quantity hits 0 or less, always force 'Unavailable' (Out of Stock).
     if (newQty !== undefined && newQty <= 0) {
         modalData.value.status = 'Unavailable';
-    } else if (newQty !== undefined && newQty > 0 && modalData.value.status === 'Unavailable') {
-         // Only switch back to 'Available' if the status was explicitly 'Unavailable' due to zero stock
-         modalData.value.status = 'Available';
+    } 
+    // 2. If quantity becomes positive (was 0 or less) AND the status is 'Unavailable',
+    //    assume the unavailability was due to lack of stock and set it back to 'Available'.
+    //    (This prevents manual checks overriding the user's intent to keep it unavailable for maintenance).
+    else if (newQty !== undefined && newQty > 0 && (oldQty === undefined || oldQty <= 0) && modalData.value.status === 'Unavailable') {
+        modalData.value.status = 'Available';
     }
-});
+}, { immediate: true }); 
+// Adding { immediate: true } ensures the status is correct on modal open based on the initial quantity.
 
+
+// You can also simplify the manual change handler in the template to avoid the watch completely if you rely solely on Vue's v-model concept:
+// (The template change above using @change is the most direct fix for the original issue.)
 
 // --- API METHODS ---
 
