@@ -17,14 +17,14 @@ class ResourceController extends Controller
     // Get list of resources with related data
     public function index(): JsonResponse
     {
-        $resources = Resource::with(['category', 'resourceImages', 'equipment', 'availability'])->get();
+        $resources = Resource::with(['category', 'images', 'equipment', 'availability'])->get();
         return response()->json($resources);
     }
 
     // Get a single resource by ID with related data
     public function show($id): JsonResponse
     {
-        $resource = Resource::with(['category', 'resourceImages', 'equipment', 'availability'])->findOrFail($id);
+        $resource = Resource::with(['category', 'images', 'equipment', 'availability'])->findOrFail($id);
         return response()->json($resource);
     }
 
@@ -39,7 +39,8 @@ class ResourceController extends Controller
                 'description' => 'nullable|string',
                 'base_price' => 'required|numeric|min:0',
                 'status' => 'required|in:Active,Inactive,Maintenance',
-                // Nested data validation
+                // Nested data 
+                
                 'images' => 'nullable|array', 
                 'images.*' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
                 // Equipment validation
@@ -68,21 +69,8 @@ class ResourceController extends Controller
                 // 2. Create the Resource Record (base data)
                 $resource = Resource::create($resourceData); 
 
-                // 3. Handle File Uploads and Association (Images)
-                if (!empty($imagesData)) {
-                    $imagesToSave = [];
-                    
-                    foreach ($imagesData as $index => $file) {
-                        $path = Storage::disk('public')->putFile('resource_images', $file); 
-
-                        $imagesToSave[] = new ResourceImage([
-                            'file_path' => $path,
-                            'file_name' => $file->getClientOriginalName(),
-                            'alt_text' => $resource->name . ' image ' . $index,
-                            'order_index' => $index,
-                        ]);
-                    }
-                    $resource->resourceImages()->saveMany($imagesToSave);
+                if($request->hasFile('images')){
+                    $this->processImages($resource, $request->file('images'));
                 }
                 
                 if (!empty($equipmentData)) {
@@ -111,7 +99,7 @@ class ResourceController extends Controller
                 }
                 DB::commit();
 
-                $resource->load(['category', 'resourceImages', 'equipment', 'availability']); 
+                $resource->load(['category','images', 'equipment', 'availability']); 
                 
                 return response()->json([
                     'message' => 'Resource created successfully',
@@ -146,10 +134,10 @@ class ResourceController extends Controller
             'status' => 'sometimes|in:Active,Inactive,Maintenance',
             
             // Images
-            'images' => 'nullable|array',
-            'images.*' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
-            'delete_images' => 'nullable|array',
-            'delete_images.*' => 'integer|exists:resource_images,id',
+            'images' => 'sometimes|nullable|array',
+            'images.*' => 'sometimes|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'removeImages' => 'sometimes|array',
+            'removeImages.*' => 'sometimes|integer|exists:resource_images,id',
             
             // Equipment
             'equipment' => 'nullable|array',
@@ -168,25 +156,30 @@ class ResourceController extends Controller
             'availability.*.end_time' => 'nullable|date_format:H:i',
         ]);
 
+        $resourceData = collect($validatedData)->except([
+            'images', 
+            'equipment', 
+            'removeImages', 
+            'delete_equipment',
+            'availability'
+        ])->toArray();
+        
+        $imagesToRemoveIds = $validatedData['removeImages'] ?? [];
+        $equipmentUpdates = $validatedData['equipment'] ?? [];
+        $availabilityUpdates = $validatedData['availability'] ?? [];
+
+
         DB::beginTransaction();
         try {
-            // 1. Update base resource data
-            $resourceData = collect($validatedData)->except([
-                'images', 
-                'equipment', 
-                'delete_images', 
-                'delete_equipment',
-                'availability'
-            ])->toArray();
-            
+            // Update base resource data
             $resource->update($resourceData);
 
-            // 2. Handle image deletions
-            if (!empty($validatedData['delete_images'])) {
+            // Handle image deletions (LOGIC FIX APPLIED)
+            if (!empty($imagesToRemoveIds)) {
                 $imagesToDelete = ResourceImage::where('resource_id', $resource->id)
-                    ->whereIn('id', $validatedData['delete_images'])
+                    ->whereIn('id', $imagesToRemoveIds)
                     ->get();
-                
+
                 foreach ($imagesToDelete as $image) {
                     if (Storage::disk('public')->exists($image->file_path)) {
                         Storage::disk('public')->delete($image->file_path);
@@ -195,35 +188,21 @@ class ResourceController extends Controller
                 }
             }
 
-            // 3. Handle new image uploads
+            // Handle new image uploads
             if ($request->hasFile('images')) {
-                $existingImagesCount = $resource->resourceImages()->count();
-                $imagesToSave = [];
-                
-                foreach ($request->file('images') as $index => $file) {
-                    $path = Storage::disk('public')->putFile('resource_images', $file);
-                    
-                    $imagesToSave[] = new ResourceImage([
-                        'file_path' => $path,
-                        'file_name' => $file->getClientOriginalName(),
-                        'alt_text' => $resource->name . ' image ' . ($existingImagesCount + $index),
-                        'order_index' => $existingImagesCount + $index,
-                    ]);
-                }
-                
-                $resource->resourceImages()->saveMany($imagesToSave);
+                $this->processImages($resource, $request->file('images'));
             }
 
-            // 4. Handle equipment deletions
+            // Handle equipment deletions
             if (!empty($validatedData['delete_equipment'])) {
                 ResourceEquipment::where('resource_id', $resource->id)
                     ->whereIn('id', $validatedData['delete_equipment'])
                     ->delete();
             }
 
-            // 5. Handle equipment updates/creates
-            if (!empty($validatedData['equipment'])) {
-                foreach ($validatedData['equipment'] as $equipmentItem) {
+            // Handle equipment updates/creates
+            if (!empty($equipmentUpdates)) {
+                foreach ($equipmentUpdates as $equipmentItem) {
                     if (isset($equipmentItem['id'])) {
                         // Update existing equipment
                         $equipment = ResourceEquipment::where('resource_id', $resource->id)
@@ -246,9 +225,9 @@ class ResourceController extends Controller
                 }
             }
 
-            // 6. Handle availability updates/creates
-            if (!empty($validatedData['availability'])) {
-                foreach ($validatedData['availability'] as $availabilityItem) {
+            // Handle availability updates/creates
+            if (!empty($availabilityUpdates)) {
+                foreach ($availabilityUpdates as $availabilityItem) {
                     $dayName = $availabilityItem['day_of_week'];
                     $dayNumber = ResourceAvailability::getDayNumber($dayName);
                     $isAvailable = in_array($availabilityItem['is_available'], [true, 1, '1', 'true'], true);
@@ -271,7 +250,7 @@ class ResourceController extends Controller
                             $availability->update($availabilityData);
                         }
                     } else {
-                        // Create new availability or update by day
+                        // Create new availability or update by day (UPSERT)
                         ResourceAvailability::updateOrCreate(
                             [
                                 'resource_id' => $resource->id,
@@ -286,12 +265,12 @@ class ResourceController extends Controller
             DB::commit();
             
             // Reload relationships
-            $resource->load(['category', 'resourceImages', 'equipment', 'availability']);
+            $resource->load(['category', 'images', 'equipment', 'availability']);
             
             return response()->json([
                 'message' => 'Resource updated successfully',
                 'resource' => $resource
-            ]);
+            ], 200);
             
         } catch (Exception $e) {
             DB::rollBack();
@@ -307,21 +286,62 @@ class ResourceController extends Controller
         }
     }
 
+    private function processImages(Resource $resource, array $images)
+    {
+        $currentCount = $resource->images()->count();
+
+        if(($currentCount + count($images)) > 10){
+            throw new Exception("Maximum of 10 images allowed per resource. Current:" . $currentCount);
+        }
+        $orderIndex = $resource->images()->max('order_index') ?? -1;
+
+        foreach ($images as $image){
+            $orderIndex++;
+
+            $folderPath = 'resource_images/' . $resource->id;
+            $filename = $this->generateUniqueFilename($image, $orderIndex);
+            $path = $image->storeAs($folderPath, $filename, 'public');
+
+            ResourceImage::create([
+                'resource_id' => $resource->id,
+                'file_path' => $path,
+                'order_index' => $orderIndex,
+                'alt_text' => $resource->name . ' image ' . $orderIndex,
+            ]);
+        }
+    }
+
+    private function generateUniqueFilename($file, $index)
+    {
+        $extension = $file->getClientOriginalExtension();
+        $timestamp = time();
+        return "image_{$index}_{$timestamp}.{$extension}";
+    }
+
+    private function reorderImages($resourceId)
+    {
+        $images = ResourceImage::where('resource_id', $resourceId)->orderBy('order_index')->get();
+        foreach ($images as $index => $image) {
+            $image->update(['order_index' => $index]);
+        }
+    }
+    
+
     // Delete a resource
     public function destroy($id): JsonResponse
     {
         DB::beginTransaction();
         try {
-            $resource = Resource::with(['resourceImages', 'equipment', 'availability'])->findOrFail($id);
+            $resource = Resource::with(['images', 'equipment', 'availability'])->findOrFail($id);
             
-            // 1. Delete all associated images from storage
-            foreach ($resource->resourceImages as $image) {
+            // Delete all associated images from storage
+            foreach ($resource->images as $image) {
                 if (Storage::disk('public')->exists($image->file_path)) {
                     Storage::disk('public')->delete($image->file_path);
                 }
             }
             
-            // 2. Delete the resource (cascade will handle images and equipment in DB)
+            // Delete the resource (cascade will handle images and equipment in DB)
             $resource->delete();
             
             DB::commit();

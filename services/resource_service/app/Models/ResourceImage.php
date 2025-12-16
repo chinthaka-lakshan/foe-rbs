@@ -17,25 +17,32 @@ class ResourceImage extends Model
         'order_index',
         'alt_text',
     ];
-    protected $appends = ['full_image_url'];
+    protected $appends = ['image_url'];
 
     public function resource()
     {
         return $this->belongsTo(Resource::class, 'resource_id');
     }
-    public function getFullImageUrlAttribute()
+    // public function getImageUrlAttribute()
+    // {
+    //     return asset('storage/' . $this->image_path);
+    // }
+
+    public function getImageUrlAttribute()
     {
-        return url('storage/' . $this->image_path);
+        if ($this->file_path) {
+            return 'http://localhost:8000/storage/' . $this->file_path;
+        }
+        return null;
     }
 
     public static function boot()
     {
         parent::boot();
 
-        static::deleting(function ($resourceImage) {
-            // Delete the image file from storage
-            if (\Storage::disk('public')->exists($resourceImage->image_path)) {
-                \Storage::disk('public')->delete($resourceImage->image_path);
+        static::deleting(function ($image) {
+            if (\Storage::disk('public')->exists($image->file_path)) {
+                \Storage::disk('public')->delete($image->file_path);
             }
         });
     }
