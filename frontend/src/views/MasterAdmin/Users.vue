@@ -5,7 +5,7 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
       <h2 class="section-title mb-0">Users</h2>
      <button class="btn btn-success btn-sm" @click="openAddModal" :disabled="isLoading">
-        <i class="bi bi-plus-circle me-1"></i>Add New User
+        <i class="bi bi-plus-circle me-1"></i>Add New 
      </button>
     </div>
 
@@ -98,7 +98,6 @@
                </td>
              <td>
                 <div class="btn-group btn-group-sm">
-                  <button class="btn btn-outline-primary">Edit</button>
                   <button class="btn btn-outline-danger">Delete</button>
                   <button class="btn btn-outline-warning">Role</button>
                   <button class="btn btn-outline-info">Permissions</button>
