@@ -23,9 +23,17 @@ class ResourceImage extends Model
     {
         return $this->belongsTo(Resource::class, 'resource_id');
     }
+    // public function getImageUrlAttribute()
+    // {
+    //     return asset('storage/' . $this->image_path);
+    // }
+
     public function getImageUrlAttribute()
     {
-        return asset('storage/' . $this->image_path);
+        if ($this->file_path) {
+            return 'http://localhost:8000/storage/' . $this->file_path;
+        }
+        return null;
     }
 
     public static function boot()
@@ -33,9 +41,8 @@ class ResourceImage extends Model
         parent::boot();
 
         static::deleting(function ($image) {
-            // Delete the image file from storage
-            if (\Storage::disk('public')->exists($image->image_path)) {
-                \Storage::disk('public')->delete($image->image_path);
+            if (\Storage::disk('public')->exists($image->file_path)) {
+                \Storage::disk('public')->delete($image->file_path);
             }
         });
     }
