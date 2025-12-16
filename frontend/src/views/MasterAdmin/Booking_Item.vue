@@ -333,6 +333,7 @@ const handleApiError = (data: any, status: number, isFormSubmit: boolean) => {
         validationErrors.value = data.errors;
         const firstError = Object.values(data.errors).flat()[0] || "Validation failed.";
         if (isFormSubmit) {
+            
             savingErrorMessage.value = firstError;
         } else {
             errorMessage.value = firstError;
