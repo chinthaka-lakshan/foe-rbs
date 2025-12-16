@@ -4,9 +4,9 @@
   <div class="section">
     <div class="d-flex justify-content-between align-items-center mb-4">
       <h2 class="section-title mb-0">Users</h2>
-      <button class="btn btn-success btn-sm" :disabled="isLoading">
-        <i class="bi bi-plus-circle me-1"></i>Add New 
-      </button>
+     <button class="btn btn-success btn-sm" @click="openAddModal" :disabled="isLoading">
+        <i class="bi bi-plus-circle me-1"></i>Add New User
+     </button>
     </div>
 
     <div v-if="errorMessage" class="alert alert-danger alert-dismissible fade show" role="alert">
@@ -109,11 +109,87 @@
        </table>
       </div>
    </div>
+
+
+   <div class="modal fade" id="userFormModal" tabindex="-1" aria-labelledby="userFormModalLabel" aria-hidden="true" ref="userModalRef">
+        <div class="modal-dialog modal-md modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="userFormModalLabel">Add New User</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form @submit.prevent="handleStore">
+                    <div class="modal-body">
+                        <div v-if="modalErrorMessage" class="alert alert-danger">{{ modalErrorMessage }}</div>
+
+                        <div class="mb-3">
+                            <label for="userName" class="form-label fw-bold">User Name <span class="text-danger">*</span></label>
+                            <input 
+                                type="text" 
+                                class="form-control" 
+                                id="userName" 
+                                v-model="newUser.name" 
+                                :disabled="isSaving"
+                                placeholder="Enter full name"
+                            />
+                            <small class="text-danger" v-if="validationErrors.name">{{ validationErrors.name[0] }}</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="userEmail" class="form-label fw-bold">Email <span class="text-danger">*</span></label>
+                            <input 
+                                type="email" 
+                                class="form-control" 
+                                id="userEmail" 
+                                v-model="newUser.email" 
+                                :disabled="isSaving"
+                                placeholder="Enter email address"
+                            />
+                            <small class="text-danger" v-if="validationErrors.email">{{ validationErrors.email[0] }}</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="userPassword" class="form-label fw-bold">Password <span class="text-danger">*</span></label>
+                            <input 
+                                type="password" 
+                                class="form-control" 
+                                id="userPassword" 
+                                v-model="newUser.password" 
+                                :disabled="isSaving"
+                                placeholder="Minimum 6 characters"
+                            />
+                            <small class="text-danger" v-if="validationErrors.password">{{ validationErrors.password[0] }}</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="userConfirmPassword" class="form-label fw-bold">Confirm Password <span class="text-danger">*</span></label>
+                            <input 
+                                type="password" 
+                                class="form-control" 
+                                id="userConfirmPassword" 
+                                v-model="newUser.password_confirmation" 
+                                :disabled="isSaving"
+                                placeholder="Re-enter password"
+                            />
+                            <small class="text-danger" v-if="validationErrors.password_confirmation">{{ validationErrors.password_confirmation[0] }}</small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" :disabled="isSaving">Cancel</button>
+                        <button type="submit" class="btn btn-success" :disabled="isSaving">
+                            <span v-if="isSaving" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            <i v-else class="bi bi-save me-1"></i> Save User
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
   </div>
 </template>
-
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { Modal } from 'bootstrap'; 
 import Navbar from '../../components/Navbar.vue';
 import MasterAdminSidebar from '../../components/Sidebar/MasterAdminSidebar.vue';
 
@@ -125,7 +201,7 @@ const getAuthToken = () => localStorage.getItem('authToken');
 // --- INTERFACES ---
 interface Role {
     id: number;
-    name: string; // e.g., 'Master Admin', 'Admin', 'User'
+    name: string;
 }
 
 interface User {
@@ -134,16 +210,43 @@ interface User {
     email: string;
     status: 'active' | 'inactive' | string;
     roles: Role[];
-    primaryRole: string; // Frontend helper for display
+    primaryRole: string;
+}
+
+interface NewUserForm {
+    name: string;
+    email: string;
+    password: string;
+    password_confirmation: string;
+}
+
+interface ValidationErrors {
+    [key: string]: string[];
 }
 
 // --- STATE ---
 const searchQuery = ref('');
 const selectedRole = ref('');
 const isLoading = ref(true);
+const isSaving = ref(false); // State for modal button loading
 const errorMessage = ref('');
+const modalErrorMessage = ref(''); // State for modal errors
+const validationErrors = ref<ValidationErrors>({}); // State for backend validation errors
 
 const users = ref<User[]>([]);
+
+// Modal reference and instance
+const userModalRef = ref<HTMLElement | null>(null);
+let userModalInstance: Modal | null = null;
+
+const initialNewUserState: NewUserForm = {
+    name: '',
+    email: '',
+    password: '',
+    password_confirmation: '',
+};
+
+const newUser = ref<NewUserForm>({ ...initialNewUserState });
 
 // --- COMPUTED STATS ---
 const stats = computed(() => {
@@ -151,25 +254,98 @@ const stats = computed(() => {
     const totalAdmins = users.value.filter(u => u.primaryRole.toLowerCase().includes('admin')).length;
     return {
         totalUsers,
-        totalAdmins
+        totalAdmins 
     };
 });
 
-// --- API FETCH FUNCTION ---
-
+// --- HELPER FUNCTIONS ---
 const handleApiError = (data: any, status: number) => {
-    // If data is null (connection error), provide a generic message.
-    if (!data) {
-        errorMessage.value = `Network Error (Status: ${status}). Could not reach the authentication service.`;
-        return;
+    validationErrors.value = {}; // Clear previous validation errors
+    if (status === 422 && data.errors) {
+        validationErrors.value = data.errors;
+        modalErrorMessage.value = "Validation failed. Please check the fields and try again.";
+    } else {
+        errorMessage.value = data?.message || `Failed to perform operation (Status: ${status}).`;
     }
-    // If the backend returned a JSON error message (from the Gateway or Microservice)
-    errorMessage.value = data.message || `Failed to fetch users (Status: ${status}).`;
+};
+
+const resetNewUserForm = () => {
+    newUser.value = { ...initialNewUserState };
+    validationErrors.value = {};
+    modalErrorMessage.value = '';
+};
+
+// --- MODAL & CRUD LOGIC (POST) ---
+
+const openAddModal = () => {
+    resetNewUserForm();
+    userModalInstance?.show();
 };
 
 /**
- * Fetches all users from the backend API.
+ * Handles the POST request to create a new user.
  */
+const handleStore = async () => {
+    isSaving.value = true;
+    modalErrorMessage.value = '';
+    errorMessage.value = ''; 
+
+    // Note: The backend validation should handle password confirmation, 
+    // but the front-end checks for visual user feedback.
+    
+    const token = getAuthToken();
+    if (!token) {
+        isSaving.value = false;
+        errorMessage.value = "Authentication token missing.";
+        return;
+    }
+
+    try {
+        const response = await fetch(USERS_API_URL, {
+            method: 'POST',
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json' 
+            },
+            body: JSON.stringify({
+                name: newUser.value.name,
+                email: newUser.value.email,
+                password: newUser.value.password,
+                password_confirmation: newUser.value.password_confirmation,
+            }),
+        });
+
+        const responseText = await response.text();
+        let data = null;
+        
+        try {
+            data = JSON.parse(responseText);
+        } catch (e) {
+            handleApiError(null, response.status);
+            userModalInstance?.hide();
+            return;
+        }
+
+        if (response.ok) { // Status 201 Created
+            errorMessage.value = '';
+            // Using the main error message area for success feedback
+            errorMessage.value = `User '${data.name}' created successfully!`;
+            
+            userModalInstance?.hide();
+            await fetchUsers(); // Refresh the user list
+        } else {
+            handleApiError(data, response.status);
+            // Error message and validation errors remain visible inside the modal
+        }
+    } catch (e) {
+        modalErrorMessage.value = 'Network error: Could not connect to the API Gateway.';
+    } finally {
+        isSaving.value = false;
+    }
+};
+
+
+// --- API FETCH FUNCTION (GET) ---
 const fetchUsers = async () => {
     isLoading.value = true;
     errorMessage.value = '';
@@ -178,7 +354,7 @@ const fetchUsers = async () => {
     if (!token) {
         errorMessage.value = "Authentication token missing. Cannot fetch users.";
         isLoading.value = false;
-        return;
+         return;
     }
 
     try {
@@ -189,26 +365,21 @@ const fetchUsers = async () => {
                 'Content-Type': 'application/json' 
             }
         });
-        
-        // Use text to safely handle non-JSON responses from the proxy/gateway
+ 
         const responseText = await response.text();
         let data = null;
-        
+ 
         try {
             data = JSON.parse(responseText);
         } catch (e) {
-            // Non-JSON response, likely a connection/server error handled below
             handleApiError(null, response.status); 
             return; 
         }
 
         if (response.ok && Array.isArray(data)) {
-            // Map the raw backend data to the User interface
             users.value = data.map(user => {
-                // Find the primary role (e.g., the highest-priority role or the first one)
-                // Note: The Postman response shows 'Master Admin' and 'User' as role names.
                 const roleName = user.roles?.[0]?.name || 'User'; 
-                
+ 
                 return {
                     id: user.id,
                     name: user.name,
@@ -216,14 +387,14 @@ const fetchUsers = async () => {
                     status: user.status,
                     roles: user.roles || [],
                     primaryRole: roleName
-                } as User;
+                 } as User;
             });
 
         } else {
             handleApiError(data, response.status);
         }
     } catch (e) {
-        errorMessage.value = 'Network error: Could not connect to the API Gateway.';
+         errorMessage.value = 'Network error: Could not connect to the API Gateway.';
     } finally {
         isLoading.value = false;
     }
@@ -233,10 +404,10 @@ const fetchUsers = async () => {
 
 const filteredUsers = computed(() => {
     return users.value.filter(user => {
-        const matchesSearch = user.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+          const matchesSearch = user.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
                               user.email.toLowerCase().includes(searchQuery.value.toLowerCase());
-        
-        // Filter based on the derived primaryRole (case-insensitive)
+ 
+ // Filter based on the derived primaryRole (case-insensitive)
         const matchesRole = !selectedRole.value || user.primaryRole.toLowerCase() === selectedRole.value.toLowerCase();
         
         return matchesSearch && matchesRole;
@@ -245,87 +416,93 @@ const filteredUsers = computed(() => {
 
 // --- LIFECYCLE HOOK ---
 onMounted(() => {
+    // Initialize Bootstrap Modal
+    if (userModalRef.value) {
+        userModalInstance = new Modal(userModalRef.value);
+        userModalRef.value.addEventListener('hidden.bs.modal', resetNewUserForm);
+    }
     fetchUsers();
 });
 </script>
+
 <style scoped>
 .section {
- animation: fadeIn 0.3s ease;
- margin-left: 260px;
- padding: 20px; 
+animation: fadeIn 0.3s ease;
+margin-left: 260px;
+padding: 20px; 
 }
 @media (max-width: 768px) {
- /* When the sidebar collapses, reduce the margin to 70px (Collapsed Sidebar Width) */
- .section {
- margin-left: 80px;
- }
+/* When the sidebar collapses, reduce the margin to 70px (Collapsed Sidebar Width) */
+.section {
+margin-left: 80px;
+}
 }
 
 @keyframes fadeIn {
- from {
- opacity: 0;
- transform: translateY(10px);
- } to {
- opacity: 1;
- transform: translateY(0);
- }
+from {
+opacity: 0;
+transform: translateY(10px);
+} to {
+opacity: 1;
+transform: translateY(0);
+}
 }
 
 .section-title {
- color: #1e4449;
- font-weight: 600;
- margin-bottom: 24px;
+color: #1e4449;
+font-weight: 600;
+margin-bottom: 24px;
 }
 
 .stat-card {
- background: white;
- border-radius: 8px;
- padding: 24px;
- box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
- display: flex;
- align-items: center;
- gap: 20px;
+background: white;
+border-radius: 8px;
+padding: 24px;
+box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+display: flex;
+align-items: center;
+gap: 20px;
 }
 
 .stat-icon {
- width: 70px;
- height: 70px;
- border-radius: 12px;
- display: flex;
- align-items: center;
- justify-content: center;
+width: 70px;
+height: 70px;
+border-radius: 12px;
+display: flex;
+align-items: center;
+justify-content: center;
 }
 
 .stat-content h3 {
- font-size: 32px;
- font-weight: 700;
- color: #1e4449;
- margin: 0;
+font-size: 32px;
+font-weight: 700;
+color: #1e4449;
+margin: 0;
 }
 
 .stat-content p {
- margin: 0;
- color: #6c757d;
+margin: 0;
+color: #6c757d;
 }
 
 .table-card {
- background: white;
- border-radius: 8px;
- padding: 24px;
- box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+background: white;
+border-radius: 8px;
+padding: 24px;
+box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .table thead {
- background: #f8f9fa;
+background: #f8f9fa;
 }
 
 .btn-success {
- background-color: #4BB66D; /* Changed color to match typical admin green */
- border-color: #4BB66D;
+background-color: #4BB66D; 
+border-color: #4BB66D;
 }
 
 .btn-success:hover {
- background-color: #3f975b;
- border-color: #3f975b;
+background-color: #3f975b;
+border-color: #3f975b;
 }
 </style>
