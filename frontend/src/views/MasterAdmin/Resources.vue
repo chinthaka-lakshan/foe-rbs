@@ -275,7 +275,11 @@ interface Resource {
     assigned_admin_id?: number;
     description?: string;
     status: 'Active' | 'Inactive' | 'Maintenance';
-    resourceImages?: Array<{
+    // resourceImages?: Array<{
+    //     file_path: string;
+    //     file_name: string;
+    // }>;
+    images?: Array<{
         file_path: string;
         file_name: string;
     }>;
@@ -312,9 +316,21 @@ const filteredResources = computed(() => {
 });
 
 // Helper Functions
+// const getImageUrl = (resource: Resource): string => {
+//     if (resource.resourceImages && resource.resourceImages.length > 0) {
+//         const filePath = resource.resourceImages[0].file_path;
+        
+//         // This is the correct, host-accessible URL format
+//         return `${STORAGE_URL_ROOT}/${filePath}`; 
+//     }
+    
+//     return 'https://via.placeholder.com/300x180?text=No+Image';
+// };
+
 const getImageUrl = (resource: Resource): string => {
-    if (resource.resourceImages && resource.resourceImages.length > 0) {
-        const filePath = resource.resourceImages[0].file_path;
+    // Now use resource.images
+    if (resource.images && resource.images.length > 0) {
+        const filePath = resource.images[0].file_path;
         
         // This is the correct, host-accessible URL format
         return `${STORAGE_URL_ROOT}/${filePath}`; 
