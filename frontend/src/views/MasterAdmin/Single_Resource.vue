@@ -4,27 +4,38 @@
   <div class="section">
     <div class="d-flex justify-content-between align-items-center mb-4">
       <h2 class="section-title mb-0">Resource Details: <span class="text-dark-teal">{{ resource?.name || 'Loading...' }}</span></h2>
-      </div>
-
-    <div v-if="!resource" class="alert alert-danger text-center">
-        Resource not found. Please ensure the resource exists and try again.
     </div>
 
-    <div v-else class="resource-detail-container">
+    <div v-if="isLoading" class="text-center py-5">
+      <div class="spinner-border text-dark-teal" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      <p class="mt-2 text-muted">Loading resource details...</p>
+    </div>
+
+    <div v-else-if="errorMessage" class="alert alert-danger text-center">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ errorMessage }}
+    </div>
+
+    <div v-else-if="resource" class="resource-detail-container">
       <div class="row g-4">
         
         <div class="col-lg-6">
           <div class="card p-3 h-100 resource-main-details">
             <div class="resource-image-lg mb-3">
-              <img :src="resource.image || 'https://via.placeholder.com/600x400?text=No+Image'" :alt="resource.name" class="img-fluid rounded">
+              <img :src="getImageUrl(resource)" :alt="resource.name" class="img-fluid rounded">
             </div>
 
             <div class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
-              <span :class="resource.status === 'active' ? 'badge bg-success' : 'badge bg-secondary'" class="fs-6">
+              <span :class="resource.status === 'Active' ? 'badge bg-success' : 'badge bg-secondary'" class="fs-6">
                   {{ resource.status.toUpperCase() }}
               </span>
               <span class="fw-bold fs-5 text-dark-teal">
-                  Base Price: {{ resource.price !== null && resource.price !== undefined ? `Rs. ${resource.price.toFixed(2)}` : 'N/A (Free)' }}
+                  Base Price: 
+                  {{ resource.base_price !== null && resource.base_price !== undefined ? 
+                     `Rs. ${resource.base_price.toFixed(2)}` : 
+                     'N/A (Free)' 
+                  }}
               </span>
             </div>
 
@@ -32,7 +43,7 @@
             <p>{{ resource.description || 'No detailed description available.' }}</p>
 
               <button 
-                  v-if="resource.status === 'active'"
+                  v-if="resource.status === 'Active'"
                   class="btn btn-sm btn-reserve-card" 
                   @click.stop="handleReserveClick(resource.id)"
                 >
@@ -52,33 +63,33 @@
                 </div>
                 <div class="detail-item mb-3">
                     <h6 class="text-muted mb-0">Location Name</h6>
-                    <p>{{ resource.location || 'N/A' }}</p>
+                    <p>{{ resource.location_name || 'N/A' }}</p>
                 </div>
                 <div class="detail-item mb-3">
                     <h6 class="text-muted mb-0">Category</h6>
-                    <p class="fw-bold">{{ resource.category }}</p>
+                    <p class="fw-bold">{{ resource.category?.name || 'Unknown' }}</p>
                 </div>
                 <div class="detail-item">
                     <h6 class="text-muted mb-0">Assigned Person</h6>
-                    <p class="fw-bold">{{ resource.assignee || 'Unassigned' }}</p>
+                    <p class="fw-bold">{{ resource.assigned_admin_id ? `Admin ID: ${resource.assigned_admin_id}` : 'Unassigned' }}</p>
                 </div>
             </div>
 
             <div class="schedule-details mb-4 pb-3 border-bottom">
                 <h6 class="text-muted fw-bold mb-3">Weekly Availability</h6>
                 
-                <div v-if="!resource.schedule || resource.schedule.length === 0" class="text-muted small">
+                <div v-if="!resource.availability || resource.availability.length === 0" class="text-muted small">
                     Schedule not defined.
                 </div>
                 
                 <ul v-else class="list-unstyled schedule-list">
-                    <li v-for="day in resource.schedule" :key="day.dayName" class="d-flex justify-content-between align-items-center small">
-                        <span class="fw-medium">{{ day.dayName }}</span>
+                    <li v-for="day in resource.availability" :key="day.day_name" class="d-flex justify-content-between align-items-center small">
+                        <span class="fw-medium">{{ day.day_name }}</span>
                         
-                        <span :class="day.available ? 'text-success fw-medium' : 'text-danger'">
-                            <span v-if="day.available">
+                        <span :class="day.is_available ? 'text-success fw-medium' : 'text-danger'">
+                            <span v-if="day.is_available">
                                 <i class="bi bi-check-circle-fill me-1"></i>
-                                {{ day.startTime }} - {{ day.endTime }}
+                                {{ formatTime(day.start_time) }} - {{ formatTime(day.end_time) }}
                             </span>
                             <span v-else>
                                 <i class="bi bi-x-circle-fill me-1"></i>
@@ -95,11 +106,12 @@
                     <li v-if="!resource.equipment || resource.equipment.length === 0" class="text-muted small">
                         No custom equipment listed.
                     </li>
-                    <li v-else v-for="(item, index) in resource.equipment" :key="index" class="d-flex justify-content-between align-items-center mb-1">
+                    <li v-else v-for="item in resource.equipment" :key="item.id" class="d-flex justify-content-between align-items-center mb-1 small">
                         <span class="fw-medium">
-                            <i class="bi bi-check-circle-fill text-success me-2"></i>{{ item.name }}
+                            <i class="bi bi-check-circle-fill text-success me-2"></i>{{ item.equipment_name }}
                         </span>
-                        </li>
+                        <span class="text-muted">Qty: {{ item.quantity }}</span>
+                    </li>
                 </ul>
             </div>
             
@@ -113,81 +125,151 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter} from 'vue-router';
-// NOTE: Adjust these paths if necessary
+import axios from 'axios';
 import Navbar from '../../components/Navbar.vue';
 import MasterAdminSidebar from '../../components/Sidebar/MasterAdminSidebar.vue';
 
-interface EquipmentItem {
-    name: string;
-    price: number | null;
-    checked: boolean; 
+const route = useRoute();
+const router = useRouter();
+
+// API Configuration
+const API_BASE_URL = 'http://localhost:8000/api';
+const STORAGE_URL_ROOT = 'http://localhost:8000/storage';
+
+// Interfaces adjusted to match backend response structure
+interface ResourceImage {
+    id: number;
+    file_path: string;
+    image_url?: string; 
 }
 
-interface ScheduleDay {
-    dayName: string;
-    available: boolean;
-    startTime: string; 
-    endTime: string;   
+interface ResourceEquipment {
+    id: number;
+    equipment_name: string;
+    quantity: number;
+}
+
+interface ResourceAvailability {
+    id: number;
+    day_name: string;
+    day_of_week: number;
+    is_available: boolean;
+    start_time: string | null;
+    end_time: string | null;
+}
+
+interface ResourceCategory {
+    id: number;
+    name: string;
 }
 
 interface Resource {
     id: number;
     name: string;
-    location?: string;
-    category: string;
-    price: number | null; 
-    assignee?: string;
-    description?: string;
-    status: 'active' | 'inactive';
-    image: string;
-    equipment?: EquipmentItem[]; 
-    schedule?: ScheduleDay[]; 
+    location_name: string;
+    category_id: number;
+    category: ResourceCategory;
+    base_price: number | null; // 💰 FIX: Using correct backend key
+    assigned_admin_id: number | null;
+    description: string | null;
+    status: 'Active' | 'Inactive' | 'Maintenance';
+    images: ResourceImage[]; // Using correct relationship name
+    equipment: ResourceEquipment[]; 
+    availability: ResourceAvailability[]; 
 }
 
-const route = useRoute();
+// State
 const resource = ref<Resource | null>(null);
-const router = useRouter();
+const isLoading = ref(false);
+const errorMessage = ref('');
 
-// Function to load resources from Local Storage, initializing if empty
-const getCombinedResources = (): Resource[] => {
-    const storedResourcesString = localStorage.getItem('resources');
-    
-    if (!storedResourcesString) {
-        return [];
+
+// Helper to get auth token
+const getAuthToken = (): string | null => {
+    return localStorage.getItem('authToken') || localStorage.getItem('token');
+};
+
+// Helper Functions
+const getImageUrl = (resource: Resource): string => {
+    // 🖼️ FIX: Ensure we check the 'images' array and return the publicly accessible path
+    if (resource.images && resource.images.length > 0) {
+        // Build the URL using the public root and the file path
+        return `${STORAGE_URL_ROOT}/${resource.images[0].file_path}`; 
     }
-    return JSON.parse(storedResourcesString);
+    return 'https://via.placeholder.com/600x400?text=No+Image';
+};
+
+const formatTime = (time: string | null): string => {
+    if (!time) return '00:00';
+    return time.substring(0, 5); 
+};
+
+// API Calls
+const fetchResourceDetails = async (id: number) => {
+    isLoading.value = true;
+    errorMessage.value = '';
+    
+    try {
+        const token = getAuthToken();
+        if (!token) {
+            errorMessage.value = 'Authentication required. Redirecting to login.';
+            router.push('/login');
+            return;
+        }
+
+        const response = await axios.get(`${API_BASE_URL}/resources/${id}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json',
+            }
+        });
+        
+        const fetchedResource = response.data.resource || response.data;
+        
+        // 💰 CRITICAL FIX: Cast base_price to float before assigning
+        if (fetchedResource.base_price) {
+            fetchedResource.base_price = parseFloat(fetchedResource.base_price);
+        } else {
+             fetchedResource.base_price = null;
+        }
+        
+        // Ensure status is capitalized to match the Vue template logic
+        if (fetchedResource.status) {
+             fetchedResource.status = fetchedResource.status.charAt(0).toUpperCase() + fetchedResource.status.slice(1);
+        }
+
+        resource.value = fetchedResource as Resource;
+
+    } catch (error: any) {
+        console.error('Error fetching resource details:', error);
+        if (error.response?.status === 404) {
+            errorMessage.value = `Resource ID ${id} was not found.`;
+        } else {
+            errorMessage.value = 'Failed to load resource details. Please try again.';
+        }
+        resource.value = null;
+    } finally {
+        isLoading.value = false;
+    }
 };
 
 const handleReserveClick = (id: number) => {
     router.push({ path: '/single-resource-booking', query: { resourceId: id } });
 };
 
-const fetchResourceDetails = (id: number) => {
-    // Fetch the LATEST data from Local Storage
-    const latestResources = getCombinedResources();
-    
-    const fetchedResource = latestResources.find(r => r.id === id);
-    if (fetchedResource) {
-        // Ensure price is read correctly
-        if (fetchedResource.price === undefined) fetchedResource.price = null;
-        if (fetchedResource.equipment === undefined) fetchedResource.equipment = [];
-        if (fetchedResource.schedule === undefined) fetchedResource.schedule = [];
-        
-        resource.value = fetchedResource;
-    } else {
-        resource.value = null;
-    }
-};
-
 onMounted(() => {
     const resourceId = parseInt(route.params.id as string);
     if (!isNaN(resourceId)) {
         fetchResourceDetails(resourceId);
+    } else {
+        errorMessage.value = 'Invalid resource ID provided.';
+        resource.value = null;
     }
 });
 </script>
 
 <style scoped>
+/* NOTE: Retaining your existing styles */
 .text-dark-teal {
     color: #1e4449;
     font-weight: 600;
@@ -219,7 +301,6 @@ onMounted(() => {
     object-fit: cover;
 }
 
-/* Base styles for list items/details */
 .details-list h6, .schedule-details h6, .equipment-details h6 {
     font-size: 0.95rem;
     font-weight: 600;
@@ -230,14 +311,11 @@ onMounted(() => {
     margin-bottom: 0;
 }
 
-/* Schedule List Styling (Simplified) */
 .schedule-list li {
     padding: 4px 0;
     font-size: 0.9rem;
 }
 
-
-/* Badge colors */
 .bg-success {
     background-color: #4BB66D !important;
 }
@@ -260,7 +338,7 @@ onMounted(() => {
     border-color: #1e4449;
     font-size: 0.8rem;
     padding: 0.25rem 0.6rem;
-    line-height: 4; /* Ensure button height is small */
+    line-height: 1.5; 
     margin-top: 17%;
 }
 .btn-reserve-card:hover {
