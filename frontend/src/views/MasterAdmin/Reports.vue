@@ -87,20 +87,20 @@
           <button 
             class="btn btn-sm" 
             :class="dateRangeFilter === 'custom' ? 'btn-dark-teal' : 'btn-outline-dark-teal'"
-            @click="setDateRange('custom')"
+            @click="showCustomDatePicker()"
           >
             Custom
           </button>
         </div>
       </div>
 
-      <div v-if="dateRangeFilter === 'custom'" class="row g-3">
+      <div v-if="showCustomDateFields" class="row g-3">
         <div class="col-md-3 col-sm-6">
           <label class="form-label small text-muted">Start Date</label>
           <input 
             type="date" 
             class="form-control form-control-sm" 
-            v-model="customStartDate"
+            v-model="tempCustomStartDate"
           >
         </div>
         <div class="col-md-3 col-sm-6">
@@ -108,21 +108,25 @@
           <input 
             type="date" 
             class="form-control form-control-sm" 
-            v-model="customEndDate"
+            v-model="tempCustomEndDate"
           >
         </div>
-        <div class="col-md-2 col-sm-4">
-          <button class="btn btn-sm btn-dark-teal mt-4" @click="applyCustomDateRange">
+        <div class="col-md-4 col-sm-8 d-flex align-items-end gap-2">
+          <button class="btn btn-sm btn-dark-teal" @click="applyCustomDateRange">
             Apply
+          </button>
+          <button class="btn btn-sm btn-outline-secondary" @click="cancelCustomDateRange">
+            Cancel
           </button>
         </div>
       </div>
       
-      <div v-if="dateRangeFilter !== 'custom'" class="text-muted small">
+      <div class="text-muted small mt-2">
         Showing data from: <strong>{{ getDateRangeText() }}</strong>
       </div>
     </div>
 
+    <!-- Rest of the template remains the same... -->
     <!-- Resources Report Section -->
     <div class="table-card mb-4" id="resources-report">
       <div class="d-flex justify-content-between align-items-center mb-3">
@@ -187,21 +191,8 @@
             <tr v-for="resource in filteredResources" :key="resource.id">
               <td>{{ resource.id }}</td>
               <td>
-                <div class="d-flex align-items-center">
-                  <div v-if="resource.images && resource.images.length > 0" class="me-2">
-                    <img 
-                      :src="getImageUrl(resource)" 
-                      alt="Resource Image" 
-                      class="resource-thumbnail"
-                      style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;"
-                    >
-                  </div>
-                  <div>
-                    <strong>{{ resource.name }}</strong>
-                    <div v-if="resource.description" class="text-muted small" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                      {{ resource.description }}
-                    </div>
-                  </div>
+                <div>
+                  <strong>{{ resource.name }}</strong>
                 </div>
               </td>
               <td>{{ getCategoryName(resource.category_id) }}</td>
@@ -409,14 +400,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import Navbar from '../../components/Navbar.vue';
 import MasterAdminSidebar from '../../components/Sidebar/MasterAdminSidebar.vue';
 import axios from 'axios';
 
 // API Configuration - Based on your resource page
 const API_BASE_URL = 'http://localhost:8000/api';
-const STORAGE_URL_ROOT = 'http://localhost:8000/storage';
 
 // Get auth token
 const getAuthToken = () => {
@@ -436,10 +426,6 @@ interface Resource {
   status: 'Active' | 'Inactive' | 'Maintenance';
   created_at: string;
   updated_at: string;
-  images?: Array<{
-    file_path: string;
-    file_name: string;
-  }>;
 }
 
 interface User {
@@ -449,6 +435,7 @@ interface User {
   status: 'active' | 'inactive';
   primaryRole: string;
   created_at: string;
+  last_login_at?: string;
 }
 
 interface Booking {
@@ -484,6 +471,9 @@ const categories = ref<Category[]>([]);
 
 // Filter states
 const dateRangeFilter = ref('month'); // today, week, month, year, custom
+const showCustomDateFields = ref(false);
+const tempCustomStartDate = ref('');
+const tempCustomEndDate = ref('');
 const customStartDate = ref('');
 const customEndDate = ref('');
 
@@ -505,11 +495,28 @@ const bookingFilter = ref({
   search: ''
 });
 
+// Date range for filtering all sections
+const currentDateRange = ref({ startDate: '', endDate: '' });
+
+// Watch date range changes and apply to all sections
+watch([dateRangeFilter], () => {
+  if (dateRangeFilter.value !== 'custom') {
+    updateCurrentDateRange();
+    showCustomDateFields.value = false;
+  }
+});
+
+// Function to update current date range
+const updateCurrentDateRange = () => {
+  const { startDate, endDate } = getDateRange();
+  currentDateRange.value = { startDate, endDate };
+};
+
 // Computed properties
 const stats = computed(() => ({
-  totalResources: resources.value.length,
-  totalUsers: users.value.length,
-  totalBookings: bookings.value.length
+  totalResources: filteredResources.value.length,
+  totalUsers: filteredUsers.value.length,
+  totalBookings: filteredBookings.value.length
 }));
 
 const filteredResources = computed(() => {
@@ -536,7 +543,7 @@ const filteredResources = computed(() => {
   }
   
   // Apply date range filter to creation date
-  const { startDate, endDate } = getDateRange();
+  const { startDate, endDate } = currentDateRange.value;
   if (startDate && endDate) {
     filtered = filtered.filter(r => {
       const createdDate = new Date(r.created_at).toISOString().split('T')[0];
@@ -550,6 +557,7 @@ const filteredResources = computed(() => {
 const filteredUsers = computed(() => {
   let filtered = users.value;
   
+  // Apply search filter
   if (userFilter.value.search) {
     const search = userFilter.value.search.toLowerCase();
     filtered = filtered.filter(u => 
@@ -558,12 +566,23 @@ const filteredUsers = computed(() => {
     );
   }
   
+  // Apply role filter
   if (userFilter.value.role) {
     filtered = filtered.filter(u => u.primaryRole === userFilter.value.role);
   }
   
+  // Apply status filter
   if (userFilter.value.status) {
     filtered = filtered.filter(u => u.status === userFilter.value.status);
+  }
+  
+  // Apply date range filter to creation date
+  const { startDate, endDate } = currentDateRange.value;
+  if (startDate && endDate) {
+    filtered = filtered.filter(u => {
+      const createdDate = new Date(u.created_at).toISOString().split('T')[0];
+      return createdDate >= startDate && createdDate <= endDate;
+    });
   }
   
   return filtered;
@@ -572,14 +591,17 @@ const filteredUsers = computed(() => {
 const filteredBookings = computed(() => {
   let filtered = bookings.value;
   
+  // Apply resource filter
   if (bookingFilter.value.resource) {
     filtered = filtered.filter(b => b.resourceId.toString() === bookingFilter.value.resource);
   }
   
+  // Apply status filter
   if (bookingFilter.value.status) {
     filtered = filtered.filter(b => b.status === bookingFilter.value.status);
   }
   
+  // Apply search filter
   if (bookingFilter.value.search) {
     const search = bookingFilter.value.search.toLowerCase();
     filtered = filtered.filter(b => 
@@ -589,7 +611,7 @@ const filteredBookings = computed(() => {
   }
   
   // Apply date range filter to booking date
-  const { startDate, endDate } = getDateRange();
+  const { startDate, endDate } = currentDateRange.value;
   if (startDate && endDate) {
     filtered = filtered.filter(b => {
       const bookingDate = b.date.split(' ')[0]; // Get date part only
@@ -600,7 +622,7 @@ const filteredBookings = computed(() => {
   return filtered;
 });
 
-// Helper functions - FIXED formatPrice function
+// Helper functions
 const formatDate = (dateString: string) => {
   if (!dateString) return 'N/A';
   try {
@@ -638,26 +660,21 @@ const formatTime = (timeString: string) => {
   return timeString;
 };
 
-// FIXED: Handle non-number values in formatPrice
 const formatPrice = (price: number | string | undefined): string => {
   if (price === undefined || price === null) return '0.00';
   
-  // Convert string to number if needed
   let numericPrice: number;
   if (typeof price === 'string') {
-    // Remove any non-numeric characters except decimal point
     const cleanPrice = price.replace(/[^\d.-]/g, '');
     numericPrice = parseFloat(cleanPrice);
   } else {
     numericPrice = price;
   }
   
-  // Check if it's a valid number
   if (isNaN(numericPrice) || !isFinite(numericPrice)) {
     return '0.00';
   }
   
-  // Format with 2 decimal places
   return numericPrice.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 };
 
@@ -691,29 +708,45 @@ const getResourceName = (resourceId: number) => {
 };
 
 const getResourceBookingCount = (resourceId: number) => {
-  return bookings.value.filter(b => b.resourceId === resourceId).length;
+  const { startDate, endDate } = currentDateRange.value;
+  let count = bookings.value.filter(b => b.resourceId === resourceId).length;
+  
+  // If date range is set, filter bookings by date
+  if (startDate && endDate) {
+    count = bookings.value.filter(b => {
+      if (b.resourceId !== resourceId) return false;
+      const bookingDate = b.date.split(' ')[0];
+      return bookingDate >= startDate && bookingDate <= endDate;
+    }).length;
+  }
+  
+  return count;
 };
 
 const getUserBookingCount = (userId: number | string) => {
-  return bookings.value.filter(b => b.userId === userId).length;
-};
-
-const getImageUrl = (resource: Resource): string => {
-  if (resource.images && resource.images.length > 0) {
-    const filePath = resource.images[0].file_path;
-    return `${STORAGE_URL_ROOT}/${filePath}`; 
+  const { startDate, endDate } = currentDateRange.value;
+  let count = bookings.value.filter(b => b.userId === userId).length;
+  
+  // If date range is set, filter bookings by date
+  if (startDate && endDate) {
+    count = bookings.value.filter(b => {
+      if (b.userId !== userId) return false;
+      const bookingDate = b.date.split(' ')[0];
+      return bookingDate >= startDate && bookingDate <= endDate;
+    }).length;
   }
-  return 'https://via.placeholder.com/40x40?text=No+Image';
+  
+  return count;
 };
 
 const getDateRangeText = () => {
-  const { startDate, endDate } = getDateRange();
-  if (!startDate || !endDate) return '';
+  const { startDate, endDate } = currentDateRange.value;
+  if (!startDate || !endDate) return 'All Time';
   
   const start = new Date(startDate);
   const end = new Date(endDate);
   
-  if (isNaN(start.getTime()) || isNaN(end.getTime())) return '';
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) return 'All Time';
   
   if (dateRangeFilter.value === 'today') {
     return start.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -726,24 +759,7 @@ const getDateRangeText = () => {
   } else if (dateRangeFilter.value === 'custom') {
     return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
   }
-  return '';
-};
-
-const isDateInRange = (dateString: string, startDate: string, endDate: string) => {
-  try {
-    const date = new Date(dateString);
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    
-    if (isNaN(date.getTime()) || isNaN(start.getTime()) || isNaN(end.getTime())) {
-      return false;
-    }
-    
-    end.setHours(23, 59, 59, 999);
-    return date >= start && date <= end;
-  } catch (error) {
-    return false;
-  }
+  return 'All Time';
 };
 
 const getDateRange = () => {
@@ -790,29 +806,47 @@ const getDateRange = () => {
 // Date range functions
 const setDateRange = (range: string) => {
   dateRangeFilter.value = range;
+  showCustomDateFields.value = false;
   
   if (range === 'custom') {
+    showCustomDateFields.value = true;
+    // Set default values for custom date picker (last 30 days)
     const today = new Date();
     const lastMonth = new Date(today);
-    lastMonth.setMonth(today.getMonth() - 1);
+    lastMonth.setDate(today.getDate() - 30);
     
-    customStartDate.value = lastMonth.toISOString().split('T')[0];
-    customEndDate.value = today.toISOString().split('T')[0];
+    tempCustomStartDate.value = lastMonth.toISOString().split('T')[0];
+    tempCustomEndDate.value = today.toISOString().split('T')[0];
+    
+    // Set initial values but don't apply yet
+    customStartDate.value = tempCustomStartDate.value;
+    customEndDate.value = tempCustomEndDate.value;
+    updateCurrentDateRange();
   } else {
     customStartDate.value = '';
     customEndDate.value = '';
+    updateCurrentDateRange();
+  }
+};
+
+const showCustomDatePicker = () => {
+  if (dateRangeFilter.value === 'custom') {
+    // Toggle visibility
+    showCustomDateFields.value = !showCustomDateFields.value;
+  } else {
+    setDateRange('custom');
   }
 };
 
 const applyCustomDateRange = () => {
-  if (!customStartDate.value || !customEndDate.value) {
+  if (!tempCustomStartDate.value || !tempCustomEndDate.value) {
     alert('Please select both start and end dates');
     return;
   }
   
   try {
-    const start = new Date(customStartDate.value);
-    const end = new Date(customEndDate.value);
+    const start = new Date(tempCustomStartDate.value);
+    const end = new Date(tempCustomEndDate.value);
     
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
       alert('Invalid date format');
@@ -824,9 +858,30 @@ const applyCustomDateRange = () => {
       return;
     }
     
+    // Apply the custom dates
+    customStartDate.value = tempCustomStartDate.value;
+    customEndDate.value = tempCustomEndDate.value;
     dateRangeFilter.value = 'custom';
+    updateCurrentDateRange();
+    showCustomDateFields.value = false;
   } catch (error) {
     alert('Error processing dates');
+  }
+};
+
+const cancelCustomDateRange = () => {
+  // Reset to previous values and hide the custom date fields
+  showCustomDateFields.value = false;
+  
+  // If we had a custom range applied before, keep it
+  // Otherwise, reset to the default "This Month"
+  if (dateRangeFilter.value !== 'custom') {
+    tempCustomStartDate.value = '';
+    tempCustomEndDate.value = '';
+  } else {
+    // Reset temp values to current custom values
+    tempCustomStartDate.value = customStartDate.value;
+    tempCustomEndDate.value = customEndDate.value;
   }
 };
 
@@ -951,7 +1006,6 @@ const printReports = () => {
             .badge { border: 1px solid #000; font-size: 10px; padding: 3px 6px; }
             .btn, .form-control, .form-select, .filter-section { display: none !important; }
             .report-section { margin-bottom: 30px; page-break-inside: avoid; }
-            .resource-thumbnail { width: 30px; height: 30px; }
           }
           .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #1e4449; padding-bottom: 15px; }
           .date-range { text-align: center; color: #666; margin-bottom: 20px; }
@@ -1397,15 +1451,6 @@ onMounted(() => {
   border-color: #3f975b;
 }
 
-/* Resource Thumbnail */
-.resource-thumbnail {
-  width: 40px;
-  height: 40px;
-  object-fit: cover;
-  border-radius: 4px;
-  border: 1px solid #dee2e6;
-}
-
 /* Alert Styles */
 .alert-danger {
   background-color: #f8d7da;
@@ -1485,11 +1530,6 @@ onMounted(() => {
   .table th,
   .table td {
     padding: 6px 4px;
-  }
-  
-  .resource-thumbnail {
-    width: 30px;
-    height: 30px;
   }
 }
 
