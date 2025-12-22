@@ -124,6 +124,33 @@ Route::middleware('auth:sanctum')->group(function () {
         }
     });
 
+    //user permission management routes
+    Route::post('users/{id}/permissions', function (Request $request, $id) {
+        try {
+            $response = Http::timeout(30)->withToken($request->bearerToken())
+                ->post("http://auth_service/api/users/{$id}/permissions", $request->all());
+            return $response->json();
+        } catch (Exception $e) {
+            return response()->json([
+                'message' => 'Cannot connect to authentication service',
+                'error' => $e->getMessage()
+            ], 503);
+        }
+    });
+
+    Route::get('/users/permissions/overrides', function (Request $request) {
+        try {
+            $response = Http::timeout(30)->withToken($request->bearerToken())
+                ->get("http://auth_service/api/users/permissions/overrides");
+            return $response->json();
+        } catch (Exception $e) {
+            return response()->json([
+                'message' => 'Cannot connect to authentication service',
+                'error' => $e->getMessage()
+            ], 503);
+        }
+    });
+
     // Category CRUD routes proxying to resource service
     Route::get('/categories', function (Request $request) {
         try {

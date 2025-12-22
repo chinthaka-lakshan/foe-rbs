@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\UserPermissionController;
 
 /*
 |--------------------------------------------------------------------------
@@ -24,4 +25,8 @@ Route::middleware(['auth:sanctum', 'role:Master Admin,Admin'])->group(function (
     Route::delete('/users/{user}', [UserController::class, 'destroy']);
     Route::get('/users', [UserController::class, 'index']);
     Route::get('/admins', [UserController::class, 'getAdmins']);
+});
+Route::middleware(['auth:sanctum', 'role:Master Admin'])->group(function () {
+    Route::post('/users/{id}/permissions', [UserPermissionController::class, 'updatePermissions']);
+    Route::get('/users/permissions/overrides', [UserPermissionController::class, 'index']);
 });
