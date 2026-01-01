@@ -527,9 +527,14 @@ const filteredResources = computed(() => {
     filtered = filtered.filter(r => r.status === resourceFilter.value.status);
   }
   
-  // Apply category filter
+  // Apply category filter - FIXED THIS PART
   if (resourceFilter.value.category) {
-    filtered = filtered.filter(r => r.category_id.toString() === resourceFilter.value.category);
+    // Convert both to string for comparison to handle number/string mismatch
+    const selectedCategoryId = resourceFilter.value.category.toString();
+    filtered = filtered.filter(r => {
+      const resourceCategoryId = r.category_id?.toString() || '';
+      return resourceCategoryId === selectedCategoryId;
+    });
   }
   
   // Apply search filter
@@ -1082,6 +1087,10 @@ const fetchResources = async () => {
     }
     
     console.log('Resources loaded:', resources.value.length);
+    // Debug: Log resources with their categories
+    resources.value.forEach(resource => {
+      console.log(`Resource ID: ${resource.id}, Category ID: ${resource.category_id}, Name: ${resource.name}`);
+    });
   } catch (error: any) {
     console.error('Error fetching resources:', error);
     if (error.response?.status === 401) {
@@ -1207,6 +1216,10 @@ const fetchCategories = async () => {
     }
     
     console.log('Categories loaded:', categories.value.length);
+    // Debug: Log categories
+    categories.value.forEach(category => {
+      console.log(`Category ID: ${category.id}, Name: ${category.name}`);
+    });
   } catch (error: any) {
     console.error('Error fetching categories:', error);
     categories.value = [];
