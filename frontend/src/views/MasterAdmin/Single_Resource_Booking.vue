@@ -15,6 +15,11 @@
     
     <div v-else-if="!resource" class="alert alert-danger text-center">
         Resource not found. Cannot proceed with booking.
+        <div class="mt-2">
+          <button class="btn btn-primary" @click="goToResources">
+            <i class="bi bi-arrow-left me-1"></i> Go to Resources
+          </button>
+        </div>
     </div>
 
     <div v-else class="card p-4 shadow-sm">
@@ -401,7 +406,7 @@ interface Resource {
     category: string;
     price: number | null; 
     status: 'active' | 'inactive';
-    equipment?: EquipmentItem[]; // KEPT: Base equipment included with the resource
+    equipment?: EquipmentItem[];
     schedule?: ScheduleDay[]; 
 }
 interface GlobalBooking {
@@ -485,36 +490,122 @@ const generatedOTP = ref(''); // Store the generated OTP for verification
 
 const userEmail = ref<string>('');
 
-// --- UTILITIES & FETCHING ---
+// --- SAMPLE RESOURCES DATA ---
+const SAMPLE_RESOURCES: Resource[] = [
+  {
+    id: 1,
+    name: 'Conference Room A',
+    location: 'Main Building, 2nd Floor',
+    category: 'Meeting Room',
+    price: 5000.00,
+    status: 'active',
+    equipment: [
+      { name: 'Projector', price: 0 },
+      { name: 'Whiteboard', price: 0 },
+      { name: 'Conference Phone', price: 0 }
+    ],
+    schedule: [
+      { dayName: 'Monday', available: true, startTime: '08:00', endTime: '18:00' },
+      { dayName: 'Tuesday', available: true, startTime: '08:00', endTime: '18:00' },
+      { dayName: 'Wednesday', available: true, startTime: '08:00', endTime: '18:00' },
+      { dayName: 'Thursday', available: true, startTime: '08:00', endTime: '18:00' },
+      { dayName: 'Friday', available: true, startTime: '08:00', endTime: '18:00' },
+      { dayName: 'Saturday', available: false, startTime: '', endTime: '' },
+      { dayName: 'Sunday', available: false, startTime: '', endTime: '' }
+    ]
+  },
+  {
+    id: 2,
+    name: 'Tennis Court 1',
+    location: 'Sports Complex',
+    category: 'Sports Facility',
+    price: 2500.00,
+    status: 'active',
+    equipment: [
+      { name: 'Tennis Net', price: 0 },
+      { name: 'Court Lights', price: 500 }
+    ],
+    schedule: [
+      { dayName: 'Monday', available: true, startTime: '06:00', endTime: '22:00' },
+      { dayName: 'Tuesday', available: true, startTime: '06:00', endTime: '22:00' },
+      { dayName: 'Wednesday', available: true, startTime: '06:00', endTime: '22:00' },
+      { dayName: 'Thursday', available: true, startTime: '06:00', endTime: '22:00' },
+      { dayName: 'Friday', available: true, startTime: '06:00', endTime: '22:00' },
+      { dayName: 'Saturday', available: true, startTime: '07:00', endTime: '20:00' },
+      { dayName: 'Sunday', available: true, startTime: '07:00', endTime: '20:00' }
+    ]
+  },
+  {
+    id: 3,
+    name: 'Computer Lab 3',
+    location: 'IT Building, Room 301',
+    category: 'IT Facility',
+    price: 3000.00,
+    status: 'active',
+    equipment: [
+      { name: 'Desktop Computers (x30)', price: 0 },
+      { name: 'Projector', price: 0 },
+      { name: 'Sound System', price: 0 }
+    ],
+    schedule: [
+      { dayName: 'Monday', available: true, startTime: '08:00', endTime: '20:00' },
+      { dayName: 'Tuesday', available: true, startTime: '08:00', endTime: '20:00' },
+      { dayName: 'Wednesday', available: true, startTime: '08:00', endTime: '20:00' },
+      { dayName: 'Thursday', available: true, startTime: '08:00', endTime: '20:00' },
+      { dayName: 'Friday', available: true, startTime: '08:00', endTime: '18:00' },
+      { dayName: 'Saturday', available: true, startTime: '09:00', endTime: '17:00' },
+      { dayName: 'Sunday', available: false, startTime: '', endTime: '' }
+    ]
+  }
+];
 
-const getStoredResources = (): Resource[] => {
-    const storedResourcesString = localStorage.getItem('resources');
-    return storedResourcesString ? JSON.parse(storedResourcesString) : [];
-};
+// --- UTILITIES & FETCHING ---
 
 const parseDate = (dateString: string) => {
     // Converts YYYY-MM-DD string to a number (YYYYMMDD) for numerical comparison
     return Number(dateString.replace(/-/g, ''));
 };
 
+const getStoredResources = (): Resource[] => {
+    try {
+        const storedResourcesString = localStorage.getItem('resources');
+        if (storedResourcesString) {
+            return JSON.parse(storedResourcesString);
+        } else {
+            // Initialize with sample data if localStorage is empty
+            localStorage.setItem('resources', JSON.stringify(SAMPLE_RESOURCES));
+            return SAMPLE_RESOURCES;
+        }
+    } catch (error) {
+        console.error('Error reading from localStorage:', error);
+        return SAMPLE_RESOURCES;
+    }
+};
+
 const fetchResourceDetails = (id: number) => {
+    console.log('Fetching resource with ID:', id);
+    
     const latestResources = getStoredResources();
+    console.log('Available resources:', latestResources);
+    
     const fetchedResource = latestResources.find(r => r.id === id);
     
-    loading.value = false;
+    console.log('Found resource:', fetchedResource);
 
     if (fetchedResource) {
+        // Ensure all properties exist
         if (fetchedResource.price === undefined) fetchedResource.price = null;
         if (fetchedResource.equipment === undefined || !Array.isArray(fetchedResource.equipment)) {
              fetchedResource.equipment = [];
         } 
-
         if (fetchedResource.schedule === undefined) fetchedResource.schedule = [];
 
         resource.value = fetchedResource;
     } else {
         resource.value = null;
     }
+    
+    loading.value = false;
 };
 
 // --- CALENDAR ACTIONS ---
@@ -623,7 +714,7 @@ const getBookingStatusClass = (status: string) => {
 
 // NEW FUNCTIONS FOR BOOKING ITEMS
 const loadBookingItems = () => {
-    // In a real app, this would be an API call
+    // Use mock data for booking items
     bookingItems.value = MOCK_BOOKING_ITEMS.filter(item => item.available);
     filterBookingItems();
 };
@@ -687,6 +778,11 @@ const calculateTotalPrice = () => {
         total += item.price_per_hour * (item.selectedQuantity || 1);
     });
     return total;
+};
+
+// --- NAVIGATION HELPERS ---
+const goToResources = () => {
+    router.push('/master-admin/resources');
 };
 
 // --- POPUP FUNCTIONS ---
@@ -799,8 +895,31 @@ const completeBookingSubmission = () => {
     
     console.log("Submitting Booking Payload:", bookingPayload);
     
-    // In a real application, you would save the booking to your backend here
-    // For demo purposes, we'll just show the success popup
+    // Save booking to localStorage
+    try {
+        const existingBookings = JSON.parse(localStorage.getItem('bookings') || '[]');
+        const newBooking = {
+            id: existingBookings.length + 1,
+            resourceId: resource.value.id,
+            resourceName: resource.value.name,
+            date: bookingData.value.date,
+            startTime: bookingData.value.startTime,
+            endTime: bookingData.value.endTime,
+            status: 'pending',
+            userId: userEmail.value,
+            purpose: bookingData.value.purpose,
+            totalPrice: calculateTotalPrice(),
+            createdAt: new Date().toISOString(),
+            fixedEquipment: fixedEquipmentPayload,
+            optionalItems: bookingItemsPayload
+        };
+        
+        existingBookings.push(newBooking);
+        localStorage.setItem('bookings', JSON.stringify(existingBookings));
+        console.log('Booking saved to localStorage:', newBooking);
+    } catch (error) {
+        console.error('Error saving booking:', error);
+    }
     
     // Close OTP popup and show success popup
     showOTPVerificationPopup.value = false;
@@ -815,10 +934,14 @@ const redirectToBookings = () => {
 // --- LIFECYCLE ---
 
 onMounted(() => {
+    console.log('Component mounted. Route query:', route.query);
+    
     const resourceId = parseInt(route.query.resourceId as string);
     if (resourceId) {
+        console.log('Resource ID from query:', resourceId);
         fetchResourceDetails(resourceId);
     } else {
+        console.log('No resource ID found in query');
         loading.value = false;
         resource.value = null;
     }
