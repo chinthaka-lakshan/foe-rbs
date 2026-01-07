@@ -3,6 +3,15 @@
   <master-admin-sidebar/>
   
   <div class="section">
+    <!-- Debug Button (Temporary) -->
+    <button 
+      v-if="!isLoading && !resource" 
+      class="btn btn-warning mb-3"
+      @click="debugResourceLoading"
+    >
+      <i class="bi bi-bug me-1"></i> Debug Resource Loading
+    </button>
+
     <!-- Loading State -->
     <div v-if="isLoading" class="text-center py-5">
       <div class="spinner-border text-primary" role="status">
@@ -350,6 +359,7 @@ const router = useRouter();
 
 // API Configuration
 const API_BASE_URL = 'http://localhost:8000/api';
+const STORAGE_URL_ROOT = 'http://localhost:8000/storage'; // ADDED THIS
 
 // Get auth token
 const getAuthToken = () => {
@@ -536,7 +546,7 @@ const startOTPTimer = () => {
   }, 1000);
 };
 
-// API Functions
+// API Functions - FIXED VERSION
 const loadResourceDetails = async () => {
   const resourceId = route.query.resourceId || route.params.id;
   
@@ -552,6 +562,9 @@ const loadResourceDetails = async () => {
   try {
     const token = getAuthToken();
     
+    console.log('Fetching resource with ID:', resourceId);
+    console.log('API URL:', `${API_BASE_URL}/resources/${resourceId}`);
+    
     // Fetch resource details
     const resourceResponse = await axios.get(`${API_BASE_URL}/resources/${resourceId}`, {
       headers: {
@@ -560,8 +573,38 @@ const loadResourceDetails = async () => {
       }
     });
 
-    resource.value = resourceResponse.data.resource || resourceResponse.data;
-    console.log('Resource loaded:', resource.value);
+    console.log('Full API Response:', resourceResponse);
+    console.log('Response data:', resourceResponse.data);
+    
+    // FIXED: Handle different API response structures
+    let resourceData = null;
+    
+    if (resourceResponse.data) {
+      // Try different possible response structures
+      if (resourceResponse.data.resource) {
+        resourceData = resourceResponse.data.resource;
+        console.log('Found resource in data.resource');
+      } else if (resourceResponse.data.data) {
+        resourceData = resourceResponse.data.data;
+        console.log('Found resource in data.data');
+      } else {
+        resourceData = resourceResponse.data;
+        console.log('Found resource directly in response');
+      }
+    }
+    
+    if (resourceData) {
+      resource.value = resourceData;
+      console.log('Resource loaded successfully:', resource.value);
+      
+      // Ensure availability is an array
+      if (!resource.value.availability) {
+        resource.value.availability = [];
+      }
+    } else {
+      console.error('No resource data found in response');
+      errorMessage.value = 'Resource data not found in response';
+    }
 
     // Set default date to today
     bookingForm.value.date = minDate.value;
@@ -569,17 +612,48 @@ const loadResourceDetails = async () => {
   } catch (error: any) {
     console.error('Error loading resource:', error);
     
-    if (error.response?.status === 401) {
-      errorMessage.value = 'Authentication required. Please login again.';
-      setTimeout(() => router.push('/login'), 2000);
-    } else if (error.response?.status === 404) {
-      errorMessage.value = 'Resource not found.';
-      setTimeout(() => router.push('/resources'), 2000);
+    if (error.response) {
+      console.error('Response status:', error.response.status);
+      console.error('Response data:', error.response.data);
+      
+      if (error.response.status === 401) {
+        errorMessage.value = 'Authentication required. Please login again.';
+        setTimeout(() => router.push('/login'), 2000);
+      } else if (error.response.status === 404) {
+        errorMessage.value = 'Resource not found.';
+        setTimeout(() => router.push('/resources'), 2000);
+      } else if (error.response.status === 500) {
+        errorMessage.value = 'Server error. Please try again later.';
+      } else {
+        errorMessage.value = `Failed to load resource: ${error.response.data?.message || 'Unknown error'}`;
+      }
+    } else if (error.request) {
+      console.error('No response received. Request:', error.request);
+      errorMessage.value = 'No response from server. Please check your connection.';
     } else {
-      errorMessage.value = 'Failed to load resource details. Please try again.';
+      console.error('Request setup error:', error.message);
+      errorMessage.value = `Request error: ${error.message}`;
     }
   } finally {
     isLoading.value = false;
+  }
+};
+
+// Debug function
+const debugResourceLoading = async () => {
+  console.log('=== DEBUG RESOURCE LOADING ===');
+  console.log('Route:', route);
+  console.log('Query:', route.query);
+  console.log('Params:', route.params);
+  console.log('Resource ID:', route.query.resourceId || route.params.id);
+  console.log('Current resource state:', resource.value);
+  
+  // Try to fetch resource directly
+  const resourceId = route.query.resourceId || route.params.id;
+  if (resourceId) {
+    await loadResourceDetails();
+  } else {
+    console.error('No resource ID found in URL');
   }
 };
 
@@ -867,7 +941,7 @@ watch(
   }
 );
 
-// Cleanup on unmount
+// Initialize
 onMounted(() => {
   loadResourceDetails();
 });
