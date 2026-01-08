@@ -7,6 +7,7 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ResourceController;
 use App\Http\Controllers\BookingItemController;
 use App\Http\Controllers\ResourceTemplateController;
+use App\Http\Controllers\DepartmentController;
 
 
 // Resource Service Category Routes
@@ -38,3 +39,10 @@ Route::get('/resource-templates/{id}', [ResourceTemplateController::class, 'show
 Route::get('/resource-templates/category/{categoryId}', [ResourceTemplateController::class, 'getByCategory']);
 Route::put('/resource-templates/{id}', [ResourceTemplateController::class, 'update']);
 Route::delete('/resource-templates/{id}', [ResourceTemplateController::class, 'destroy']);
+
+// Department Routes
+Route::get('/departments', [DepartmentController::class, 'index']);
+Route::post('/departments', [DepartmentController::class, 'store']);
+Route::get('/departments/{department}', [DepartmentController::class, 'show']);
+Route::put('/departments/{department}', [DepartmentController::class, 'update']);
+Route::delete('/departments/{department}', [DepartmentController::class, 'destroy']);

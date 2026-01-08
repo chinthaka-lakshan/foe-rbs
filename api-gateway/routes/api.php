@@ -205,6 +205,69 @@ Route::middleware('auth:sanctum')->group(function () {
             ], 503);
         }
     });
+
+    // Resource Service routes
+    // Department Routes
+    Route::get('/departments', function (Request $request) {
+        try {
+            $response = Http::timeout(30)
+                ->withToken($request->bearerToken())
+                ->get('http://resource_service/api/departments');
+            
+            return handleProxyResponse($response, 'Failed to fetch departments.');
+        } catch (Exception $e) {
+            return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
+        }
+    });
+
+    // Create department
+    Route::post('/departments', function (Request $request) {
+        try {
+            $response = Http::timeout(30)
+                ->withToken($request->bearerToken())
+                ->post('http://resource_service/api/departments', $request->all());
+
+            return handleProxyResponse($response, 'Failed to create department.');
+        } catch (Exception $e) {
+            return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
+        }
+    });
+    // Show single department
+    Route::get('/departments/{department}', function (Request $request, $department) {
+        try {
+            $response = Http::timeout(30)
+                ->withToken($request->bearerToken())
+                ->get("http://resource_service/api/departments/{$department}");
+            
+            return handleProxyResponse($response, 'Failed to fetch department.');
+        } catch (Exception $e) {
+            return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
+        }
+    });
+    // Update department
+    Route::put('/departments/{department}', function (Request $request, $department) {
+        try {
+            $response = Http::timeout(30)
+                ->withToken($request->bearerToken())
+                ->put("http://resource_service/api/departments/{$department}", $request->all());
+            
+            return handleProxyResponse($response, 'Department update failed.');
+        } catch (Exception $e) {
+            return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
+        }
+    });
+    // Delete department
+    Route::delete('/departments/{department}', function (Request $request, $department) {
+        try {
+            $response = Http::timeout(30)
+                ->withToken($request->bearerToken())
+                ->delete("http://resource_service/api/departments/{$department}");
+            
+            return handleProxyResponse($response, 'Department deletion failed.');
+        } catch (Exception $e) {
+            return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
+        }
+    });
     // List all resources
     Route::get('/resources', function (Request $request) {
         try {
