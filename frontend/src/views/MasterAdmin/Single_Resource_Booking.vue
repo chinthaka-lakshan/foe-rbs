@@ -47,7 +47,7 @@
                   
                   <div class="mb-3">
                     <strong><i class="bi bi-tag me-2"></i>Category:</strong>
-                    <p class="mb-0">{{  resource.category?.name || 'Unknown' }}</p>
+                    <p class="mb-0">{{ resource.category?.name || 'Unknown' }}</p>
                   </div>
                   
                   <div class="mb-3">
@@ -255,7 +255,7 @@
               v-model="otpDigits[n-1]"
               @input="onOtpInput(n-1, $event)"
               @keydown="onOtpKeydown(n-1, $event)"
-              :ref="`otpInput${n-1}`"
+              :ref="el => { if (el) otpInputs[n-1] = el }"
               :disabled="isVerifyingOTP"
             />
           </div>
@@ -334,6 +334,10 @@
         <p class="text-muted small">
           A confirmation email has been sent to <strong>{{ bookingForm.email }}</strong>
         </p>
+        <div v-if="pendingBookingReference" class="alert alert-info mt-3">
+          <i class="bi bi-info-circle me-2"></i>
+          Booking Reference: <strong>{{ pendingBookingReference }}</strong>
+        </div>
       </div>
       <div class="modal-footer justify-content-center">
         <button type="button" class="btn btn-success" @click="redirectToBookings">
@@ -346,7 +350,6 @@
     </div>
   </div>
 </template>
-
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -359,7 +362,7 @@ const router = useRouter();
 
 // API Configuration
 const API_BASE_URL = 'http://localhost:8000/api';
-const STORAGE_URL_ROOT = 'http://localhost:8000/storage'; // ADDED THIS
+const STORAGE_URL_ROOT = 'http://localhost:8000/storage';
 
 // Get auth token
 const getAuthToken = () => {
@@ -373,7 +376,7 @@ const formatTime = (time: string | null): string => {
     return time.substring(0, 5); 
 };
 
-// Interfaces
+// Interfaces (same as before)
 interface Resource {
   id: number;
   name: string;
@@ -413,7 +416,7 @@ interface BookingForm {
   purpose?: string;
 }
 
-// State
+// State (same as before)
 const resource = ref<Resource | null>(null);
 const isLoading = ref(true);
 const errorMessage = ref('');
@@ -422,13 +425,15 @@ const errorMessage = ref('');
 const showOTPModal = ref(false);
 const showSuccessModal = ref(false);
 const otpDigits = ref<string[]>(Array(6).fill(''));
+const otpInputs = ref<(HTMLInputElement | null)[]>(Array(6).fill(null));
 const otpError = ref('');
 const isVerifyingOTP = ref(false);
 const isSendingOTP = ref(false);
 const isResendingOTP = ref(false);
-const otpTimer = ref(300); // 5 minutes in seconds
+const otpTimer = ref(300);
 const otpTimerInterval = ref<number | null>(null);
 const pendingBookingId = ref<number | null>(null);
+const pendingBookingReference = ref<string>('');
 const otpSentSuccess = ref(false);
 const tempBookingData = ref<any>(null);
 
@@ -441,7 +446,7 @@ const bookingForm = ref<BookingForm>({
   purpose: ''
 });
 
-// Computed Properties
+// Computed Properties (same as before)
 const minDate = computed(() => {
   const today = new Date();
   return today.toISOString().split('T')[0];
@@ -460,7 +465,15 @@ const calculatedCost = computed(() => {
 });
 
 const isResourceUnavailable = computed(() => {
-  return false;
+  if (!resource.value || !bookingForm.value.date) return false;
+  
+  const selectedDate = new Date(bookingForm.value.date);
+  const selectedDayName = selectedDate.toLocaleDateString('en-US', { weekday: 'long' });
+  const dayAvailability = resource.value.availability?.find(
+    day => day.day_name.toLowerCase() === selectedDayName.toLowerCase()
+  );
+  
+  return !dayAvailability || !dayAvailability.is_available;
 });
 
 const isOtpComplete = computed(() => {
@@ -471,7 +484,7 @@ const otpExpired = computed(() => {
   return otpTimer.value <= 0;
 });
 
-// Helper Functions
+// Helper Functions (same as before)
 const getImageUrl = (resource: Resource): string => {
   if (resource.images && resource.images.length > 0) {
     const filePath = resource.images[0].file_path;
@@ -499,21 +512,40 @@ const formatCountdownTimer = () => {
   return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 };
 
-// OTP Functions
+// OTP Functions - ENHANCED for better paste handling
 const onOtpInput = (index: number, event: Event) => {
   const input = event.target as HTMLInputElement;
   const value = input.value;
   
-  // Only allow numbers
+  // Handle paste event - check if it's a 6-digit OTP
+  if (value.length === 6 && /^\d{6}$/.test(value)) {
+    // User pasted a complete OTP
+    const digits = value.split('');
+    digits.forEach((digit, i) => {
+      if (i < 6) {
+        otpDigits.value[i] = digit;
+      }
+    });
+    
+    // Focus on the last input
+    nextTick(() => {
+      const lastInput = otpInputs.value[5];
+      if (lastInput) lastInput.focus();
+    });
+    return;
+  }
+  
+  // Normal single digit input
   if (value && !/^\d$/.test(value)) {
     otpDigits.value[index] = '';
     return;
   }
   
-  // Auto-focus next input
+  otpDigits.value[index] = value;
+  
   if (value && index < 5) {
     nextTick(() => {
-      const nextInput = document.querySelector(`input[ref="otpInput${index + 1}"]`) as HTMLInputElement;
+      const nextInput = otpInputs.value[index + 1];
       if (nextInput) nextInput.focus();
     });
   }
@@ -521,16 +553,20 @@ const onOtpInput = (index: number, event: Event) => {
 
 const onOtpKeydown = (index: number, event: KeyboardEvent) => {
   if (event.key === 'Backspace' && !otpDigits.value[index] && index > 0) {
-    // Move to previous input on backspace
     nextTick(() => {
-      const prevInput = document.querySelector(`input[ref="otpInput${index - 1}"]`) as HTMLInputElement;
+      const prevInput = otpInputs.value[index - 1];
       if (prevInput) prevInput.focus();
     });
+  }
+  
+  // Allow paste with Ctrl+V or Cmd+V
+  if ((event.ctrlKey || event.metaKey) && event.key === 'v') {
+    // Allow paste, it will be handled in onOtpInput
   }
 };
 
 const startOTPTimer = () => {
-  otpTimer.value = 300; // Reset to 5 minutes
+  otpTimer.value = 300;
   if (otpTimerInterval.value) {
     clearInterval(otpTimerInterval.value);
   }
@@ -546,7 +582,7 @@ const startOTPTimer = () => {
   }, 1000);
 };
 
-// API Functions - FIXED VERSION
+// API Functions - FIXED: Remove automatic OTP filling
 const loadResourceDetails = async () => {
   const resourceId = route.query.resourceId || route.params.id;
   
@@ -562,60 +598,41 @@ const loadResourceDetails = async () => {
   try {
     const token = getAuthToken();
     
-    console.log('Fetching resource with ID:', resourceId);
-    console.log('API URL:', `${API_BASE_URL}/resources/${resourceId}`);
-    
-    // Fetch resource details
     const resourceResponse = await axios.get(`${API_BASE_URL}/resources/${resourceId}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Accept': 'application/json',
       }
     });
-
-    console.log('Full API Response:', resourceResponse);
-    console.log('Response data:', resourceResponse.data);
     
-    // FIXED: Handle different API response structures
     let resourceData = null;
     
     if (resourceResponse.data) {
-      // Try different possible response structures
       if (resourceResponse.data.resource) {
         resourceData = resourceResponse.data.resource;
-        console.log('Found resource in data.resource');
       } else if (resourceResponse.data.data) {
         resourceData = resourceResponse.data.data;
-        console.log('Found resource in data.data');
       } else {
         resourceData = resourceResponse.data;
-        console.log('Found resource directly in response');
       }
     }
     
     if (resourceData) {
       resource.value = resourceData;
-      console.log('Resource loaded successfully:', resource.value);
       
-      // Ensure availability is an array
       if (!resource.value.availability) {
         resource.value.availability = [];
       }
     } else {
-      console.error('No resource data found in response');
       errorMessage.value = 'Resource data not found in response';
     }
 
-    // Set default date to today
     bookingForm.value.date = minDate.value;
 
   } catch (error: any) {
     console.error('Error loading resource:', error);
     
     if (error.response) {
-      console.error('Response status:', error.response.status);
-      console.error('Response data:', error.response.data);
-      
       if (error.response.status === 401) {
         errorMessage.value = 'Authentication required. Please login again.';
         setTimeout(() => router.push('/login'), 2000);
@@ -628,10 +645,8 @@ const loadResourceDetails = async () => {
         errorMessage.value = `Failed to load resource: ${error.response.data?.message || 'Unknown error'}`;
       }
     } else if (error.request) {
-      console.error('No response received. Request:', error.request);
       errorMessage.value = 'No response from server. Please check your connection.';
     } else {
-      console.error('Request setup error:', error.message);
       errorMessage.value = `Request error: ${error.message}`;
     }
   } finally {
@@ -639,55 +654,83 @@ const loadResourceDetails = async () => {
   }
 };
 
-// Debug function
-const debugResourceLoading = async () => {
-  console.log('=== DEBUG RESOURCE LOADING ===');
-  console.log('Route:', route);
-  console.log('Query:', route.query);
-  console.log('Params:', route.params);
-  console.log('Resource ID:', route.query.resourceId || route.params.id);
-  console.log('Current resource state:', resource.value);
-  
-  // Try to fetch resource directly
-  const resourceId = route.query.resourceId || route.params.id;
-  if (resourceId) {
-    await loadResourceDetails();
-  } else {
-    console.error('No resource ID found in URL');
+// Step 1: Create booking
+const createBooking = async () => {
+  if (!resource.value) {
+    throw new Error('Resource not loaded');
   }
-};
-
-// Step 1: Send OTP using forgot password endpoint (which works)
-const sendOTPToEmail = async (email: string) => {
+  
   try {
-    console.log('Sending OTP to:', email);
+    const token = getAuthToken();
     
-    // Use the working forgot password endpoint to send OTP
-    const response = await axios.post(`${API_BASE_URL}/forgot-password/email`, {
-      email: email
+    // Get current user from token or localStorage
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+    const userId = currentUser.id || 0;
+    
+    // Prepare booking data according to backend requirements
+    const bookingPayload = {
+      user_id: userId,
+      user_email: bookingForm.value.email,
+      booking_date: bookingForm.value.date,
+      start_time: bookingForm.value.startTime,
+      end_time: bookingForm.value.endTime,
+      notes: bookingForm.value.purpose || '',
+      resources: [
+        {
+          resource_id: resource.value.id
+        }
+      ],
+      booking_items: []
+    };
+    
+    console.log('Creating booking with payload:', bookingPayload);
+    
+    const response = await axios.post(`${API_BASE_URL}/bookings`, bookingPayload, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
     });
     
-    console.log('OTP sent successfully:', response.data);
+    console.log('Booking created response:', response.data);
+    
+    // Store the booking ID and reference for OTP verification
+    if (response.data.booking) {
+      pendingBookingId.value = response.data.booking.id;
+      pendingBookingReference.value = response.data.booking.booking_reference;
+    } else if (response.data.id) {
+      pendingBookingId.value = response.data.id;
+      pendingBookingReference.value = response.data.booking_reference;
+    }
+    
     return response.data;
     
   } catch (error: any) {
-    console.error('Error sending OTP:', error);
+    console.error('Error creating booking:', error);
     
     if (error.response?.status === 422) {
       const errors = error.response.data.errors;
-      if (errors && errors.email) {
-        throw new Error(errors.email[0]);
+      if (errors) {
+        throw new Error(Object.values(errors).flat().join(', '));
+      } else if (error.response.data.message) {
+        throw new Error(error.response.data.message);
       }
+    } else if (error.response?.data?.message) {
+      throw new Error(error.response.data.message);
     }
     throw error;
   }
 };
 
-// Step 1: Validate form and send OTP
+// Step 1: Validate form and create booking
 const validateAndShowOTP = async () => {
-  if (!resource.value) return;
+  if (!resource.value) {
+    errorMessage.value = 'Resource not loaded. Please try again.';
+    return;
+  }
   
-  // Validate form
+  // Validate form (same as before)
   if (!bookingForm.value.email || !bookingForm.value.date || !bookingForm.value.startTime || !bookingForm.value.endTime) {
     errorMessage.value = 'Please fill all required fields';
     return;
@@ -703,7 +746,6 @@ const validateAndShowOTP = async () => {
     return;
   }
   
-  // Validate date is not in past
   const selectedDate = new Date(bookingForm.value.date);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -713,66 +755,122 @@ const validateAndShowOTP = async () => {
     return;
   }
   
+  const selectedDayName = selectedDate.toLocaleDateString('en-US', { weekday: 'long' });
+  const dayAvailability = resource.value.availability?.find(
+    day => day.day_name.toLowerCase() === selectedDayName.toLowerCase()
+  );
+  
+  if (!dayAvailability || !dayAvailability.is_available) {
+    errorMessage.value = `Resource is not available on ${selectedDayName}`;
+    return;
+  }
+  
+  if (dayAvailability.start_time && dayAvailability.end_time) {
+    const selectedStartTime = bookingForm.value.startTime;
+    const selectedEndTime = bookingForm.value.endTime;
+    const availableStartTime = dayAvailability.start_time.substring(0, 5);
+    const availableEndTime = dayAvailability.end_time.substring(0, 5);
+    
+    if (selectedStartTime < availableStartTime || selectedEndTime > availableEndTime) {
+      errorMessage.value = `Booking time must be between ${availableStartTime} and ${availableEndTime} on ${selectedDayName}`;
+      return;
+    }
+  }
+  
   isSendingOTP.value = true;
   errorMessage.value = '';
   
   try {
-    // Store booking data temporarily
-    tempBookingData.value = {
-      resource_id: resource.value.id,
-      user_email: bookingForm.value.email,
-      booking_date: bookingForm.value.date,
-      start_time: bookingForm.value.startTime,
-      end_time: bookingForm.value.endTime,
-      total_cost: calculatedCost.value,
-      purpose: bookingForm.value.purpose || '',
-      status: 'pending'
-    };
+    // Create booking (backend will send OTP automatically)
+    const bookingResponse = await createBooking();
     
-    // Step 1: Send OTP using the working forgot password endpoint
-    await sendOTPToEmail(bookingForm.value.email);
-    otpSentSuccess.value = true;
-    
-    // Show OTP modal
-    showOTPModal.value = true;
-    startOTPTimer();
-    
-    // Auto-focus first OTP input
-    nextTick(() => {
-      const firstInput = document.querySelector(`input[ref="otpInput0"]`) as HTMLInputElement;
-      if (firstInput) firstInput.focus();
-    });
+    // Check if booking was created successfully
+    if (bookingResponse.requires_verification || pendingBookingId.value) {
+      otpSentSuccess.value = true;
+      
+      // Show OTP modal
+      showOTPModal.value = true;
+      startOTPTimer();
+      
+      // IMPORTANT: DO NOT automatically fill OTP digits
+      // Just log it for debugging purposes
+      if (bookingResponse.otp_code_for_testing) {
+        console.log('TEST OTP Code (for debugging only):', bookingResponse.otp_code_for_testing);
+        // DO NOT fill it automatically - this is the fix!
+      }
+      
+      // Clear any previous OTP digits
+      otpDigits.value = Array(6).fill('');
+      
+      // Focus on first input
+      nextTick(() => {
+        const firstInput = otpInputs.value[0];
+        if (firstInput) {
+          firstInput.focus();
+          // Clear any existing value
+          firstInput.value = '';
+        }
+      });
+    } else {
+      // If no verification required, show success directly
+      showSuccessModal.value = true;
+    }
     
   } catch (error: any) {
-    console.error('Error in OTP flow:', error);
+    console.error('Error in booking flow:', error);
     
-    if (error.response?.status === 401) {
-      errorMessage.value = 'Authentication required. Please login again.';
-    } else if (error.response?.status === 422) {
-      const errors = error.response.data.errors;
-      if (errors) {
-        errorMessage.value = Object.values(errors).flat().join(', ');
-      } else {
-        errorMessage.value = 'Validation error. Please check your input.';
+    if (error.response) {
+      switch (error.response.status) {
+        case 401:
+          errorMessage.value = 'Authentication required. Please login again.';
+          break;
+        case 404:
+          errorMessage.value = 'Booking service not available. Please try again later.';
+          break;
+        case 422:
+          const errors = error.response.data.errors;
+          if (errors) {
+            errorMessage.value = Object.values(errors).flat().join(', ');
+          } else if (error.response.data.message) {
+            errorMessage.value = error.response.data.message;
+          } else {
+            errorMessage.value = 'Validation error. Please check your input.';
+          }
+          break;
+        case 500:
+          errorMessage.value = 'Server error. Please try again later.';
+          break;
+        default:
+          errorMessage.value = error.message || 'Failed to create booking. Please try again.';
       }
-    } else if (error.message) {
-      errorMessage.value = error.message;
+    } else if (error.request) {
+      errorMessage.value = 'No response from server. Please check your connection.';
     } else {
-      errorMessage.value = 'Failed to send OTP. Please try again.';
+      errorMessage.value = `Request error: ${error.message}`;
     }
   } finally {
     isSendingOTP.value = false;
   }
 };
 
-// Step 2: Verify OTP using forgot password verify endpoint
-const verifyOTP = async (email: string, otp: string) => {
+// Step 2: Verify OTP with the booking ID
+const verifyOTP = async (otp: string) => {
+  if (!pendingBookingId.value) {
+    throw new Error('No pending booking found');
+  }
+  
   try {
-    console.log('Verifying OTP for:', email);
+    const token = getAuthToken();
     
-    const response = await axios.post(`${API_BASE_URL}/forgot-password/verify-otp`, {
-      email: email,
-      otp: otp
+    console.log('Verifying OTP for booking ID:', pendingBookingId.value);
+    
+    const response = await axios.post(`${API_BASE_URL}/bookings/${pendingBookingId.value}/verify-otp`, {
+      otp_code: otp
+    }, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json'
+      }
     });
     
     console.log('OTP verified successfully:', response.data);
@@ -781,7 +879,11 @@ const verifyOTP = async (email: string, otp: string) => {
   } catch (error: any) {
     console.error('Error verifying OTP:', error);
     
-    if (error.response?.status === 400) {
+    if (error.response?.status === 422) {
+      if (error.response.data.message) {
+        throw new Error(error.response.data.message);
+      }
+    } else if (error.response?.status === 400) {
       throw new Error('Invalid OTP. Please try again.');
     } else if (error.response?.data?.message) {
       throw new Error(error.response.data.message);
@@ -790,49 +892,62 @@ const verifyOTP = async (email: string, otp: string) => {
   }
 };
 
-// Step 3: Create booking after OTP verification
-const createBooking = async () => {
-  if (!tempBookingData.value) {
-    throw new Error('Booking data not found');
+// Step 3: Resend OTP - FIXED: Don't auto-fill OTP
+const resendOTP = async () => {
+  if (!pendingBookingId.value) {
+    throw new Error('No pending booking found');
   }
+  
+  isResendingOTP.value = true;
+  otpError.value = '';
   
   try {
     const token = getAuthToken();
     
-    console.log('Creating booking:', tempBookingData.value);
+    console.log('Resending OTP for booking ID:', pendingBookingId.value);
     
-    const response = await axios.post(`${API_BASE_URL}/bookings`, tempBookingData.value, {
+    const response = await axios.post(`${API_BASE_URL}/bookings/${pendingBookingId.value}/resend-otp`, {}, {
       headers: {
         'Authorization': `Bearer ${token}`,
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
+        'Accept': 'application/json'
       }
     });
     
-    console.log('Booking created:', response.data);
+    console.log('OTP resent successfully:', response.data);
     
-    if (response.data.booking) {
-      pendingBookingId.value = response.data.booking.id;
-    } else {
-      pendingBookingId.value = response.data.id;
+    // Reset timer and clear OTP inputs
+    startOTPTimer();
+    otpDigits.value = Array(6).fill('');
+    otpSentSuccess.value = true;
+    otpError.value = 'New OTP sent successfully!';
+    
+    // IMPORTANT: DO NOT automatically fill OTP digits
+    if (response.data.otp_code_for_testing) {
+      console.log('TEST OTP Code (resend, for debugging only):', response.data.otp_code_for_testing);
+      // DO NOT fill it automatically - this is the fix!
     }
+    
+    // Focus on first input
+    nextTick(() => {
+      const firstInput = otpInputs.value[0];
+      if (firstInput) {
+        firstInput.focus();
+        // Clear any existing value
+        firstInput.value = '';
+      }
+    });
     
     return response.data;
     
   } catch (error: any) {
-    console.error('Error creating booking:', error);
-    
-    if (error.response?.status === 422) {
-      const errors = error.response.data.errors;
-      if (errors) {
-        throw new Error(Object.values(errors).flat().join(', '));
-      }
-    }
+    console.error('Error resending OTP:', error);
     throw error;
+  } finally {
+    isResendingOTP.value = false;
   }
 };
 
-// Step 2 & 3 combined: Verify OTP and create booking
+// Step 2 & 3 combined: Verify OTP and complete booking
 const verifyOTPAndCompleteBooking = async () => {
   const enteredOTP = otpDigits.value.join('');
   
@@ -845,56 +960,46 @@ const verifyOTPAndCompleteBooking = async () => {
   otpError.value = '';
   
   try {
-    // Step 2: Verify OTP
-    await verifyOTP(bookingForm.value.email, enteredOTP);
-    
-    // Step 3: Create booking
-    await createBooking();
+    // Verify OTP with the booking
+    await verifyOTP(enteredOTP);
     
     // Success: Show success modal
     closeOTPModal();
     showSuccessModal.value = true;
     
   } catch (error: any) {
-    console.error('Error in verification/booking:', error);
-    otpError.value = error.message || 'Failed to complete booking. Please try again.';
+    console.error('Error in verification:', error);
+    otpError.value = error.message || 'Failed to verify OTP. Please try again.';
     
     // Reset OTP on error
     otpDigits.value = Array(6).fill('');
     nextTick(() => {
-      const firstInput = document.querySelector(`input[ref="otpInput0"]`) as HTMLInputElement;
-      if (firstInput) firstInput.focus();
+      const firstInput = otpInputs.value[0];
+      if (firstInput) {
+        firstInput.focus();
+        // Clear input value
+        firstInput.value = '';
+      }
     });
   } finally {
     isVerifyingOTP.value = false;
   }
 };
 
-// Resend OTP
-const resendOTP = async () => {
-  isResendingOTP.value = true;
-  otpError.value = '';
+// Debug function
+const debugResourceLoading = async () => {
+  console.log('=== DEBUG RESOURCE LOADING ===');
+  console.log('Route:', route);
+  console.log('Query:', route.query);
+  console.log('Params:', route.params);
+  console.log('Resource ID:', route.query.resourceId || route.params.id);
+  console.log('Current resource state:', resource.value);
   
-  try {
-    await sendOTPToEmail(bookingForm.value.email);
-    
-    // Reset timer and OTP input
-    startOTPTimer();
-    otpDigits.value = Array(6).fill('');
-    otpSentSuccess.value = true;
-    otpError.value = 'New OTP sent successfully!';
-    
-    // Auto-focus first OTP input
-    nextTick(() => {
-      const firstInput = document.querySelector(`input[ref="otpInput0"]`) as HTMLInputElement;
-      if (firstInput) firstInput.focus();
-    });
-    
-  } catch (error: any) {
-    console.error('Error resending OTP:', error);
-    otpError.value = error.message || 'Failed to resend OTP. Please try again.';
-  } finally {
-    isResendingOTP.value = false;
+  const resourceId = route.query.resourceId || route.params.id;
+  if (resourceId) {
+    await loadResourceDetails();
+  } else {
+    console.error('No resource ID found in URL');
   }
 };
 
@@ -902,6 +1007,9 @@ const resendOTP = async () => {
 const closeOTPModal = () => {
   showOTPModal.value = false;
   otpDigits.value = Array(6).fill('');
+  otpInputs.value.forEach(input => {
+    if (input) input.value = '';
+  });
   otpError.value = '';
   otpSentSuccess.value = false;
   isVerifyingOTP.value = false;
@@ -923,12 +1031,13 @@ const closeSuccessModal = () => {
   bookingForm.value.endTime = '10:00';
   bookingForm.value.purpose = '';
   pendingBookingId.value = null;
+  pendingBookingReference.value = '';
   tempBookingData.value = null;
 };
 
 const redirectToBookings = () => {
   closeSuccessModal();
-  router.push('/bookings');
+  router.push('/master-admin/booking');
 };
 
 // Watch for route changes
@@ -1117,6 +1226,16 @@ onMounted(() => {
   background-color: #f8f9fa;
   border-radius: 8px;
   border-left: 4px solid #4BB66D;
+}
+
+/* Schedule list styles */
+.schedule-list li {
+  padding: 0.35rem 0;
+  border-bottom: 1px solid #f1f1f1;
+}
+
+.schedule-list li:last-child {
+  border-bottom: none;
 }
 
 @keyframes fadeIn {
