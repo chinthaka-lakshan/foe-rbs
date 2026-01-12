@@ -582,6 +582,19 @@ Route::get('/bookings/{id}', function (Request $request, $id) {
     }
 });
 
+// Get bookings by resource ID
+Route::get('/bookings/resource/{resourceId}', function (Request $request, $resourceId) {
+    try {
+        $response = Http::timeout(30)
+            ->withToken($request->bearerToken())
+            ->get("http://booking_service/api/bookings/resource/{$resourceId}");
+        return handleProxyResponse($response, 'Failed to fetch bookings for resource.');
+    } catch (Exception $e) {
+        \Log::error('Bookings by resource gateway error: ' . $e->getMessage());
+        return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
+    }
+});
+
 // Update booking status
 Route::patch('/bookings/{id}/status', function (Request $request, $id) {
     try {
