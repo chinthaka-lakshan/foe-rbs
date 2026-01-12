@@ -4,7 +4,6 @@
   <div class="section">
     <h2 class="section-title">Bookings</h2>
 
-    <!-- Loading State -->
     <div v-if="isLoading" class="text-center py-5">
       <div class="spinner-border text-primary" role="status">
         <span class="visually-hidden">Loading...</span>
@@ -12,7 +11,6 @@
       <p class="mt-2 text-muted">Loading bookings...</p>
     </div>
 
-    <!-- Error State -->
     <div v-else-if="errorMessage" class="alert alert-danger" role="alert">
       <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ errorMessage }}
       <button class="btn btn-sm btn-outline-danger ms-3" @click="loadBookings">
@@ -20,7 +18,6 @@
       </button>
     </div>
 
-    <!-- Main Content -->
     <div v-else>
       <div class="mb-4 filter-row">
         <div class="row g-3">
@@ -134,7 +131,6 @@
                 <th>End Time</th>
                 <th>Total Amount</th>
                 <th>Status</th>
-                <th>Verified</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -144,17 +140,16 @@
                   <span class="badge bg-light text-dark">{{ booking.booking_reference }}</span>
                 </td>
                 <td>{{ booking.user_email }}</td>
+                
                 <td>
-                  <template v-if="booking.resource_details && booking.resource_details.length > 0">
-                    {{ booking.resource_details[0].name }}
-                  </template>
-                  <template v-else-if="booking.booking_item_details && booking.booking_item_details.length > 0">
-                    {{ booking.booking_item_details[0].name }}
+                  <template v-if="booking.details && booking.details.length > 0">
+                    {{ booking.details[0].item_name }}
                   </template>
                   <template v-else>
-                    N/A
+                    <span class="text-muted">N/A</span>
                   </template>
                 </td>
+
                 <td>{{ formatDate(booking.booking_date) }}</td>
                 <td>{{ booking.start_time }}</td>
                 <td>{{ booking.end_time }}</td>
@@ -164,11 +159,7 @@
                     {{ booking.status }}
                   </span>
                 </td>
-                <td>
-                  <span class="badge" :class="booking.is_verified ? 'bg-success' : 'bg-warning'">
-                    {{ booking.is_verified ? 'Yes' : 'No' }}
-                  </span>
-                </td>
+               
                 <td>
                   <div class="btn-group btn-group-sm">
                     <button class="btn btn-outline-info" @click="viewBookingDetails(booking.id)" title="View Details">
@@ -192,7 +183,6 @@
             </tbody>
           </table>
           
-          <!-- No bookings message -->
           <div v-if="filteredBookings.length === 0" class="text-center py-5 text-muted">
             <i class="bi bi-calendar-x" style="font-size: 3rem;"></i>
             <p class="mt-3">No bookings found</p>
@@ -202,7 +192,6 @@
     </div>
   </div>
 
-  <!-- Delete Confirmation Modal -->
   <div class="modal fade" :class="{ 'show d-block': showDeleteConfirmation }" tabindex="-1" @click.self="handleCancelDeletion" style="background-color: rgba(0,0,0,0.5);" v-if="showDeleteConfirmation">
     <div class="modal-dialog delete-modal-top"> 
       <div class="modal-content">
@@ -213,7 +202,11 @@
                 <button type="button" class="btn-close" @click="handleCancelDeletion"></button>
             </div>
             <div class="modal-body text-center">
-                <p class="mb-0">Are you sure you want to delete the booking <strong>{{ bookingToDelete?.booking_reference }}</strong> for {{ getBookingResourceName(bookingToDelete) }}?</p>
+                <p class="mb-0">
+                  Are you sure you want to delete the booking 
+                  <strong>{{ bookingToDelete?.booking_reference }}</strong> 
+                  for <strong>{{ bookingToDelete?.details?.[0]?.item_name || 'N/A' }}</strong>?
+                </p>
                 <div class="alert alert-warning mt-3" role="alert">
                   <i class="bi bi-exclamation-triangle me-2"></i>
                   This action cannot be undone!
@@ -253,7 +246,6 @@
     </div>
   </div>
 
-  <!-- Success Toast -->
   <div v-if="showSuccessToast" class="toast-container position-fixed top-0 end-0 p-3">
     <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
       <div class="toast-header bg-success text-white">
@@ -267,7 +259,6 @@
     </div>
   </div>
 
-  <!-- Error Toast -->
   <div v-if="showErrorToast" class="toast-container position-fixed top-0 end-0 p-3">
     <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
       <div class="toast-header bg-danger text-white">
