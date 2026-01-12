@@ -100,7 +100,7 @@ const getAuthToken = () => localStorage.getItem('authToken');
 const isLoading = ref(true);
 const stats = ref({
   totalUsers: 0,
-  totalResources: 0, // Set this via API if available
+  totalResources: 0,
   pendingBookings: 0,
   approvedBookings: 0,
   rejectedBookings: 0,
@@ -130,15 +130,12 @@ const fetchDashboardData = async () => {
     const userRes = await fetch(`${API_BASE_URL}/users`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
-    const usersData = await userRes.json();
-    if (Array.isArray(usersData)) {
-      stats.value.totalUsers = usersData.length;
+    if (userRes.ok) {
+        const usersData = await userRes.json();
+        stats.value.totalUsers = Array.isArray(usersData) ? usersData.length : 0;
     }
 
-    /** * 2. Fetch Bookings (Assuming you have a bookings endpoint)
-     * If you don't have this endpoint yet, I've put placeholder logic.
-     * Replace `${API_BASE_URL}/bookings` with your actual endpoint.
-     */
+    // 2. Fetch Bookings and filter by exact Backend Status strings
     const bookingRes = await fetch(`${API_BASE_URL}/bookings`, {
        headers: { 'Authorization': `Bearer ${token}` }
     });
@@ -146,18 +143,20 @@ const fetchDashboardData = async () => {
     if (bookingRes.ok) {
         const bookings = await bookingRes.json();
         stats.value.totalBookings = bookings.length;
-        stats.value.approvedBookings = bookings.filter((b: any) => b.status === 'approved').length;
-        stats.value.pendingBookings = bookings.filter((b: any) => b.status === 'pending').length;
-        stats.value.rejectedBookings = bookings.filter((b: any) => b.status === 'rejected').length;
+
+        // UPDATED FILTER LOGIC TO MATCH POSTMAN DATA
+        stats.value.approvedBookings = bookings.filter((b: any) => b.status === 'Confirmed' || b.status === 'Completed').length;
+        stats.value.pendingBookings = bookings.filter((b: any) => b.status === 'Pending').length;
+        stats.value.rejectedBookings = bookings.filter((b: any) => b.status === 'Cancelled').length;
     }
 
-    // 3. Fetch Resources (Optional)
+    // 3. Fetch Resources Count
     const resourceRes = await fetch(`${API_BASE_URL}/resources`, {
        headers: { 'Authorization': `Bearer ${token}` }
     });
     if (resourceRes.ok) {
         const resources = await resourceRes.json();
-        stats.value.totalResources = resources.length;
+        stats.value.totalResources = Array.isArray(resources) ? resources.length : 0;
     }
 
   } catch (error) {
