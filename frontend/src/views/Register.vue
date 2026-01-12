@@ -40,28 +40,48 @@
 
         <div class="mb-3">
           <label for="password" class="form-label">Password</label>
-          <input
-            type="password"
-            class="form-control"
-            id="password"
-            v-model="password"
-            required
-            placeholder="Create a password"
-            :disabled="isLoading"
-          >
+          <div class="input-group">
+            <input
+              :type="isPasswordVisible ? 'text' : 'password'"
+              class="form-control no-browser-icon"
+              id="password"
+              v-model="password"
+              required
+              placeholder="Create a password"
+              :disabled="isLoading"
+            >
+            <button 
+              class="btn btn-outline-secondary toggle-password" 
+              type="button" 
+              @click="isPasswordVisible = !isPasswordVisible"
+              :disabled="isLoading"
+            >
+              <i :class="isPasswordVisible ? 'bi bi-eye-slash' : 'bi bi-eye'"></i>
+            </button>
+          </div>
         </div>
 
         <div class="mb-3">
           <label for="confirmPassword" class="form-label">Confirm Password</label>
-          <input
-            type="password"
-            class="form-control"
-            id="confirmPassword"
-            v-model="confirmPassword"
-            required
-            placeholder="Confirm your password"
-            :disabled="isLoading"
-          >
+          <div class="input-group">
+            <input
+              :type="isConfirmPasswordVisible ? 'text' : 'password'"
+              class="form-control no-browser-icon"
+              id="confirmPassword"
+              v-model="confirmPassword"
+              required
+              placeholder="Confirm your password"
+              :disabled="isLoading"
+            >
+            <button 
+              class="btn btn-outline-secondary toggle-password" 
+              type="button" 
+              @click="isConfirmPasswordVisible = !isConfirmPasswordVisible"
+              :disabled="isLoading"
+            >
+              <i :class="isConfirmPasswordVisible ? 'bi bi-eye-slash' : 'bi bi-eye'"></i>
+            </button>
+          </div>
         </div>
 
         <div class="mb-3 form-check">
@@ -75,7 +95,7 @@
             type="submit" 
             class="btn btn-primary w-100 mb-3"
             :disabled="isLoading || !acceptTerms" >
-            <span v-if="isLoading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            <span v-if="isLoading" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
             {{ isLoading ? 'Registering...' : 'Create Account' }}
         </button>
 
@@ -92,24 +112,23 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 
-// !!! IMPORTANT: REPLACE THIS WITH YOUR ACTUAL LARAVEL API GATEWAY URL !!!
 const API_URL = 'http://localhost:8000/api/users'; 
-
 const router = useRouter();
 
-// Form Data State
 const fullName = ref('');
 const email = ref('');
 const password = ref('');
 const confirmPassword = ref('');
 const acceptTerms = ref(false);
 
-// UI/Request State
 const isLoading = ref(false);
 const error = ref<string | null>(null);
 
+// Visibility states for both password fields
+const isPasswordVisible = ref(false);
+const isConfirmPasswordVisible = ref(false);
+
 const handleRegister = async () => {
-  // 1. Reset state and basic client-side validation
   error.value = null;
   if (password.value !== confirmPassword.value) {
     error.value = 'Passwords do not match.';
@@ -120,9 +139,7 @@ const handleRegister = async () => {
     return;
   }
 
-  // 2. Prepare payload
   const payload = {
-    // 'name' maps to the 'name' field required by your Laravel controller
     name: fullName.value,
     email: email.value,
     password: password.value,
@@ -131,54 +148,27 @@ const handleRegister = async () => {
   isLoading.value = true;
 
   try {
-    // 3. Send POST request to the Laravel API Gateway
     const response = await fetch(API_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
 
     const data = await response.json();
 
-    // 4. Handle response statuses
-    if (response.ok) { // Status codes 200-299 (including your 201 Created)
-      console.log('Registration successful:', data);
-      // Use a more subtle notification system in a real app (like a toast)
+    if (response.ok) {
       alert('Registration successful! Please login.');
       router.push('/login');
     } else {
-      // Handle Laravel Validation Errors (Status 422)
       if (response.status === 422 && data.errors) {
-        // Example: If email validation fails, display the first error for that field
         const validationErrors = data.errors;
-        if (validationErrors.email) {
-            error.value = validationErrors.email[0];
-        } else if (validationErrors.name) {
-            error.value = validationErrors.name[0];
-        } else if (validationErrors.password) {
-            error.value = validationErrors.password[0];
-        } else {
-            error.value = 'Validation failed. Check your input.';
-        }
-      } 
-      // Handle Gateway Timeout/Service Unavailable (503 from your gateway)
-      else if (response.status === 503 && data.message) {
-          error.value = data.message;
-      }
-      // General API error
-      else {
-        // Fallback for any other error status code
+        error.value = validationErrors.email?.[0] || validationErrors.name?.[0] || validationErrors.password?.[0] || 'Validation failed.';
+      } else {
         error.value = data.message || `Registration failed with status: ${response.status}`;
       }
-      console.error('Registration failed:', data);
     }
-
   } catch (e) {
-    // 5. Handle Network or CORS errors
-    console.error('Network or connection error:', e);
-    error.value = 'Could not connect to the server. Please check your network and API URL.';
+    error.value = 'Could not connect to the server.';
   } finally {
     isLoading.value = false;
   }
@@ -186,6 +176,12 @@ const handleRegister = async () => {
 </script>
 
 <style scoped>
+/* HIDE DEFAULT BROWSER EYE ICON */
+.no-browser-icon::-ms-reveal,
+.no-browser-icon::-ms-clear {
+  display: none;
+}
+
 .auth-container {
   min-height: 100vh;
   display: flex;
@@ -215,7 +211,6 @@ const handleRegister = async () => {
   border-color: #4BB66D;
   font-weight: 500;
   padding: 12px;
-  
 }
 
 .btn-primary:hover {
@@ -223,9 +218,27 @@ const handleRegister = async () => {
   border-color: #3f975b;
 }
 
+/* Toggle Button Styling */
+.toggle-password {
+  border-color: #dee2e6;
+  color: #6c757d;
+  background-color: #fff;
+}
+
+.toggle-password:hover {
+  background-color: #f8f9fa;
+  color: #4BB66D;
+}
+
 .form-control:focus {
   border-color: #4BB66D;
-  box-shadow: 0 0 0 0.2rem rgba(38, 213, 22, 0.25);
+  box-shadow: 0 0 0 0.2rem rgba(75, 182, 109, 0.25);
+}
+
+/* Keeps border green when clicking the eye button */
+.input-group:focus-within .form-control,
+.input-group:focus-within .btn {
+  border-color: #4BB66D;
 }
 
 a {
