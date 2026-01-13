@@ -663,6 +663,18 @@ Route::get('/bookings/admin/assigned', function (Request $request) {
         ], 500);
     }
 });
+//delete a booking
+Route::delete('/bookings/{id}', function (Request $request, $id) {
+    try {
+        $response = Http::timeout(30)
+            ->withToken($request->bearerToken())
+            ->delete("http://booking_service/api/bookings/{$id}");
+        return handleProxyResponse($response, 'Booking deletion failed.');
+    } catch (Exception $e) {
+        \Log::error('Booking deletion gateway error: ' . $e->getMessage());
+        return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
+    }
+});
 
 
 // Resource Templates
