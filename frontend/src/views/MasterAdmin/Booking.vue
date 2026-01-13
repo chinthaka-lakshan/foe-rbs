@@ -168,9 +168,6 @@
                     <button class="btn btn-outline-success" v-if="booking.status === 'Pending'" @click="updateBookingStatus(booking.id, 'Confirmed')" title="Confirm">
                       <i class="bi bi-check-circle"></i>
                     </button>
-                    <button class="btn btn-outline-warning" v-if="booking.status === 'Confirmed'" @click="updateBookingStatus(booking.id, 'Completed')" title="Mark Complete">
-                      <i class="bi bi-check-all"></i>
-                    </button>
                     <button class="btn btn-outline-danger" v-if="booking.status === 'Pending' || booking.status === 'Confirmed'" @click="updateBookingStatus(booking.id, 'Cancelled')" title="Cancel">
                       <i class="bi bi-x-circle"></i>
                     </button>
@@ -429,9 +426,8 @@ const deleteBooking = async (bookingId: number) => {
   try {
     const token = getAuthToken();
     
-    // Since there's no delete endpoint, we'll use cancel and then manually delete from state
-    // or we can make a direct API call to the booking service
-    const response = await axios.post(`${API_BASE_URL}/bookings/${bookingId}/cancel`, {}, {
+    // Use DELETE endpoint for permanent deletion
+    const response = await axios.delete(`${API_BASE_URL}/bookings/${bookingId}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Accept': 'application/json',
@@ -451,15 +447,26 @@ const deleteBooking = async (bookingId: number) => {
     console.error('Error deleting booking:', error);
     
     if (error.response) {
-      if (error.response.data?.message) {
+      if (error.response.status === 404) {
+        throw new Error('Booking not found. It may have already been deleted.');
+      } else if (error.response.status === 500) {
+        throw new Error('Server error. Please try again later.');
+      } else if (error.response.data?.message) {
         throw new Error(error.response.data.message);
+      } else {
+        throw new Error(`Failed to delete booking: ${error.response.statusText}`);
       }
+    } else if (error.request) {
+      throw new Error('No response from server. Please check your connection.');
+    } else {
+      throw new Error(`Request error: ${error.message}`);
     }
-    throw error;
   } finally {
     isDeleting.value = false;
   }
 };
+    
+
 
 const updateBookingStatus = async (bookingId: number, status: string) => {
   try {
