@@ -23,6 +23,7 @@ Route::get('/resources/{id}', [ResourceController::class, 'show']);
 Route::put('/resources/{id}', [ResourceController::class, 'update']);
 Route::post('/resources/{id}', [ResourceController::class, 'update']);
 Route::delete('/resources/{id}', [ResourceController::class, 'destroy']);
+Route::get('resources/batch', [ResourceController::class, 'getBatch']);
 
 // Booking Item Routes
 Route::get('/booking-items', [BookingItemController::class, 'index']);
