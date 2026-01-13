@@ -596,4 +596,15 @@ public function resendOTP($id): JsonResponse
 
         return response()->json($bookings);
     }
+
+    //delete booking
+    public function destroy($id): JsonResponse
+    {
+        $booking = Booking::findOrFail($id);
+        $booking->delete();
+
+        return response()->json([
+            'message' => 'Booking deleted successfully'
+        ]);
+    }
 }
