@@ -17,69 +17,69 @@ class BookingController
     /**
      * Get all bookings
      */
-    // public function index(): JsonResponse
-    // {
-    //     $bookings = Booking::with('details')->orderBy('booking_date', 'desc')->get();
-    //     return response()->json($bookings);
-    // }
-
     public function index(): JsonResponse
     {
-        // 1. Fetch bookings from the local database
         $bookings = Booking::with('details')->orderBy('booking_date', 'desc')->get();
-
-        // 2. Extract all unique resource IDs from the results
-        $allResourceIds = $bookings->flatMap(function ($booking) {
-            return $booking->details->where('item_type', 'resource')->pluck('item_id');
-        })->unique()->filter()->values();
-
-        $resourceMap = collect();
-
-        // 3. One single HTTP call to get everything
-        if ($allResourceIds->isNotEmpty()) {
-            $resourceServiceUrl = env('RESOURCE_SERVICE_URL', 'http://resource_service/api');
-            
-            try {
-                // We pass the IDs as a comma-separated string: ?ids=1,2,3
-                $response = Http::timeout(5)->get("{$resourceServiceUrl}/resources/batch", [
-                    'ids' => $allResourceIds->implode(',')
-                ]);
-
-                if ($response->successful()) {
-                    // We key the collection by 'id' for ultra-fast lookup in Step 4
-                    $resourceMap = collect($response->json())->keyBy('id');
-                }
-            } catch (\Exception $e) {
-                \Log::error("Batch fetch failed: " . $e->getMessage());
-            }
-        }
-
-        // 4. Combine the data in memory
-        $formattedBookings = $bookings->map(function ($booking) use ($resourceMap) {
-            $resourceDetails = [];
-            
-            foreach ($booking->details as $detail) {
-                if ($detail->item_type === 'resource') {
-                    $resourceData = $resourceMap->get($detail->item_id);
-                    
-                    $resourceDetails[] = [
-                        'resource_id' => $detail->item_id,
-                        'name'        => $resourceData['name'] ?? $detail->item_name,
-                        'location'    => $resourceData['location_name'] ?? 'N/A',
-                        'price'       => $detail->price_per_hour,
-                        'subtotal'    => $detail->subtotal
-                    ];
-                }
-            }
-
-            return [
-                'booking' => $booking->makeHidden('details'),
-                'resource_details' => $resourceDetails
-            ];
-        });
-
-        return response()->json($formattedBookings);
+        return response()->json($bookings);
     }
+
+    // public function index(): JsonResponse
+    // {
+    //     // 1. Fetch bookings from the local database
+    //     $bookings = Booking::with('details')->orderBy('booking_date', 'desc')->get();
+
+    //     // 2. Extract all unique resource IDs from the results
+    //     $allResourceIds = $bookings->flatMap(function ($booking) {
+    //         return $booking->details->where('item_type', 'resource')->pluck('item_id');
+    //     })->unique()->filter()->values();
+
+    //     $resourceMap = collect();
+
+    //     // 3. One single HTTP call to get everything
+    //     if ($allResourceIds->isNotEmpty()) {
+    //         $resourceServiceUrl = env('RESOURCE_SERVICE_URL', 'http://resource_service/api');
+            
+    //         try {
+    //             // We pass the IDs as a comma-separated string: ?ids=1,2,3
+    //             $response = Http::timeout(5)->get("{$resourceServiceUrl}/resources/batch", [
+    //                 'ids' => $allResourceIds->implode(',')
+    //             ]);
+
+    //             if ($response->successful()) {
+    //                 // We key the collection by 'id' for ultra-fast lookup in Step 4
+    //                 $resourceMap = collect($response->json())->keyBy('id');
+    //             }
+    //         } catch (\Exception $e) {
+    //             \Log::error("Batch fetch failed: " . $e->getMessage());
+    //         }
+    //     }
+
+    //     // 4. Combine the data in memory
+    //     $formattedBookings = $bookings->map(function ($booking) use ($resourceMap) {
+    //         $resourceDetails = [];
+            
+    //         foreach ($booking->details as $detail) {
+    //             if ($detail->item_type === 'resource') {
+    //                 $resourceData = $resourceMap->get($detail->item_id);
+                    
+    //                 $resourceDetails[] = [
+    //                     'resource_id' => $detail->item_id,
+    //                     'name'        => $resourceData['name'] ?? $detail->item_name,
+    //                     'location'    => $resourceData['location_name'] ?? 'N/A',
+    //                     'price'       => $detail->price_per_hour,
+    //                     'subtotal'    => $detail->subtotal
+    //                 ];
+    //             }
+    //         }
+
+    //         return [
+    //             'booking' => $booking->makeHidden('details'),
+    //             'resource_details' => $resourceDetails
+    //         ];
+    //     });
+
+    //     return response()->json($formattedBookings);
+    // }
 
     /**
      * Get single booking
