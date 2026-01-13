@@ -325,6 +325,20 @@ class ResourceController extends Controller
             $image->update(['order_index' => $index]);
         }
     }
+
+    // Get batch of resources by IDs
+    public function getBatch(Request $request): JsonResponse
+    {
+        // Validate that we got a string of IDs (e.g., "1,5,10")
+        $request->validate(['ids' => 'required|string']);
+
+        $ids = explode(',', $request->ids);
+        
+        // Fetch all resources at once
+        $resources = Resource::whereIn('id', $ids)->get();
+
+        return response()->json($resources);
+    }
     
 
     // Delete a resource
