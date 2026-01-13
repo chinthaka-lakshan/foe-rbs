@@ -126,7 +126,6 @@
       </div>
     </div>
 
-    <!-- Rest of the template remains the same... -->
     <!-- Resources Report Section -->
     <div class="table-card mb-4" id="resources-report">
       <div class="d-flex justify-content-between align-items-center mb-3">
@@ -306,7 +305,7 @@
       </div>
     </div>
 
-    <!-- Bookings Report Section -->
+    <!-- Bookings Report Section - UPDATED -->
     <div class="table-card" id="bookings-report">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <div class="d-flex align-items-center gap-3">
@@ -316,22 +315,22 @@
         <div class="d-flex gap-2 flex-wrap">
           <select class="form-select form-select-sm w-auto" v-model="bookingFilter.resource">
             <option value="">All Resources</option>
-            <option v-for="res in resources" :key="res.id" :value="res.id">
-              {{ res.name }}
+            <option v-for="resource in uniqueResources" :key="resource" :value="resource">
+              {{ resource }}
             </option>
           </select>
           <select class="form-select form-select-sm w-auto" v-model="bookingFilter.status">
             <option value="">All Status</option>
-            <option value="approved">Approved</option>
-            <option value="pending">Pending</option>
-            <option value="rejected">Rejected</option>
-            <option value="cancelled">Cancelled</option>
+            <option value="Pending">Pending</option>
+            <option value="Confirmed">Confirmed</option>
+            <option value="Cancelled">Cancelled</option>
+            <option value="Completed">Completed</option>
           </select>
           <input 
             type="text" 
             class="form-control form-control-sm" 
             style="min-width: 150px;"
-            placeholder="Search by user..."
+            placeholder="Search by user email..."
             v-model="bookingFilter.search"
           >
           <button class="btn btn-success btn-sm" @click="exportBookingsCSV">
@@ -346,31 +345,45 @@
         <span class="text-muted">Loading bookings...</span>
       </div>
       
-      <!-- Bookings Table -->
+      <!-- Bookings Table - UPDATED with booking page structure -->
       <div v-if="!isLoadingBookings" class="table-responsive">
         <table class="table table-hover">
           <thead>
             <tr>
-              <th>Booking ID</th>
-              <th>User</th>
+              <th>Booking Ref</th>
+              <th>User Email</th>
               <th>Resource</th>
               <th>Booking Date</th>
               <th>Start Time</th>
               <th>End Time</th>
-              <th>Amount</th>
+              <th>Total Amount</th>
               <th>Status</th>
               <th>Created At</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="booking in filteredBookings" :key="booking.id">
-              <td>{{ booking.id }}</td>
-              <td>{{ booking.userName || `User ${booking.userId}` }}</td>
-              <td>{{ getResourceName(booking.resourceId) }}</td>
-              <td>{{ formatDate(booking.date) }}</td>
-              <td>{{ formatTime(booking.startTime) }}</td>
-              <td>{{ formatTime(booking.endTime) }}</td>
-              <td>Rs. {{ formatPrice(booking.amount) }}</td>
+              <td>
+                <span class="badge bg-light text-dark">{{ booking.booking_reference }}</span>
+              </td>
+              <td>{{ booking.user_email }}</td>
+              
+              <td>
+                <template v-if="booking.details && booking.details.length > 0">
+                  {{ booking.details[0].item_name }}
+                </template>
+                <template v-else-if="booking.resource_details && booking.resource_details.length > 0">
+                  {{ booking.resource_details[0].name }}
+                </template>
+                <template v-else>
+                  <span class="text-muted">N/A</span>
+                </template>
+              </td>
+
+              <td>{{ formatDate(booking.booking_date) }}</td>
+              <td>{{ booking.start_time }}</td>
+              <td>{{ booking.end_time }}</td>
+              <td>Rs. {{ formatPrice(booking.total_amount) }}</td>
               <td>
                 <span class="badge" :class="getBookingStatusClass(booking.status)">
                   {{ booking.status }}
@@ -383,7 +396,7 @@
         
         <!-- Empty State -->
         <div v-if="filteredBookings.length === 0" class="text-center py-5">
-          <i class="bi bi-calendar" style="font-size: 3rem; color: #ccc;"></i>
+          <i class="bi bi-calendar-x" style="font-size: 3rem; color: #ccc;"></i>
           <p class="text-muted mt-3">No bookings found matching your criteria</p>
         </div>
       </div>
@@ -405,17 +418,17 @@ import Navbar from '../../components/Navbar.vue';
 import MasterAdminSidebar from '../../components/Sidebar/MasterAdminSidebar.vue';
 import axios from 'axios';
 
-// API Configuration - Based on your resource page
+// API Configuration - Based on your booking page
 const API_BASE_URL = 'http://localhost:8000/api';
 
-// Get auth token
+// Get auth token - Same as booking page
 const getAuthToken = () => {
   return localStorage.getItem('authToken') || 
          localStorage.getItem('auth_token') || 
          localStorage.getItem('token');
 };
 
-// Interfaces
+// Interfaces - Updated for booking data structure
 interface Resource {
   id: number;
   name: string;
@@ -438,18 +451,28 @@ interface User {
   last_login_at?: string;
 }
 
+interface BookingDetail {
+  item_name: string;
+  [key: string]: any;
+}
+
+interface ResourceDetail {
+  name: string;
+  [key: string]: any;
+}
+
 interface Booking {
   id: number;
-  userId: number | string;
-  resourceId: number;
-  date: string;
-  startTime: string;
-  endTime: string;
-  status: 'approved' | 'pending' | 'rejected' | 'cancelled';
-  amount?: number | string;
+  booking_reference: string;
+  user_email: string;
+  details: BookingDetail[];
+  resource_details: ResourceDetail[];
+  booking_date: string;
+  start_time: string;
+  end_time: string;
+  total_amount: number | string;
+  status: 'Pending' | 'Confirmed' | 'Cancelled' | 'Completed';
   created_at: string;
-  userName?: string;
-  userEmail?: string;
 }
 
 interface Category {
@@ -519,6 +542,30 @@ const stats = computed(() => ({
   totalBookings: filteredBookings.value.length
 }));
 
+// Get unique resources for filter dropdown - based on booking data
+const uniqueResources = computed(() => {
+  const resources = new Set<string>();
+  
+  bookings.value.forEach(booking => {
+    if (booking.details && booking.details.length > 0) {
+      booking.details.forEach((detail: BookingDetail) => {
+        if (detail.item_name) {
+          resources.add(detail.item_name);
+        }
+      });
+    }
+    if (booking.resource_details && booking.resource_details.length > 0) {
+      booking.resource_details.forEach((resource: ResourceDetail) => {
+        if (resource.name) {
+          resources.add(resource.name);
+        }
+      });
+    }
+  });
+  
+  return Array.from(resources).sort();
+});
+
 const filteredResources = computed(() => {
   let filtered = resources.value;
   
@@ -527,9 +574,8 @@ const filteredResources = computed(() => {
     filtered = filtered.filter(r => r.status === resourceFilter.value.status);
   }
   
-  // Apply category filter - FIXED THIS PART
+  // Apply category filter
   if (resourceFilter.value.category) {
-    // Convert both to string for comparison to handle number/string mismatch
     const selectedCategoryId = resourceFilter.value.category.toString();
     filtered = filtered.filter(r => {
       const resourceCategoryId = r.category_id?.toString() || '';
@@ -598,7 +644,19 @@ const filteredBookings = computed(() => {
   
   // Apply resource filter
   if (bookingFilter.value.resource) {
-    filtered = filtered.filter(b => b.resourceId.toString() === bookingFilter.value.resource);
+    filtered = filtered.filter(b => {
+      // Check in details array
+      const hasDetail = b.details?.some((detail: BookingDetail) => 
+        detail.item_name === bookingFilter.value.resource
+      );
+      
+      // Check in resource_details array
+      const hasResourceDetail = b.resource_details?.some((resource: ResourceDetail) => 
+        resource.name === bookingFilter.value.resource
+      );
+      
+      return hasDetail || hasResourceDetail;
+    });
   }
   
   // Apply status filter
@@ -606,12 +664,11 @@ const filteredBookings = computed(() => {
     filtered = filtered.filter(b => b.status === bookingFilter.value.status);
   }
   
-  // Apply search filter
+  // Apply search filter (by user email)
   if (bookingFilter.value.search) {
     const search = bookingFilter.value.search.toLowerCase();
     filtered = filtered.filter(b => 
-      (b.userName && b.userName.toLowerCase().includes(search)) ||
-      (b.userEmail && b.userEmail.toLowerCase().includes(search))
+      b.user_email && b.user_email.toLowerCase().includes(search)
     );
   }
   
@@ -619,7 +676,7 @@ const filteredBookings = computed(() => {
   const { startDate, endDate } = currentDateRange.value;
   if (startDate && endDate) {
     filtered = filtered.filter(b => {
-      const bookingDate = b.date.split(' ')[0]; // Get date part only
+      const bookingDate = new Date(b.booking_date).toISOString().split('T')[0];
       return bookingDate >= startDate && bookingDate <= endDate;
     });
   }
@@ -660,11 +717,6 @@ const formatDateTime = (dateTimeString: string) => {
   }
 };
 
-const formatTime = (timeString: string) => {
-  if (!timeString) return 'N/A';
-  return timeString;
-};
-
 const formatPrice = (price: number | string | undefined): string => {
   if (price === undefined || price === null) return '0.00';
   
@@ -694,10 +746,10 @@ const getResourceStatusClass = (status: string) => {
 
 const getBookingStatusClass = (status: string) => {
   switch (status) {
-    case 'approved': return 'bg-success';
-    case 'pending': return 'bg-warning text-dark';
-    case 'rejected': return 'bg-danger';
-    case 'cancelled': return 'bg-secondary';
+    case 'Confirmed': return 'bg-success';
+    case 'Pending': return 'bg-warning text-dark';
+    case 'Cancelled': return 'bg-danger';
+    case 'Completed': return 'bg-info';
     default: return 'bg-secondary';
   }
 };
@@ -707,20 +759,39 @@ const getCategoryName = (categoryId: number) => {
   return category ? category.name : 'Unknown Category';
 };
 
-const getResourceName = (resourceId: number) => {
-  const resource = resources.value.find(r => r.id === resourceId);
-  return resource ? resource.name : 'Unknown Resource';
-};
-
 const getResourceBookingCount = (resourceId: number) => {
   const { startDate, endDate } = currentDateRange.value;
-  let count = bookings.value.filter(b => b.resourceId === resourceId).length;
+  
+  // Get all bookings for this resource
+  let count = bookings.value.filter(b => {
+    // Check if booking has this resource
+    const hasResourceInDetails = b.details?.some((detail: BookingDetail) => {
+      // This is a simplification - you might need to adjust based on your data structure
+      return detail.item_name && detail.item_name.includes(resourceId.toString());
+    });
+    
+    const hasResourceInResourceDetails = b.resource_details?.some((resource: ResourceDetail) => {
+      return resource.name && resource.name.includes(resourceId.toString());
+    });
+    
+    return hasResourceInDetails || hasResourceInResourceDetails;
+  }).length;
   
   // If date range is set, filter bookings by date
   if (startDate && endDate) {
     count = bookings.value.filter(b => {
-      if (b.resourceId !== resourceId) return false;
-      const bookingDate = b.date.split(' ')[0];
+      // Check if booking has this resource
+      const hasResourceInDetails = b.details?.some((detail: BookingDetail) => {
+        return detail.item_name && detail.item_name.includes(resourceId.toString());
+      });
+      
+      const hasResourceInResourceDetails = b.resource_details?.some((resource: ResourceDetail) => {
+        return resource.name && resource.name.includes(resourceId.toString());
+      });
+      
+      if (!hasResourceInDetails && !hasResourceInResourceDetails) return false;
+      
+      const bookingDate = new Date(b.booking_date).toISOString().split('T')[0];
       return bookingDate >= startDate && bookingDate <= endDate;
     }).length;
   }
@@ -730,13 +801,19 @@ const getResourceBookingCount = (resourceId: number) => {
 
 const getUserBookingCount = (userId: number | string) => {
   const { startDate, endDate } = currentDateRange.value;
-  let count = bookings.value.filter(b => b.userId === userId).length;
+  
+  // Since booking data doesn't have userId, we'll use user_email as reference
+  // This is a simplification - you might need to adjust based on your data structure
+  const user = users.value.find(u => u.id === userId);
+  if (!user) return 0;
+  
+  let count = bookings.value.filter(b => b.user_email === user.email).length;
   
   // If date range is set, filter bookings by date
   if (startDate && endDate) {
     count = bookings.value.filter(b => {
-      if (b.userId !== userId) return false;
-      const bookingDate = b.date.split(' ')[0];
+      if (b.user_email !== user.email) return false;
+      const bookingDate = new Date(b.booking_date).toISOString().split('T')[0];
       return bookingDate >= startDate && bookingDate <= endDate;
     }).length;
   }
@@ -780,7 +857,7 @@ const getDateRange = () => {
         break;
       case 'week':
         const weekStart = new Date(today);
-        weekStart.setDate(today.getDate() - today.getDay()); // Start from Sunday
+        weekStart.setDate(today.getDate() - today.getDay());
         startDate = weekStart.toISOString().split('T')[0];
         endDate = today.toISOString().split('T')[0];
         break;
@@ -815,7 +892,6 @@ const setDateRange = (range: string) => {
   
   if (range === 'custom') {
     showCustomDateFields.value = true;
-    // Set default values for custom date picker (last 30 days)
     const today = new Date();
     const lastMonth = new Date(today);
     lastMonth.setDate(today.getDate() - 30);
@@ -823,7 +899,6 @@ const setDateRange = (range: string) => {
     tempCustomStartDate.value = lastMonth.toISOString().split('T')[0];
     tempCustomEndDate.value = today.toISOString().split('T')[0];
     
-    // Set initial values but don't apply yet
     customStartDate.value = tempCustomStartDate.value;
     customEndDate.value = tempCustomEndDate.value;
     updateCurrentDateRange();
@@ -836,7 +911,6 @@ const setDateRange = (range: string) => {
 
 const showCustomDatePicker = () => {
   if (dateRangeFilter.value === 'custom') {
-    // Toggle visibility
     showCustomDateFields.value = !showCustomDateFields.value;
   } else {
     setDateRange('custom');
@@ -863,7 +937,6 @@ const applyCustomDateRange = () => {
       return;
     }
     
-    // Apply the custom dates
     customStartDate.value = tempCustomStartDate.value;
     customEndDate.value = tempCustomEndDate.value;
     dateRangeFilter.value = 'custom';
@@ -875,16 +948,12 @@ const applyCustomDateRange = () => {
 };
 
 const cancelCustomDateRange = () => {
-  // Reset to previous values and hide the custom date fields
   showCustomDateFields.value = false;
   
-  // If we had a custom range applied before, keep it
-  // Otherwise, reset to the default "This Month"
   if (dateRangeFilter.value !== 'custom') {
     tempCustomStartDate.value = '';
     tempCustomEndDate.value = '';
   } else {
-    // Reset temp values to current custom values
     tempCustomStartDate.value = customStartDate.value;
     tempCustomEndDate.value = customEndDate.value;
   }
@@ -893,7 +962,6 @@ const cancelCustomDateRange = () => {
 // Export functions (CSV)
 const exportToCSV = (data: any[], headers: string[], filename: string) => {
   try {
-    // Convert data to CSV format
     const csvContent = [
       headers.join(','),
       ...data.map(row => Object.values(row).map(value => 
@@ -901,7 +969,6 @@ const exportToCSV = (data: any[], headers: string[], filename: string) => {
       ).join(','))
     ].join('\n');
     
-    // Create download link
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
@@ -957,25 +1024,28 @@ const exportUsersCSV = () => {
 
 const exportBookingsCSV = () => {
   const data = filteredBookings.value.map(booking => ({
-    ID: booking.id,
-    User: booking.userName || `User ${booking.userId}`,
-    Resource: getResourceName(booking.resourceId),
-    Date: formatDate(booking.date),
-    'Start Time': formatTime(booking.startTime),
-    'End Time': formatTime(booking.endTime),
-    Amount: `Rs. ${formatPrice(booking.amount)}`,
-    Status: booking.status,
+    'Booking Ref': booking.booking_reference,
+    'User Email': booking.user_email,
+    'Resource': booking.details && booking.details.length > 0 
+      ? booking.details[0].item_name 
+      : booking.resource_details && booking.resource_details.length > 0 
+        ? booking.resource_details[0].name 
+        : 'N/A',
+    'Booking Date': formatDate(booking.booking_date),
+    'Start Time': booking.start_time,
+    'End Time': booking.end_time,
+    'Total Amount': `Rs. ${formatPrice(booking.total_amount)}`,
+    'Status': booking.status,
     'Created At': formatDateTime(booking.created_at)
   }));
   
   exportToCSV(data, 
-    ['ID', 'User', 'Resource', 'Date', 'Start Time', 'End Time', 'Amount', 'Status', 'Created At'], 
+    ['Booking Ref', 'User Email', 'Resource', 'Booking Date', 'Start Time', 'End Time', 'Total Amount', 'Status', 'Created At'], 
     `bookings-report-${new Date().toISOString().split('T')[0]}.csv`
   );
 };
 
 const exportAllToCSV = () => {
-  // Export each report separately with delay
   exportResourcesCSV();
   setTimeout(() => exportUsersCSV(), 500);
   setTimeout(() => exportBookingsCSV(), 1000);
@@ -990,7 +1060,6 @@ const printReports = () => {
       return;
     }
     
-    // Get report content
     const resourcesContent = document.getElementById('resources-report')?.innerHTML || '';
     const usersContent = document.getElementById('users-report')?.innerHTML || '';
     const bookingsContent = document.getElementById('bookings-report')?.innerHTML || '';
@@ -1048,7 +1117,6 @@ const printReports = () => {
     printWindow.document.close();
     printWindow.focus();
     
-    // Wait for content to load then print
     setTimeout(() => {
       printWindow.print();
       printWindow.close();
@@ -1059,7 +1127,7 @@ const printReports = () => {
   }
 };
 
-// API calls with error handling
+// API calls with error handling - UPDATED fetchBookings function
 const fetchResources = async () => {
   isLoadingResources.value = true;
   resourceError.value = '';
@@ -1077,7 +1145,6 @@ const fetchResources = async () => {
       }
     });
     
-    // Handle different API response structures
     if (response.data && Array.isArray(response.data)) {
       resources.value = response.data;
     } else if (response.data && response.data.resources) {
@@ -1087,10 +1154,6 @@ const fetchResources = async () => {
     }
     
     console.log('Resources loaded:', resources.value.length);
-    // Debug: Log resources with their categories
-    resources.value.forEach(resource => {
-      console.log(`Resource ID: ${resource.id}, Category ID: ${resource.category_id}, Name: ${resource.name}`);
-    });
   } catch (error: any) {
     console.error('Error fetching resources:', error);
     if (error.response?.status === 401) {
@@ -1144,6 +1207,7 @@ const fetchUsers = async () => {
   }
 };
 
+// UPDATED: fetchBookings function to match your booking page structure
 const fetchBookings = async () => {
   isLoadingBookings.value = true;
   
@@ -1153,6 +1217,7 @@ const fetchBookings = async () => {
       throw new Error('No authentication token found');
     }
     
+    // Using the same endpoint as your booking page
     const response = await axios.get(`${API_BASE_URL}/bookings`, {
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -1160,33 +1225,55 @@ const fetchBookings = async () => {
       }
     });
     
+    // Handle different response structures - same as your booking page
     let bookingsData = [];
     if (response.data && Array.isArray(response.data)) {
       bookingsData = response.data;
-    } else if (response.data && response.data.bookings) {
+    } else if (response.data && response.data.data && Array.isArray(response.data.data)) {
+      bookingsData = response.data.data;
+    } else if (response.data && response.data.bookings && Array.isArray(response.data.bookings)) {
       bookingsData = response.data.bookings;
     } else {
       bookingsData = [];
     }
     
+    // Map to our Booking interface
     bookings.value = bookingsData.map((booking: any) => ({
-      ...booking,
       id: booking.id || booking._id || Math.random(),
-      userId: booking.userId || booking.user_id || 'N/A',
-      resourceId: booking.resourceId || booking.resource_id || 0,
-      date: booking.date || booking.booking_date || '',
-      startTime: booking.startTime || booking.start_time || '',
-      endTime: booking.endTime || booking.end_time || '',
-      status: booking.status || 'pending',
-      amount: booking.amount || booking.total_amount || 0,
-      userName: booking.userName || booking.user_name || '',
-      userEmail: booking.userEmail || booking.user_email || '',
+      booking_reference: booking.booking_reference || `REF-${booking.id || 'N/A'}`,
+      user_email: booking.user_email || booking.userEmail || 'N/A',
+      details: booking.details || [],
+      resource_details: booking.resource_details || [],
+      booking_date: booking.booking_date || booking.date || '',
+      start_time: booking.start_time || booking.startTime || '',
+      end_time: booking.end_time || booking.endTime || '',
+      total_amount: booking.total_amount || booking.amount || 0,
+      status: booking.status || 'Pending',
       created_at: booking.created_at || booking.createdAt || new Date().toISOString()
     }));
     
     console.log('Bookings loaded:', bookings.value.length);
+    console.log('Sample booking:', bookings.value[0]);
+    
   } catch (error: any) {
     console.error('Error fetching bookings:', error);
+    
+    if (error.response) {
+      if (error.response.status === 401) {
+        alert('Authentication required. Please login again.');
+      } else if (error.response.status === 404) {
+        alert('Bookings endpoint not found.');
+      } else if (error.response.status === 500) {
+        alert('Server error. Please try again later.');
+      } else {
+        alert(`Failed to load bookings: ${error.response.data?.message || 'Unknown error'}`);
+      }
+    } else if (error.request) {
+      alert('No response from server. Please check your connection.');
+    } else {
+      alert(`Request error: ${error.message}`);
+    }
+    
     bookings.value = [];
   } finally {
     isLoadingBookings.value = false;
@@ -1216,10 +1303,6 @@ const fetchCategories = async () => {
     }
     
     console.log('Categories loaded:', categories.value.length);
-    // Debug: Log categories
-    categories.value.forEach(category => {
-      console.log(`Category ID: ${category.id}, Name: ${category.name}`);
-    });
   } catch (error: any) {
     console.error('Error fetching categories:', error);
     categories.value = [];
