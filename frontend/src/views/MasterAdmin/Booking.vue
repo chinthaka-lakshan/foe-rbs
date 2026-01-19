@@ -37,7 +37,6 @@
               <option value="Pending">Pending</option>
               <option value="Confirmed">Confirmed</option>
               <option value="Cancelled">Cancelled</option>
-              <option value="Completed">Completed</option>
             </select>
           </div>
           
@@ -142,7 +141,10 @@
                 <td>{{ booking.user_email }}</td>
                 
                 <td>
-                  <template v-if="booking.details && booking.details.length > 0">
+                  <template v-if="booking.resource && booking.resource.name">
+                    {{ booking.resource.name }}
+                  </template>
+                  <template v-else-if="booking.details && booking.details.length > 0">
                     {{ booking.details[0].item_name }}
                   </template>
                   <template v-else>
@@ -162,18 +164,30 @@
                
                 <td>
                   <div class="btn-group btn-group-sm">
+                    <!-- ALWAYS SHOW PREVIEW ICON -->
                     <button class="btn btn-outline-info" @click="viewBookingDetails(booking.id)" title="View Details">
                       <i class="bi bi-eye"></i>
                     </button>
-                    <button class="btn btn-outline-success" v-if="booking.status === 'Pending'" @click="updateBookingStatus(booking.id, 'Confirmed')" title="Confirm">
-                      <i class="bi bi-check-circle"></i>
-                    </button>
-                    <button class="btn btn-outline-danger" v-if="booking.status === 'Pending' || booking.status === 'Confirmed'" @click="updateBookingStatus(booking.id, 'Cancelled')" title="Cancel">
-                      <i class="bi bi-x-circle"></i>
-                    </button>
+                    
+                    <!-- ALWAYS SHOW DELETE ICON -->
                     <button class="btn btn-outline-danger" @click="openDeleteConfirmation(booking)" title="Delete Permanently">
                       <i class="bi bi-trash"></i>
                     </button>
+                    
+                    <!-- SHOW CONFIRM AND REJECT ICONS ONLY FOR PENDING BOOKINGS THAT HAVEN'T BEEN ACTIONED -->
+                    <template v-if="booking.status === 'Pending' && !booking.actionTaken">
+                      <button class="btn btn-outline-success" @click="confirmBooking(booking.id)" title="Confirm">
+                        <i class="bi bi-check-circle"></i>
+                      </button>
+                      <button class="btn btn-outline-warning" @click="rejectBooking(booking.id)" title="Reject">
+                        <i class="bi bi-x-circle"></i>
+                      </button>
+                    </template>
+                    
+                    <!-- SHOW ONLY PREVIEW AND DELETE AFTER ACTION IS TAKEN -->
+                    <template v-else-if="booking.status === 'Pending' && booking.actionTaken">
+                      <!-- Preview and Delete already shown above -->
+                    </template>
                   </div>
                 </td>
               </tr>
@@ -202,7 +216,7 @@
                 <p class="mb-0">
                   Are you sure you want to delete the booking 
                   <strong>{{ bookingToDelete?.booking_reference }}</strong> 
-                  for <strong>{{ bookingToDelete?.details?.[0]?.item_name || 'N/A' }}</strong>?
+                  for <strong>{{ bookingToDelete?.resource?.name || bookingToDelete?.details?.[0]?.item_name || 'N/A' }}</strong>?
                 </p>
                 <div class="alert alert-warning mt-3" role="alert">
                   <i class="bi bi-exclamation-triangle me-2"></i>
@@ -271,7 +285,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
 import Navbar from '../../components/Navbar.vue';
@@ -294,6 +308,9 @@ const isLoading = ref(true);
 const isRefreshing = ref(false);
 const errorMessage = ref('');
 const bookings = ref<any[]>([]);
+
+// Track which bookings have had action taken (Confirm/Reject clicked)
+const actionedBookings = ref<Set<number>>(new Set());
 
 // Filter State
 const selectedResource = ref('');
@@ -337,15 +354,6 @@ const getStatusClass = (status: string) => {
   }
 };
 
-const getBookingResourceName = (booking: any) => {
-  if (booking?.resource_details && booking.resource_details.length > 0) {
-    return booking.resource_details[0].name;
-  } else if (booking?.booking_item_details && booking.booking_item_details.length > 0) {
-    return booking.booking_item_details[0].name;
-  }
-  return 'Resource';
-};
-
 const showSuccess = (message: string) => {
   successMessage.value = message;
   showSuccessToast.value = true;
@@ -383,17 +391,28 @@ const loadBookings = async () => {
     });
     
     // Handle different response structures
+    let bookingsData = [];
+    
     if (response.data && Array.isArray(response.data)) {
-      bookings.value = response.data;
+      bookingsData = response.data;
     } else if (response.data && response.data.data && Array.isArray(response.data.data)) {
-      bookings.value = response.data.data;
+      bookingsData = response.data.data;
     } else if (response.data && response.data.bookings && Array.isArray(response.data.bookings)) {
-      bookings.value = response.data.bookings;
+      bookingsData = response.data.bookings;
     } else {
-      bookings.value = [];
+      bookingsData = [];
     }
     
-    console.log('Bookings loaded:', bookings.value.length);
+    // Process bookings and ensure resource data is properly handled
+    bookings.value = bookingsData.map(booking => ({
+      ...booking,
+      // Mark booking as actionTaken if it was previously actioned
+      actionTaken: actionedBookings.value.has(booking.id),
+      // Ensure resource data is accessible
+      resource: booking.resource || booking.item || booking.details?.[0] || null
+    }));
+    
+    console.log('Bookings loaded:', bookings.value);
     
   } catch (error: any) {
     console.error('Error loading bookings:', error);
@@ -440,6 +459,9 @@ const deleteBooking = async (bookingId: number) => {
       bookings.value.splice(index, 1);
     }
     
+    // Also remove from actioned bookings set
+    actionedBookings.value.delete(bookingId);
+    
     showSuccess('Booking deleted successfully!');
     return response.data;
     
@@ -465,15 +487,14 @@ const deleteBooking = async (bookingId: number) => {
     isDeleting.value = false;
   }
 };
-    
 
-
-const updateBookingStatus = async (bookingId: number, status: string) => {
+// New function to confirm booking
+const confirmBooking = async (bookingId: number) => {
   try {
     const token = getAuthToken();
     
     const response = await axios.patch(`${API_BASE_URL}/bookings/${bookingId}/status`, {
-      status: status
+      status: 'Confirmed'
     }, {
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -481,18 +502,53 @@ const updateBookingStatus = async (bookingId: number, status: string) => {
       }
     });
     
-    // Update local state
+    // Mark this booking as actioned
+    actionedBookings.value.add(bookingId);
+    
+    // Update local state - hide confirm/reject buttons, show only preview/delete
     const index = bookings.value.findIndex(b => b.id === bookingId);
     if (index !== -1) {
-      bookings.value[index] = response.data.booking || response.data;
+      bookings.value[index].status = 'Confirmed';
+      bookings.value[index].actionTaken = true;
     }
     
-    showSuccess(`Booking status updated to ${status}`);
-    loadBookings(); // Refresh to get updated data
+    showSuccess('Booking confirmed successfully!');
     
   } catch (error: any) {
-    console.error('Error updating booking status:', error);
-    showError(error.response?.data?.message || 'Failed to update booking status');
+    console.error('Error confirming booking:', error);
+    showError(error.response?.data?.message || 'Failed to confirm booking');
+  }
+};
+
+// New function to reject booking
+const rejectBooking = async (bookingId: number) => {
+  try {
+    const token = getAuthToken();
+    
+    const response = await axios.patch(`${API_BASE_URL}/bookings/${bookingId}/status`, {
+      status: 'Cancelled'
+    }, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      }
+    });
+    
+    // Mark this booking as actioned
+    actionedBookings.value.add(bookingId);
+    
+    // Update local state - hide confirm/reject buttons, show only preview/delete
+    const index = bookings.value.findIndex(b => b.id === bookingId);
+    if (index !== -1) {
+      bookings.value[index].status = 'Cancelled';
+      bookings.value[index].actionTaken = true;
+    }
+    
+    showSuccess('Booking rejected successfully!');
+    
+  } catch (error: any) {
+    console.error('Error rejecting booking:', error);
+    showError(error.response?.data?.message || 'Failed to reject booking');
   }
 };
 
@@ -535,10 +591,18 @@ const uniqueResources = computed(() => {
   const resources = new Set<string>();
   
   bookings.value.forEach(booking => {
-    if (booking.resource_details && booking.resource_details.length > 0) {
-      booking.resource_details.forEach((resource: any) => {
-        if (resource.name) {
-          resources.add(resource.name);
+    // Try different possible locations for resource name
+    if (booking.resource?.name) {
+      resources.add(booking.resource.name);
+    } else if (booking.item?.name) {
+      resources.add(booking.item.name);
+    } else if (booking.details && booking.details.length > 0) {
+      booking.details.forEach((detail: any) => {
+        if (detail.item_name) {
+          resources.add(detail.item_name);
+        }
+        if (detail.name) {
+          resources.add(detail.name);
         }
       });
     }
@@ -551,11 +615,18 @@ const filteredBookings = computed(() => {
   return bookings.value.filter(booking => {
     // Resource filter
     if (selectedResource.value) {
-      const resourceNames = booking.resource_details?.map((r: any) => r.name) || [];
-      const itemNames = booking.booking_item_details?.map((i: any) => i.name) || [];
-      const allNames = [...resourceNames, ...itemNames];
+      let resourceName = '';
       
-      if (!allNames.includes(selectedResource.value)) {
+      // Check all possible locations for resource name
+      if (booking.resource?.name) {
+        resourceName = booking.resource.name;
+      } else if (booking.item?.name) {
+        resourceName = booking.item.name;
+      } else if (booking.details && booking.details.length > 0) {
+        resourceName = booking.details[0]?.item_name || booking.details[0]?.name || '';
+      }
+      
+      if (resourceName !== selectedResource.value) {
         return false;
       }
     }
