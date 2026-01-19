@@ -17,10 +17,8 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->string('permission_slug');
-            $table->boolean('is_granted')->default(true);
+            $table->boolean('is_allowed');
             $table->timestamps();
-
-            $table->unique(['user_id', 'permission_slug']);
         });
     }
 
@@ -29,7 +27,6 @@ return new class extends Migration
      *
      * @return void
      */
-
     public function down()
     {
         Schema::dropIfExists('user_permission_overrides');

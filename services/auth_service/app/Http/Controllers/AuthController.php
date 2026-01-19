@@ -15,33 +15,37 @@ use App\Mail\ResetPasswordOtpMail;
 
 class AuthController extends Controller
 {
-    // login
-    public function login(Request $request)
-    {
-        $credentials = $request->validate([
-            'email' => 'required|email',
-            'password' => 'required'
-        ]);
 
-        if (Auth::attempt($credentials)) {
-            $user = Auth::user();
-            
-            // Check if user is active
-            if ($user->status !== 'active') {
-                return response()->json(['message' => 'Account is not active'], 403);
-            }
+public function login(Request $request)
+{
+    $request->validate([
+        'email' => 'required|email',
+        'password' => 'required',
+    ]);
 
-            $token = $user->createToken('auth-token')->plainTextToken;
-            
-            return response()->json([
-                'user' => $user->load('roles'),
-                'roles' => $user->roles->pluck('name'),
-                'token' => $token
-            ]);
-        }
+    // 1. Find user and load the roles relationship
+    $user = User::with('roles')->where('email', $request->email)->first();
 
-        return response()->json(['message' => 'Invalid credentials'], 401);
+    if (!$user || !\Hash::check($request->password, $user->password)) {
+        return response()->json(['message' => 'Unauthorized'], 401);
     }
+
+    // 2. Calculate final permissions (Role + Overrides) for the token abilities
+    $permissions = $user->getAllPermissions();
+
+    // 3. Create the role names array for the response
+    $roleNames = $user->roles->pluck('name');
+
+    // 4. Issue Token with 'Abilities'
+    $token = $user->createToken('auth_token', $permissions)->plainTextToken;
+
+    // 5. Return the exact structure requested
+    return response()->json([
+        'user' => $user,
+        'roles' => $roleNames,
+        'token' => $token
+    ]);
+}
 
     // sendResetOtp
     public function sendResetOtp(Request $request): JsonResponse
