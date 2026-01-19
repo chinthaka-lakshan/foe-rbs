@@ -95,9 +95,23 @@
                 </span>
               </td>
               <td>
-                <span class="badge" :class="user.status === 'active' ? 'bg-success' : 'bg-secondary'">
-                  {{ user.status }}
-                </span>
+                <!-- Status Toggle Switch -->
+                <div class="form-check form-switch d-inline-block">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    role="switch"
+                    :id="'statusToggle-' + user.id"
+                    :checked="user.status === 'active'"
+                    @change="toggleUserStatus(user)"
+                    :disabled="isStatusUpdating"
+                  >
+                  <label class="form-check-label ms-2" :for="'statusToggle-' + user.id">
+                    <span class="badge" :class="user.status === 'active' ? 'bg-success' : 'bg-secondary'">
+                      {{ user.status }}
+                    </span>
+                  </label>
+                </div>
               </td>
               <td>
                 <div class="btn-group btn-group-sm">
@@ -330,6 +344,7 @@ const selectedRole = ref('');
 const isLoading = ref(true);
 const isSaving = ref(false);
 const isDeleting = ref(false);
+const isStatusUpdating = ref(false);
 const successMessage = ref('');
 const errorMessage = ref('');
 const modalErrorMessage = ref('');
@@ -399,6 +414,68 @@ const resetNewUserForm = () => {
   newUser.value = { ...initialNewUserState };
   validationErrors.value = {};
   modalErrorMessage.value = '';
+};
+
+// --- STATUS TOGGLE FUNCTIONALITY ---
+const toggleUserStatus = async (user: User) => {
+  isStatusUpdating.value = true;
+  errorMessage.value = '';
+  successMessage.value = '';
+  
+  const token = getAuthToken();
+  if (!token) {
+    isStatusUpdating.value = false;
+    errorMessage.value = "Authentication token missing.";
+    return;
+  }
+
+  const userId = user.id;
+  const newStatus = user.status === 'active' ? 'inactive' : 'active';
+  
+  // Use the existing update endpoint (PUT /api/users/{user})
+  const url = `${USERS_API_URL}/${userId}`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: { 
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json' 
+      },
+      body: JSON.stringify({
+        status: newStatus,
+      }),
+    });
+
+    const responseText = await response.text();
+    let data = null;
+    
+    try {
+      data = JSON.parse(responseText);
+    } catch (e) {
+      errorMessage.value = `Error: Failed to process request (Status: ${response.status}).`;
+      isStatusUpdating.value = false;
+      // Revert the toggle if API call fails
+      await fetchUsers();
+      return;
+    }
+
+    if (response.ok) {
+      successMessage.value = `User "${user.name}" status updated to ${newStatus} successfully!`;
+      // Update the local user status immediately for better UX
+      user.status = newStatus;
+    } else {
+      handleApiError(data, response.status);
+      // Revert the toggle if API call fails
+      await fetchUsers();
+    }
+  } catch (e) {
+    errorMessage.value = 'Network error: Could not connect to the API Gateway.';
+    // Revert the toggle if network error
+    await fetchUsers();
+  } finally {
+    isStatusUpdating.value = false;
+  }
 };
 
 // --- DELETE FUNCTIONALITY (same as category page) ---
@@ -759,6 +836,26 @@ onMounted(() => {
 .btn-outline-warning {
   --bs-btn-color: #ffc107;
   --bs-btn-border-color: #ffc107;
+}
+
+/* Status toggle switch styling */
+.form-check-input:checked {
+  background-color: #4BB66D;
+  border-color: #4BB66D;
+}
+
+.form-check-input:focus {
+  border-color: #4BB66D;
+  box-shadow: 0 0 0 0.25rem rgba(75, 182, 109, 0.25);
+}
+
+.form-switch {
+  padding-left: 2.5em;
+}
+
+.form-switch .form-check-input {
+  width: 2em;
+  margin-left: -2.5em;
 }
 
 /* Delete modal styling (same as category page) */
