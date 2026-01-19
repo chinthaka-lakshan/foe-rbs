@@ -2,54 +2,21 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
-     */
-    protected $fillable = [
-        'name',
-        'email',
-        'password',
-        'status',
-    ];
+    protected $fillable = ['name', 'email', 'password', 'status', 'role'];
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var array<int, string>
-     */
-    protected $hidden = [
-        'password',
-        'remember_token',
-    ];
+    protected $hidden = ['password', 'remember_token'];
 
-    public function roles()
-    {
-        return $this->belongsToMany(Role::class);
-    }
-
-
-    public function hasRole($role)
-    {
-        return $this->roles()->where('name', $role)->exists();
-    }
-
-    /**
-     * The attributes that should be cast.
-     *
-     * @var array<string, string>
-     */
     protected $casts = [
         'email_verified_at' => 'datetime',
     ];
@@ -59,31 +26,44 @@ class User extends Authenticatable
         return $this->hasMany(UserPermissionOverride::class);
     }
 
-    public function hasPermission(string $permission): bool
+    public function roles(): BelongsToMany
     {
-        // 1. Check for Manual Overrides first
-        $override = $this->permissionOverrides()
-                         ->where('permission_slug', $permission)
-                         ->first();
-
-        if ($override !== null) {
-            return (bool) $override->is_granted;
-        }
-
-        // 2. Fallback to Role-Based Defaults
-        return $this->checkRoleDefault($this->role, $permission);
+        return $this->belongsToMany(Role::class);
     }
 
-    private function checkRoleDefault(string $role, string $permission): bool
+    public function getAllPermissions(): array
     {
-        $rolePermissions = [
-            'master_admin' => ['*'],
-            'admin' => ['resource.create', 'resource.update', 'resource.view', 'resource.delete'],
-            'user'  => ['resource.view', 'booking.create'],
+        // 1. Identify the primary role name
+        $roleName = $this->roles()->first()?->name;
+
+        // 2. Define standard role defaults
+        $roleDefaults = [
+            'Master Admin' => ['*'],
+            'Admin'        => ['resource.create', 'resource.update', 'resource.view', 'resource.delete', 'user.index'],
+            'User'         => ['resource.view', 'booking.create'],
         ];
 
-        if (in_array('*', $rolePermissions[$role] ?? [])) return true;
+        $permissions = $roleDefaults[$roleName] ?? [];
 
-        return in_array($permission, $rolePermissions[$role] ?? []);
+        // Master Admin has everything; we can return early unless you specifically want to deny Master Admin things
+        if ($roleName === 'Master Admin') {
+            return ['*'];
+        }
+
+        // 3. Apply User-Specific Overrides from database
+        $overrides = $this->permissionOverrides()->get();
+        foreach ($overrides as $override) {
+            if ($override->is_allowed) {
+                // "Specific Allow": add if not already present
+                if (!in_array($override->permission_slug, $permissions)) {
+                    $permissions[] = $override->permission_slug;
+                }
+            } else {
+                // "Specific Deny": remove if present
+                $permissions = array_filter($permissions, fn($p) => $p !== $override->permission_slug);
+            }
+        }
+
+        return array_values($permissions);
     }
 }
