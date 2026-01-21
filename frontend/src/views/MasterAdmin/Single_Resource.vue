@@ -63,7 +63,7 @@
                 </div>
                 <div class="detail-item mb-3">
                     <h6 class="text-muted mb-0">Location Name</h6>
-                    <p>{{ resource.location_name || 'N/A' }}</p>
+                    <p class="fw-bold">{{ resource.location_name || 'N/A' }}</p>
                 </div>
                 <div class="detail-item mb-3">
                     <h6 class="text-muted mb-0">Category</h6>
@@ -71,7 +71,16 @@
                 </div>
                 <div class="detail-item">
                     <h6 class="text-muted mb-0">Assigned Person</h6>
-                    <p class="fw-bold">{{ resource.assigned_admin_id ? `Admin ID: ${resource.assigned_admin_id}` : 'Unassigned' }}</p>
+                    <div v-if="assignedAdminName">
+                        <p class="fw-bold">{{ assignedAdminName }}</p>
+                    </div>
+                    <div v-else-if="resource.assigned_admin_id">
+                        <p class="fw-bold text-muted">Loading admin name...</p>
+                        <small class="text-muted">Admin ID: {{ resource.assigned_admin_id }}</small>
+                    </div>
+                    <div v-else>
+                        <p class="fw-bold text-muted">Unassigned</p>
+                    </div>
                 </div>
             </div>
 
@@ -169,11 +178,11 @@ interface Resource {
     location_name: string;
     category_id: number;
     category: ResourceCategory;
-    base_price: number | null; // 💰 FIX: Using correct backend key
+    base_price: number | null;
     assigned_admin_id: number | null;
     description: string | null;
     status: 'Active' | 'Inactive' | 'Maintenance';
-    images: ResourceImage[]; // Using correct relationship name
+    images: ResourceImage[];
     equipment: ResourceEquipment[]; 
     availability: ResourceAvailability[]; 
 }
@@ -182,7 +191,8 @@ interface Resource {
 const resource = ref<Resource | null>(null);
 const isLoading = ref(false);
 const errorMessage = ref('');
-
+const assignedAdminName = ref<string>('');
+const isFetchingAdminName = ref(false);
 
 // Helper to get auth token
 const getAuthToken = (): string | null => {
@@ -191,9 +201,7 @@ const getAuthToken = (): string | null => {
 
 // Helper Functions
 const getImageUrl = (resource: Resource): string => {
-    // 🖼️ FIX: Ensure we check the 'images' array and return the publicly accessible path
     if (resource.images && resource.images.length > 0) {
-        // Build the URL using the public root and the file path
         return `${STORAGE_URL_ROOT}/${resource.images[0].file_path}`; 
     }
     return 'https://via.placeholder.com/600x400?text=No+Image';
@@ -204,10 +212,86 @@ const formatTime = (time: string | null): string => {
     return time.substring(0, 5); 
 };
 
+// Fetch admin details from users table - SIMPLIFIED VERSION
+const fetchAdminDetails = async (adminId: number) => {
+    if (!adminId) return;
+    
+    isFetchingAdminName.value = true;
+    try {
+        const token = getAuthToken();
+        if (!token) {
+            console.warn('No auth token found for admin fetch');
+            return;
+        }
+
+        // OPTION 1: Try to fetch from users endpoint
+        try {
+            const response = await axios.get(`${API_BASE_URL}/users`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json',
+                }
+            });
+            
+            const users = response.data.users || response.data || [];
+            const adminUser = users.find((user: any) => user.id === adminId);
+            
+            if (adminUser) {
+                if (adminUser.name) {
+                    assignedAdminName.value = adminUser.name;
+                } else if (adminUser.first_name && adminUser.last_name) {
+                    assignedAdminName.value = `${adminUser.first_name} ${adminUser.last_name}`;
+                } else if (adminUser.username) {
+                    assignedAdminName.value = adminUser.username;
+                } else if (adminUser.email) {
+                    assignedAdminName.value = adminUser.email;
+                } else {
+                    assignedAdminName.value = `Admin ID: ${adminId}`;
+                }
+                return;
+            }
+        } catch (usersError) {
+            console.log('Users endpoint not available or failed, trying admins...');
+        }
+
+        // OPTION 2: Try admins endpoint
+        try {
+            const response = await axios.get(`${API_BASE_URL}/admins/${adminId}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json',
+                }
+            });
+            
+            const adminData = response.data.admin || response.data;
+            
+            if (adminData.name) {
+                assignedAdminName.value = adminData.name;
+            } else if (adminData.first_name && adminData.last_name) {
+                assignedAdminName.value = `${adminData.first_name} ${adminData.last_name}`;
+            } else if (adminData.username) {
+                assignedAdminName.value = adminData.username;
+            } else {
+                assignedAdminName.value = `Admin ID: ${adminId}`;
+            }
+        } catch (adminsError) {
+            console.error('Both users and admins endpoints failed');
+            assignedAdminName.value = `Admin ID: ${adminId}`;
+        }
+        
+    } catch (error: any) {
+        console.error('Error fetching admin details:', error);
+        assignedAdminName.value = `Admin ID: ${adminId}`;
+    } finally {
+        isFetchingAdminName.value = false;
+    }
+};
+
 // API Calls
 const fetchResourceDetails = async (id: number) => {
     isLoading.value = true;
     errorMessage.value = '';
+    assignedAdminName.value = ''; // Reset admin name
     
     try {
         const token = getAuthToken();
@@ -226,19 +310,28 @@ const fetchResourceDetails = async (id: number) => {
         
         const fetchedResource = response.data.resource || response.data;
         
-        // 💰 CRITICAL FIX: Cast base_price to float before assigning
+        // Log the response to see what data we're getting
+        console.log('Resource API Response:', fetchedResource);
+        
         if (fetchedResource.base_price) {
             fetchedResource.base_price = parseFloat(fetchedResource.base_price);
         } else {
              fetchedResource.base_price = null;
         }
         
-        // Ensure status is capitalized to match the Vue template logic
         if (fetchedResource.status) {
              fetchedResource.status = fetchedResource.status.charAt(0).toUpperCase() + fetchedResource.status.slice(1);
         }
 
         resource.value = fetchedResource as Resource;
+
+        // Fetch admin name if admin ID exists
+        if (fetchedResource.assigned_admin_id) {
+            console.log('Fetching admin name for ID:', fetchedResource.assigned_admin_id);
+            await fetchAdminDetails(fetchedResource.assigned_admin_id);
+        } else {
+            console.log('No assigned_admin_id found in resource data');
+        }
 
     } catch (error: any) {
         console.error('Error fetching resource details:', error);
