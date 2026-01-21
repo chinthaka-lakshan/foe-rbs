@@ -5,18 +5,125 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
       <h2 class="section-title mb-0">Reports Dashboard</h2>
       <div class="d-flex gap-2">
-        <button class="btn btn-outline-dark-teal btn-sm" @click="exportAllToCSV">
-          <i class="bi bi-file-earmark-excel me-1"></i>Export All CSV
+        <button class="btn btn-dark-teal btn-sm" @click="printAllReports">
+          <i class="bi bi-printer me-1"></i>Print All
         </button>
-        <button class="btn btn-success btn-sm" @click="printReports">
-          <i class="bi bi-printer me-1"></i>Print
-        </button>
+      </div>
+    </div>
+
+    <!-- Global Date Range Filter - REDESIGNED -->
+    <div class="global-filter-card mb-4">
+      <div class="filter-header">
+        <i class="bi bi-funnel me-2"></i>
+        <h6 class="mb-0">Filter Reports by Date</h6>
+      </div>
+      
+      <div class="filter-body">
+        <div class="row g-3 align-items-end">
+          <!-- Quick Date Buttons -->
+          <div class="col-md-8">
+            <div class="quick-date-buttons">
+              <div class="d-flex flex-wrap gap-2">
+                <button 
+                  class="btn btn-sm" 
+                  :class="dateRangeType === 'today' ? 'btn-dark-teal' : 'btn-outline-dark-teal'"
+                  @click="setDateRange('today')"
+                >
+                  <i class="bi bi-calendar-day me-1"></i>Today
+                </button>
+                <button 
+                  class="btn btn-sm" 
+                  :class="dateRangeType === 'week' ? 'btn-dark-teal' : 'btn-outline-dark-teal'"
+                  @click="setDateRange('week')"
+                >
+                  <i class="bi bi-calendar-week me-1"></i>This Week
+                </button>
+                <button 
+                  class="btn btn-sm" 
+                  :class="dateRangeType === 'month' ? 'btn-dark-teal' : 'btn-outline-dark-teal'"
+                  @click="setDateRange('month')"
+                >
+                  <i class="bi bi-calendar-month me-1"></i>This Month
+                </button>
+                <button 
+                  class="btn btn-sm" 
+                  :class="dateRangeType === 'year' ? 'btn-dark-teal' : 'btn-outline-dark-teal'"
+                  @click="setDateRange('year')"
+                >
+                  <i class="bi bi-calendar-year me-1"></i>This Year
+                </button>
+                <button 
+                  class="btn btn-sm" 
+                  :class="dateRangeType === 'all' ? 'btn-dark-teal' : 'btn-outline-dark-teal'"
+                  @click="setDateRange('all')"
+                >
+                  <i class="bi bi-calendar-check me-1"></i>All Time
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Custom Date Range -->
+          <div class="col-md-4">
+            <div class="custom-date-range">
+              <div class="input-group">
+                <span class="input-group-text">
+                  <i class="bi bi-calendar-range"></i>
+                </span>
+                <input 
+                  type="date" 
+                  class="form-control form-control-sm" 
+                  v-model="startDate"
+                  :max="endDate"
+                >
+                <span class="input-group-text">to</span>
+                <input 
+                  type="date" 
+                  class="form-control form-control-sm" 
+                  v-model="endDate"
+                  :min="startDate"
+                >
+              </div>
+            </div>
+          </div>
+          
+          <!-- Apply/Reset Buttons -->
+          <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+              <div class="filter-status">
+                <span class="badge bg-light text-dark">
+                  <i class="bi bi-info-circle me-1"></i>
+                  <span v-if="dateRangeType === 'all'">Showing all records</span>
+                  <span v-else>
+                    Showing data from <strong>{{ formatDate(startDate) }}</strong> 
+                    to <strong>{{ formatDate(endDate) }}</strong>
+                  </span>
+                </span>
+              </div>
+              <div class="filter-actions">
+                <button 
+                  class="btn btn-sm btn-success me-2" 
+                  @click="applyDateRange"
+                  :disabled="!startDate || !endDate"
+                >
+                  <i class="bi bi-check-circle me-1"></i>Apply Filter
+                </button>
+                <button 
+                  class="btn btn-sm btn-outline-secondary" 
+                  @click="resetDateRange"
+                >
+                  <i class="bi bi-x-circle me-1"></i>Reset
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
     <!-- Statistics Cards -->
     <div class="row g-4 mb-4">
-      <div class="col-md-4 col-lg-4 col-sm-6 col-12">
+      <div class="col-md-3 col-lg-3 col-sm-6 col-12">
         <div class="stat-card">
           <div class="stat-icon" style="background-color: rgba(30, 68, 73, 0.1);">
             <i class="bi bi-box-seam" style="color: #1e4449; font-size: 28px;"></i>
@@ -27,7 +134,7 @@
           </div>
         </div>
       </div>
-      <div class="col-md-4 col-lg-4 col-sm-6 col-12">
+      <div class="col-md-3 col-lg-3 col-sm-6 col-12">
         <div class="stat-card">
           <div class="stat-icon" style="background-color: rgba(75, 182, 109, 0.1);">
             <i class="bi bi-calendar-check" style="color: #4BB66D; font-size: 28px;"></i>
@@ -38,7 +145,7 @@
           </div>
         </div>
       </div>
-      <div class="col-md-4 col-lg-4 col-sm-6 col-12">
+      <div class="col-md-3 col-lg-3 col-sm-6 col-12">
         <div class="stat-card">
           <div class="stat-icon" style="background-color: rgba(38, 213, 22, 0.1);">
             <i class="bi bi-people" style="color: #26d516; font-size: 28px;"></i>
@@ -49,80 +156,16 @@
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- Global Date Range Filter -->
-    <div class="filter-section mb-4">
-      <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
-        <h5 class="mb-0 text-dark-teal">Filter Reports by Date Range</h5>
-        <div class="d-flex gap-2 flex-wrap">
-          <button 
-            class="btn btn-sm" 
-            :class="dateRangeFilter === 'today' ? 'btn-dark-teal' : 'btn-outline-dark-teal'"
-            @click="setDateRange('today')"
-          >
-            Today
-          </button>
-          <button 
-            class="btn btn-sm" 
-            :class="dateRangeFilter === 'week' ? 'btn-dark-teal' : 'btn-outline-dark-teal'"
-            @click="setDateRange('week')"
-          >
-            This Week
-          </button>
-          <button 
-            class="btn btn-sm" 
-            :class="dateRangeFilter === 'month' ? 'btn-dark-teal' : 'btn-outline-dark-teal'"
-            @click="setDateRange('month')"
-          >
-            This Month
-          </button>
-          <button 
-            class="btn btn-sm" 
-            :class="dateRangeFilter === 'year' ? 'btn-dark-teal' : 'btn-outline-dark-teal'"
-            @click="setDateRange('year')"
-          >
-            This Year
-          </button>
-          <button 
-            class="btn btn-sm" 
-            :class="dateRangeFilter === 'custom' ? 'btn-dark-teal' : 'btn-outline-dark-teal'"
-            @click="showCustomDatePicker()"
-          >
-            Custom
-          </button>
+      <div class="col-md-3 col-lg-3 col-sm-6 col-12">
+        <div class="stat-card">
+          <div class="stat-icon" style="background-color: rgba(255, 193, 7, 0.1);">
+            <i class="bi bi-cash-coin" style="color: #ffc107; font-size: 28px;"></i>
+          </div>
+          <div class="stat-content">
+            <h3>Rs. {{ formatPrice(stats.totalRevenue) }}</h3>
+            <p>Total Revenue</p>
+          </div>
         </div>
-      </div>
-
-      <div v-if="showCustomDateFields" class="row g-3">
-        <div class="col-md-3 col-sm-6">
-          <label class="form-label small text-muted">Start Date</label>
-          <input 
-            type="date" 
-            class="form-control form-control-sm" 
-            v-model="tempCustomStartDate"
-          >
-        </div>
-        <div class="col-md-3 col-sm-6">
-          <label class="form-label small text-muted">End Date</label>
-          <input 
-            type="date" 
-            class="form-control form-control-sm" 
-            v-model="tempCustomEndDate"
-          >
-        </div>
-        <div class="col-md-4 col-sm-8 d-flex align-items-end gap-2">
-          <button class="btn btn-sm btn-dark-teal" @click="applyCustomDateRange">
-            Apply
-          </button>
-          <button class="btn btn-sm btn-outline-secondary" @click="cancelCustomDateRange">
-            Cancel
-          </button>
-        </div>
-      </div>
-      
-      <div class="text-muted small mt-2">
-        Showing data from: <strong>{{ getDateRangeText() }}</strong>
       </div>
     </div>
 
@@ -153,8 +196,8 @@
             placeholder="Search resources..."
             v-model="resourceFilter.search"
           >
-          <button class="btn btn-success btn-sm" @click="exportResourcesCSV">
-            <i class="bi bi-download me-1"></i>CSV
+          <button class="btn btn-sm btn-outline-success" @click="printSection('resources')" :disabled="filteredResources.length === 0">
+            <i class="bi bi-file-pdf me-1"></i> PDF
           </button>
         </div>
       </div>
@@ -183,6 +226,7 @@
               <th>Price</th>
               <th>Status</th>
               <th>Bookings</th>
+              <th>Revenue</th>
               <th>Created Date</th>
             </tr>
           </thead>
@@ -207,6 +251,11 @@
                   {{ getResourceBookingCount(resource.id) }}
                 </span>
               </td>
+              <td>
+                <span class="badge bg-success">
+                  Rs. {{ formatPrice(getResourceRevenue(resource.id)) }}
+                </span>
+              </td>
               <td>{{ formatDate(resource.created_at) }}</td>
             </tr>
           </tbody>
@@ -228,13 +277,6 @@
           <span class="badge bg-dark-teal">{{ filteredUsers.length }} users</span>
         </div>
         <div class="d-flex gap-2 flex-wrap">
-          <input 
-            type="text" 
-            class="form-control form-control-sm" 
-            style="min-width: 150px;"
-            placeholder="Search users..."
-            v-model="userFilter.search"
-          >
           <select class="form-select form-select-sm w-auto" v-model="userFilter.role">
             <option value="">All Roles</option>
             <option value="Master Admin">Master Admin</option>
@@ -246,8 +288,15 @@
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
           </select>
-          <button class="btn btn-success btn-sm" @click="exportUsersCSV">
-            <i class="bi bi-download me-1"></i>CSV
+          <input 
+            type="text" 
+            class="form-control form-control-sm" 
+            style="min-width: 150px;"
+            placeholder="Search users..."
+            v-model="userFilter.search"
+          >
+          <button class="btn btn-sm btn-outline-success" @click="printSection('users')" :disabled="filteredUsers.length === 0">
+            <i class="bi bi-file-pdf me-1"></i> PDF
           </button>
         </div>
       </div>
@@ -270,6 +319,7 @@
               <th>Status</th>
               <th>Joined</th>
               <th>Bookings</th>
+              <th>Spent</th>
             </tr>
           </thead>
           <tbody>
@@ -293,6 +343,11 @@
                   {{ getUserBookingCount(user.id) }}
                 </span>
               </td>
+              <td>
+                <span class="badge bg-success">
+                  Rs. {{ formatPrice(getUserSpending(user.id)) }}
+                </span>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -305,7 +360,7 @@
       </div>
     </div>
 
-    <!-- Bookings Report Section - UPDATED -->
+    <!-- Bookings Report Section -->
     <div class="table-card" id="bookings-report">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <div class="d-flex align-items-center gap-3">
@@ -333,8 +388,8 @@
             placeholder="Search by user email..."
             v-model="bookingFilter.search"
           >
-          <button class="btn btn-success btn-sm" @click="exportBookingsCSV">
-            <i class="bi bi-download me-1"></i>CSV
+          <button class="btn btn-sm btn-outline-success" @click="printSection('bookings')" :disabled="filteredBookings.length === 0">
+            <i class="bi bi-file-pdf me-1"></i> PDF
           </button>
         </div>
       </div>
@@ -345,7 +400,7 @@
         <span class="text-muted">Loading bookings...</span>
       </div>
       
-      <!-- Bookings Table - UPDATED with booking page structure -->
+      <!-- Bookings Table -->
       <div v-if="!isLoadingBookings" class="table-responsive">
         <table class="table table-hover">
           <thead>
@@ -418,17 +473,17 @@ import Navbar from '../../components/Navbar.vue';
 import MasterAdminSidebar from '../../components/Sidebar/MasterAdminSidebar.vue';
 import axios from 'axios';
 
-// API Configuration - Based on your booking page
+// API Configuration
 const API_BASE_URL = 'http://localhost:8000/api';
 
-// Get auth token - Same as booking page
+// Get auth token
 const getAuthToken = () => {
   return localStorage.getItem('authToken') || 
          localStorage.getItem('auth_token') || 
          localStorage.getItem('token');
 };
 
-// Interfaces - Updated for booking data structure
+// Interfaces
 interface Resource {
   id: number;
   name: string;
@@ -492,14 +547,12 @@ const users = ref<User[]>([]);
 const bookings = ref<Booking[]>([]);
 const categories = ref<Category[]>([]);
 
-// Filter states
-const dateRangeFilter = ref('month'); // today, week, month, year, custom
-const showCustomDateFields = ref(false);
-const tempCustomStartDate = ref('');
-const tempCustomEndDate = ref('');
-const customStartDate = ref('');
-const customEndDate = ref('');
+// Date Range State
+const dateRangeType = ref<'today' | 'week' | 'month' | 'year' | 'all'>('month');
+const startDate = ref('');
+const endDate = ref('');
 
+// Filter states for each section
 const resourceFilter = ref({
   status: '',
   category: '',
@@ -518,31 +571,82 @@ const bookingFilter = ref({
   search: ''
 });
 
-// Date range for filtering all sections
-const currentDateRange = ref({ startDate: '', endDate: '' });
+// Initialize dates on component mount
+const initializeDates = () => {
+  const today = new Date();
+  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  
+  // Set default dates to current month
+  startDate.value = startOfMonth.toISOString().split('T')[0];
+  endDate.value = today.toISOString().split('T')[0];
+};
 
-// Watch date range changes and apply to all sections
-watch([dateRangeFilter], () => {
-  if (dateRangeFilter.value !== 'custom') {
-    updateCurrentDateRange();
-    showCustomDateFields.value = false;
+// Set date range based on type
+const setDateRange = (type: 'today' | 'week' | 'month' | 'year' | 'all') => {
+  dateRangeType.value = type;
+  
+  const today = new Date();
+  let start = new Date();
+  let end = new Date();
+  
+  switch (type) {
+    case 'today':
+      startDate.value = today.toISOString().split('T')[0];
+      endDate.value = today.toISOString().split('T')[0];
+      break;
+    case 'week':
+      start.setDate(today.getDate() - today.getDay());
+      startDate.value = start.toISOString().split('T')[0];
+      endDate.value = today.toISOString().split('T')[0];
+      break;
+    case 'month':
+      start = new Date(today.getFullYear(), today.getMonth(), 1);
+      startDate.value = start.toISOString().split('T')[0];
+      endDate.value = today.toISOString().split('T')[0];
+      break;
+    case 'year':
+      start = new Date(today.getFullYear(), 0, 1);
+      startDate.value = start.toISOString().split('T')[0];
+      endDate.value = today.toISOString().split('T')[0];
+      break;
+    case 'all':
+      // Clear dates for "All Time"
+      startDate.value = '';
+      endDate.value = '';
+      break;
   }
-});
+};
 
-// Function to update current date range
-const updateCurrentDateRange = () => {
-  const { startDate, endDate } = getDateRange();
-  currentDateRange.value = { startDate, endDate };
+// Apply date range manually
+const applyDateRange = () => {
+  // If custom dates are selected, switch to manual mode
+  if (startDate.value && endDate.value) {
+    dateRangeType.value = 'month'; // Reset to month type but use custom dates
+  }
+};
+
+// Reset date range to default
+const resetDateRange = () => {
+  dateRangeType.value = 'month';
+  const today = new Date();
+  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  
+  startDate.value = startOfMonth.toISOString().split('T')[0];
+  endDate.value = today.toISOString().split('T')[0];
 };
 
 // Computed properties
 const stats = computed(() => ({
   totalResources: filteredResources.value.length,
   totalUsers: filteredUsers.value.length,
-  totalBookings: filteredBookings.value.length
+  totalBookings: filteredBookings.value.length,
+  totalRevenue: filteredBookings.value.reduce((total, booking) => {
+    const amount = parseFloat(booking.total_amount.toString()) || 0;
+    return total + amount;
+  }, 0)
 }));
 
-// Get unique resources for filter dropdown - based on booking data
+// Get unique resources for filter dropdown
 const uniqueResources = computed(() => {
   const resources = new Set<string>();
   
@@ -566,6 +670,7 @@ const uniqueResources = computed(() => {
   return Array.from(resources).sort();
 });
 
+// Filter resources by date range and other filters
 const filteredResources = computed(() => {
   let filtered = resources.value;
   
@@ -594,17 +699,17 @@ const filteredResources = computed(() => {
   }
   
   // Apply date range filter to creation date
-  const { startDate, endDate } = currentDateRange.value;
-  if (startDate && endDate) {
+  if (startDate.value && endDate.value && dateRangeType.value !== 'all') {
     filtered = filtered.filter(r => {
       const createdDate = new Date(r.created_at).toISOString().split('T')[0];
-      return createdDate >= startDate && createdDate <= endDate;
+      return createdDate >= startDate.value && createdDate <= endDate.value;
     });
   }
   
   return filtered;
 });
 
+// Filter users by date range and other filters
 const filteredUsers = computed(() => {
   let filtered = users.value;
   
@@ -628,17 +733,17 @@ const filteredUsers = computed(() => {
   }
   
   // Apply date range filter to creation date
-  const { startDate, endDate } = currentDateRange.value;
-  if (startDate && endDate) {
+  if (startDate.value && endDate.value && dateRangeType.value !== 'all') {
     filtered = filtered.filter(u => {
       const createdDate = new Date(u.created_at).toISOString().split('T')[0];
-      return createdDate >= startDate && createdDate <= endDate;
+      return createdDate >= startDate.value && createdDate <= endDate.value;
     });
   }
   
   return filtered;
 });
 
+// Filter bookings by date range and other filters
 const filteredBookings = computed(() => {
   let filtered = bookings.value;
   
@@ -673,11 +778,10 @@ const filteredBookings = computed(() => {
   }
   
   // Apply date range filter to booking date
-  const { startDate, endDate } = currentDateRange.value;
-  if (startDate && endDate) {
+  if (startDate.value && endDate.value && dateRangeType.value !== 'all') {
     filtered = filtered.filter(b => {
       const bookingDate = new Date(b.booking_date).toISOString().split('T')[0];
-      return bookingDate >= startDate && bookingDate <= endDate;
+      return bookingDate >= startDate.value && bookingDate <= endDate.value;
     });
   }
   
@@ -760,13 +864,10 @@ const getCategoryName = (categoryId: number) => {
 };
 
 const getResourceBookingCount = (resourceId: number) => {
-  const { startDate, endDate } = currentDateRange.value;
-  
   // Get all bookings for this resource
-  let count = bookings.value.filter(b => {
+  let bookingsForResource = bookings.value.filter(b => {
     // Check if booking has this resource
     const hasResourceInDetails = b.details?.some((detail: BookingDetail) => {
-      // This is a simplification - you might need to adjust based on your data structure
       return detail.item_name && detail.item_name.includes(resourceId.toString());
     });
     
@@ -775,283 +876,208 @@ const getResourceBookingCount = (resourceId: number) => {
     });
     
     return hasResourceInDetails || hasResourceInResourceDetails;
-  }).length;
+  });
   
-  // If date range is set, filter bookings by date
-  if (startDate && endDate) {
-    count = bookings.value.filter(b => {
-      // Check if booking has this resource
-      const hasResourceInDetails = b.details?.some((detail: BookingDetail) => {
-        return detail.item_name && detail.item_name.includes(resourceId.toString());
-      });
-      
-      const hasResourceInResourceDetails = b.resource_details?.some((resource: ResourceDetail) => {
-        return resource.name && resource.name.includes(resourceId.toString());
-      });
-      
-      if (!hasResourceInDetails && !hasResourceInResourceDetails) return false;
-      
+  // Filter by date range if applicable
+  if (startDate.value && endDate.value && dateRangeType.value !== 'all') {
+    bookingsForResource = bookingsForResource.filter(b => {
       const bookingDate = new Date(b.booking_date).toISOString().split('T')[0];
-      return bookingDate >= startDate && bookingDate <= endDate;
-    }).length;
+      return bookingDate >= startDate.value && bookingDate <= endDate.value;
+    });
   }
   
-  return count;
+  return bookingsForResource.length;
+};
+
+const getResourceRevenue = (resourceId: number) => {
+  // Get all bookings for this resource
+  let bookingsForResource = bookings.value.filter(b => {
+    // Check if booking has this resource
+    const hasResourceInDetails = b.details?.some((detail: BookingDetail) => {
+      return detail.item_name && detail.item_name.includes(resourceId.toString());
+    });
+    
+    const hasResourceInResourceDetails = b.resource_details?.some((resource: ResourceDetail) => {
+      return resource.name && resource.name.includes(resourceId.toString());
+    });
+    
+    return hasResourceInDetails || hasResourceInResourceDetails;
+  });
+  
+  // Filter by date range if applicable
+  if (startDate.value && endDate.value && dateRangeType.value !== 'all') {
+    bookingsForResource = bookingsForResource.filter(b => {
+      const bookingDate = new Date(b.booking_date).toISOString().split('T')[0];
+      return bookingDate >= startDate.value && bookingDate <= endDate.value;
+    });
+  }
+  
+  // Calculate total revenue
+  const total = bookingsForResource.reduce((sum, booking) => {
+    const amount = parseFloat(booking.total_amount.toString()) || 0;
+    return sum + amount;
+  }, 0);
+  
+  return total;
 };
 
 const getUserBookingCount = (userId: number | string) => {
-  const { startDate, endDate } = currentDateRange.value;
-  
-  // Since booking data doesn't have userId, we'll use user_email as reference
-  // This is a simplification - you might need to adjust based on your data structure
   const user = users.value.find(u => u.id === userId);
   if (!user) return 0;
   
-  let count = bookings.value.filter(b => b.user_email === user.email).length;
+  let userBookings = bookings.value.filter(b => b.user_email === user.email);
   
-  // If date range is set, filter bookings by date
-  if (startDate && endDate) {
-    count = bookings.value.filter(b => {
-      if (b.user_email !== user.email) return false;
+  // Filter by date range if applicable
+  if (startDate.value && endDate.value && dateRangeType.value !== 'all') {
+    userBookings = userBookings.filter(b => {
       const bookingDate = new Date(b.booking_date).toISOString().split('T')[0];
-      return bookingDate >= startDate && bookingDate <= endDate;
-    }).length;
+      return bookingDate >= startDate.value && bookingDate <= endDate.value;
+    });
   }
   
-  return count;
+  return userBookings.length;
 };
 
-const getDateRangeText = () => {
-  const { startDate, endDate } = currentDateRange.value;
-  if (!startDate || !endDate) return 'All Time';
+const getUserSpending = (userId: number | string) => {
+  const user = users.value.find(u => u.id === userId);
+  if (!user) return 0;
   
-  const start = new Date(startDate);
-  const end = new Date(endDate);
+  let userBookings = bookings.value.filter(b => b.user_email === user.email);
   
-  if (isNaN(start.getTime()) || isNaN(end.getTime())) return 'All Time';
-  
-  if (dateRangeFilter.value === 'today') {
-    return start.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  } else if (dateRangeFilter.value === 'week') {
-    return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
-  } else if (dateRangeFilter.value === 'month') {
-    return start.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-  } else if (dateRangeFilter.value === 'year') {
-    return start.getFullYear().toString();
-  } else if (dateRangeFilter.value === 'custom') {
-    return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+  // Filter by date range if applicable
+  if (startDate.value && endDate.value && dateRangeType.value !== 'all') {
+    userBookings = userBookings.filter(b => {
+      const bookingDate = new Date(b.booking_date).toISOString().split('T')[0];
+      return bookingDate >= startDate.value && bookingDate <= endDate.value;
+    });
   }
-  return 'All Time';
+  
+  // Calculate total spending
+  const total = userBookings.reduce((sum, booking) => {
+    const amount = parseFloat(booking.total_amount.toString()) || 0;
+    return sum + amount;
+  }, 0);
+  
+  return total;
 };
 
-const getDateRange = () => {
-  const today = new Date();
-  let startDate = '';
-  let endDate = '';
-  
+// Print section separately
+const printSection = (section: string) => {
   try {
-    switch (dateRangeFilter.value) {
-      case 'today':
-        startDate = today.toISOString().split('T')[0];
-        endDate = startDate;
+    let content = '';
+    let title = '';
+    let count = 0;
+    
+    switch (section) {
+      case 'resources':
+        content = document.getElementById('resources-report')?.innerHTML || '';
+        title = 'Resources Report';
+        count = filteredResources.value.length;
         break;
-      case 'week':
-        const weekStart = new Date(today);
-        weekStart.setDate(today.getDate() - today.getDay());
-        startDate = weekStart.toISOString().split('T')[0];
-        endDate = today.toISOString().split('T')[0];
+      case 'users':
+        content = document.getElementById('users-report')?.innerHTML || '';
+        title = 'Users Report';
+        count = filteredUsers.value.length;
         break;
-      case 'month':
-        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-        startDate = monthStart.toISOString().split('T')[0];
-        endDate = today.toISOString().split('T')[0];
-        break;
-      case 'year':
-        const yearStart = new Date(today.getFullYear(), 0, 1);
-        startDate = yearStart.toISOString().split('T')[0];
-        endDate = today.toISOString().split('T')[0];
-        break;
-      case 'custom':
-        startDate = customStartDate.value || today.toISOString().split('T')[0];
-        endDate = customEndDate.value || today.toISOString().split('T')[0];
+      case 'bookings':
+        content = document.getElementById('bookings-report')?.innerHTML || '';
+        title = 'Bookings Report';
+        count = filteredBookings.value.length;
         break;
     }
-  } catch (error) {
-    console.error('Error calculating date range:', error);
-    startDate = today.toISOString().split('T')[0];
-    endDate = startDate;
-  }
-  
-  return { startDate, endDate };
-};
-
-// Date range functions
-const setDateRange = (range: string) => {
-  dateRangeFilter.value = range;
-  showCustomDateFields.value = false;
-  
-  if (range === 'custom') {
-    showCustomDateFields.value = true;
-    const today = new Date();
-    const lastMonth = new Date(today);
-    lastMonth.setDate(today.getDate() - 30);
     
-    tempCustomStartDate.value = lastMonth.toISOString().split('T')[0];
-    tempCustomEndDate.value = today.toISOString().split('T')[0];
-    
-    customStartDate.value = tempCustomStartDate.value;
-    customEndDate.value = tempCustomEndDate.value;
-    updateCurrentDateRange();
-  } else {
-    customStartDate.value = '';
-    customEndDate.value = '';
-    updateCurrentDateRange();
-  }
-};
-
-const showCustomDatePicker = () => {
-  if (dateRangeFilter.value === 'custom') {
-    showCustomDateFields.value = !showCustomDateFields.value;
-  } else {
-    setDateRange('custom');
-  }
-};
-
-const applyCustomDateRange = () => {
-  if (!tempCustomStartDate.value || !tempCustomEndDate.value) {
-    alert('Please select both start and end dates');
-    return;
-  }
-  
-  try {
-    const start = new Date(tempCustomStartDate.value);
-    const end = new Date(tempCustomEndDate.value);
-    
-    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-      alert('Invalid date format');
+    if (!content) {
+      alert('No content available to print');
       return;
     }
     
-    if (start > end) {
-      alert('Start date cannot be after end date');
+    const printWindow = window.open('', '_blank');
+    
+    if (!printWindow) {
+      alert('Please allow popups to print the report');
       return;
     }
     
-    customStartDate.value = tempCustomStartDate.value;
-    customEndDate.value = tempCustomEndDate.value;
-    dateRangeFilter.value = 'custom';
-    updateCurrentDateRange();
-    showCustomDateFields.value = false;
+    const dateRangeText = dateRangeType.value === 'all' 
+      ? 'All Time' 
+      : `${formatDate(startDate.value)} to ${formatDate(endDate.value)}`;
+    
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>University Resource Booking System - ${title}</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+        <style>
+          @media print {
+            body { padding: 15px; font-size: 11px; }
+            h1 { color: #1e4449; margin-bottom: 15px; font-size: 20px; }
+            h3 { color: #1e4449; margin-top: 20px; margin-bottom: 10px; font-size: 16px; }
+            .table { border-collapse: collapse; width: 100%; margin-bottom: 15px; font-size: 9px; }
+            .table th, .table td { border: 1px solid #dee2e6; padding: 4px; }
+            .badge { border: 1px solid #000; font-size: 8px; padding: 2px 4px; }
+            .btn, .form-control, .form-select, .filter-section { display: none !important; }
+            .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #1e4449; padding-bottom: 10px; }
+            .date-range { text-align: center; color: #666; margin-bottom: 15px; font-size: 10px; }
+            .page-break { page-break-before: always; }
+          }
+          @media screen {
+            body { padding: 20px; }
+            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #1e4449; padding-bottom: 15px; }
+            .date-range { text-align: center; color: #666; margin-bottom: 20px; }
+          }
+          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>University Resource Booking System</h1>
+          <h2>${title}</h2>
+          <div class="date-range">
+            <p>Generated on: ${new Date().toLocaleString()}</p>
+            <p>Date Range: ${dateRangeText}</p>
+            <p>Total Records: ${count}</p>
+          </div>
+        </div>
+        
+        ${content.replace(/<div class="d-flex justify-content-between align-items-center mb-3">.*?<\/div>/gs, '')}
+        
+        <div style="margin-top: 30px; text-align: center; color: #666; font-size: 10px;">
+          <p>Report generated by University Resource Booking System</p>
+          <p>© ${new Date().getFullYear()} - All rights reserved</p>
+        </div>
+        
+        <script>
+          // Auto-print when page loads
+          window.onload = function() {
+            setTimeout(function() {
+              window.print();
+            }, 500);
+          }
+          
+          // Close window after print
+          window.onafterprint = function() {
+            setTimeout(function() {
+              window.close();
+            }, 1000);
+          }
+        <\/script>
+      </body>
+      </html>
+    `;
+    
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.focus();
+    
   } catch (error) {
-    alert('Error processing dates');
+    console.error('Error printing section:', error);
+    alert('Error printing report');
   }
 };
 
-const cancelCustomDateRange = () => {
-  showCustomDateFields.value = false;
-  
-  if (dateRangeFilter.value !== 'custom') {
-    tempCustomStartDate.value = '';
-    tempCustomEndDate.value = '';
-  } else {
-    tempCustomStartDate.value = customStartDate.value;
-    tempCustomEndDate.value = customEndDate.value;
-  }
-};
-
-// Export functions (CSV)
-const exportToCSV = (data: any[], headers: string[], filename: string) => {
-  try {
-    const csvContent = [
-      headers.join(','),
-      ...data.map(row => Object.values(row).map(value => 
-        `"${String(value).replace(/"/g, '""')}"`
-      ).join(','))
-    ].join('\n');
-    
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    
-    link.setAttribute('href', url);
-    link.setAttribute('download', filename);
-    link.style.visibility = 'hidden';
-    
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  } catch (error) {
-    console.error('Error exporting CSV:', error);
-    alert('Error exporting CSV file');
-  }
-};
-
-const exportResourcesCSV = () => {
-  const data = filteredResources.value.map(resource => ({
-    ID: resource.id,
-    Name: resource.name,
-    Description: resource.description || '',
-    Category: getCategoryName(resource.category_id),
-    Location: resource.location_name || 'N/A',
-    Price: `Rs. ${formatPrice(resource.base_price)}`,
-    Status: resource.status,
-    Bookings: getResourceBookingCount(resource.id),
-    'Created Date': formatDate(resource.created_at)
-  }));
-  
-  exportToCSV(data, 
-    ['ID', 'Name', 'Description', 'Category', 'Location', 'Price', 'Status', 'Bookings', 'Created Date'], 
-    `resources-report-${new Date().toISOString().split('T')[0]}.csv`
-  );
-};
-
-const exportUsersCSV = () => {
-  const data = filteredUsers.value.map(user => ({
-    ID: user.id,
-    Name: user.name,
-    Email: user.email,
-    Role: user.primaryRole,
-    Status: user.status,
-    'Joined Date': formatDate(user.created_at),
-    Bookings: getUserBookingCount(user.id)
-  }));
-  
-  exportToCSV(data, 
-    ['ID', 'Name', 'Email', 'Role', 'Status', 'Joined Date', 'Bookings'], 
-    `users-report-${new Date().toISOString().split('T')[0]}.csv`
-  );
-};
-
-const exportBookingsCSV = () => {
-  const data = filteredBookings.value.map(booking => ({
-    'Booking Ref': booking.booking_reference,
-    'User Email': booking.user_email,
-    'Resource': booking.details && booking.details.length > 0 
-      ? booking.details[0].item_name 
-      : booking.resource_details && booking.resource_details.length > 0 
-        ? booking.resource_details[0].name 
-        : 'N/A',
-    'Booking Date': formatDate(booking.booking_date),
-    'Start Time': booking.start_time,
-    'End Time': booking.end_time,
-    'Total Amount': `Rs. ${formatPrice(booking.total_amount)}`,
-    'Status': booking.status,
-    'Created At': formatDateTime(booking.created_at)
-  }));
-  
-  exportToCSV(data, 
-    ['Booking Ref', 'User Email', 'Resource', 'Booking Date', 'Start Time', 'End Time', 'Total Amount', 'Status', 'Created At'], 
-    `bookings-report-${new Date().toISOString().split('T')[0]}.csv`
-  );
-};
-
-const exportAllToCSV = () => {
-  exportResourcesCSV();
-  setTimeout(() => exportUsersCSV(), 500);
-  setTimeout(() => exportBookingsCSV(), 1000);
-};
-
-const printReports = () => {
+const printAllReports = () => {
   try {
     const printWindow = window.open('', '_blank');
     
@@ -1064,25 +1090,36 @@ const printReports = () => {
     const usersContent = document.getElementById('users-report')?.innerHTML || '';
     const bookingsContent = document.getElementById('bookings-report')?.innerHTML || '';
     
+    const dateRangeText = dateRangeType.value === 'all' 
+      ? 'All Time' 
+      : `${formatDate(startDate.value)} to ${formatDate(endDate.value)}`;
+    
     const printContent = `
       <!DOCTYPE html>
       <html>
       <head>
-        <title>University Resource Booking System - Reports</title>
+        <title>University Resource Booking System - Comprehensive Reports</title>
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
         <style>
           @media print {
-            body { padding: 20px; font-size: 12px; }
-            h1 { color: #1e4449; margin-bottom: 20px; }
-            h3 { color: #1e4449; margin-top: 30px; margin-bottom: 15px; }
-            .table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
-            .table th, .table td { border: 1px solid #dee2e6; padding: 6px; }
-            .badge { border: 1px solid #000; font-size: 10px; padding: 3px 6px; }
+            body { padding: 15px; font-size: 11px; }
+            h1 { color: #1e4449; margin-bottom: 15px; font-size: 20px; }
+            h3 { color: #1e4449; margin-top: 20px; margin-bottom: 10px; font-size: 16px; }
+            .table { border-collapse: collapse; width: 100%; margin-bottom: 15px; font-size: 9px; }
+            .table th, .table td { border: 1px solid #dee2e6; padding: 4px; }
+            .badge { border: 1px solid #000; font-size: 8px; padding: 2px 4px; }
             .btn, .form-control, .form-select, .filter-section { display: none !important; }
             .report-section { margin-bottom: 30px; page-break-inside: avoid; }
+            .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #1e4449; padding-bottom: 10px; }
+            .date-range { text-align: center; color: #666; margin-bottom: 15px; font-size: 10px; }
+            .page-break { page-break-before: always; }
           }
-          .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #1e4449; padding-bottom: 15px; }
-          .date-range { text-align: center; color: #666; margin-bottom: 20px; }
+          @media screen {
+            body { padding: 20px; }
+            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #1e4449; padding-bottom: 15px; }
+            .date-range { text-align: center; color: #666; margin-bottom: 20px; }
+          }
+          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         </style>
       </head>
       <body>
@@ -1091,7 +1128,7 @@ const printReports = () => {
           <h2>Comprehensive Reports</h2>
           <div class="date-range">
             <p>Generated on: ${new Date().toLocaleString()}</p>
-            <p>Date Range: ${getDateRangeText()}</p>
+            <p>Date Range: ${dateRangeText}</p>
           </div>
         </div>
         
@@ -1100,15 +1137,40 @@ const printReports = () => {
           ${resourcesContent.replace(/<div class="d-flex justify-content-between align-items-center mb-3">.*?<\/div>/gs, '')}
         </div>
         
+        <div class="page-break"></div>
+        
         <div class="report-section">
           <h3>Users Report (${filteredUsers.value.length} users)</h3>
           ${usersContent.replace(/<div class="d-flex justify-content-between align-items-center mb-3">.*?<\/div>/gs, '')}
         </div>
         
+        <div class="page-break"></div>
+        
         <div class="report-section">
           <h3>Bookings Report (${filteredBookings.value.length} bookings)</h3>
           ${bookingsContent.replace(/<div class="d-flex justify-content-between align-items-center mb-3">.*?<\/div>/gs, '')}
         </div>
+        
+        <div style="margin-top: 30px; text-align: center; color: #666; font-size: 10px;">
+          <p>Report generated by University Resource Booking System</p>
+          <p>© ${new Date().getFullYear()} - All rights reserved</p>
+        </div>
+        
+        <script>
+          // Auto-print when page loads
+          window.onload = function() {
+            setTimeout(function() {
+              window.print();
+            }, 500);
+          }
+          
+          // Close window after print
+          window.onafterprint = function() {
+            setTimeout(function() {
+              window.close();
+            }, 1000);
+          }
+        <\/script>
       </body>
       </html>
     `;
@@ -1117,17 +1179,13 @@ const printReports = () => {
     printWindow.document.close();
     printWindow.focus();
     
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 500);
   } catch (error) {
     console.error('Error printing reports:', error);
     alert('Error printing reports');
   }
 };
 
-// API calls with error handling - UPDATED fetchBookings function
+// API calls
 const fetchResources = async () => {
   isLoadingResources.value = true;
   resourceError.value = '';
@@ -1207,7 +1265,6 @@ const fetchUsers = async () => {
   }
 };
 
-// UPDATED: fetchBookings function to match your booking page structure
 const fetchBookings = async () => {
   isLoadingBookings.value = true;
   
@@ -1217,7 +1274,6 @@ const fetchBookings = async () => {
       throw new Error('No authentication token found');
     }
     
-    // Using the same endpoint as your booking page
     const response = await axios.get(`${API_BASE_URL}/bookings`, {
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -1225,7 +1281,6 @@ const fetchBookings = async () => {
       }
     });
     
-    // Handle different response structures - same as your booking page
     let bookingsData = [];
     if (response.data && Array.isArray(response.data)) {
       bookingsData = response.data;
@@ -1237,7 +1292,6 @@ const fetchBookings = async () => {
       bookingsData = [];
     }
     
-    // Map to our Booking interface
     bookings.value = bookingsData.map((booking: any) => ({
       id: booking.id || booking._id || Math.random(),
       booking_reference: booking.booking_reference || `REF-${booking.id || 'N/A'}`,
@@ -1253,8 +1307,6 @@ const fetchBookings = async () => {
     }));
     
     console.log('Bookings loaded:', bookings.value.length);
-    console.log('Sample booking:', bookings.value[0]);
-    
   } catch (error: any) {
     console.error('Error fetching bookings:', error);
     
@@ -1320,6 +1372,7 @@ const fetchAllData = async () => {
       fetchBookings(),
       fetchCategories()
     ]);
+    
   } catch (error) {
     console.error('Error fetching all data:', error);
   } finally {
@@ -1329,7 +1382,7 @@ const fetchAllData = async () => {
 
 // Initialize
 onMounted(() => {
-  setDateRange('month');
+  initializeDates();
   fetchAllData();
 });
 </script>
@@ -1367,22 +1420,126 @@ onMounted(() => {
   font-size: 1.8rem;
 }
 
+/* Global Filter Card - REDESIGNED */
+.global-filter-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e9ecef;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+.filter-header {
+  background: linear-gradient(135deg, #1e4449 0%, #2c5f66 100%);
+  color: white;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+}
+
+.filter-header h6 {
+  font-weight: 600;
+  margin: 0;
+}
+
+.filter-body {
+  padding: 24px;
+}
+
+.quick-date-buttons .btn {
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.btn-dark-teal {
+  background-color: #1e4449;
+  border-color: #1e4449;
+  color: white;
+}
+
+.btn-dark-teal:hover {
+  background-color: #163136;
+  border-color: #163136;
+  color: white;
+}
+
+.btn-outline-dark-teal {
+  --bs-btn-color: #1e4449;
+  --bs-btn-border-color: #1e4449;
+  --bs-btn-hover-bg: #1e4449;
+  --bs-btn-hover-color: white;
+}
+
+.btn-outline-dark-teal:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(30, 68, 73, 0.2);
+}
+
+.custom-date-range .input-group {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #dee2e6;
+}
+
+.custom-date-range .input-group-text {
+  background-color: #f8f9fa;
+  border: none;
+  color: #1e4449;
+  font-weight: 500;
+}
+
+.custom-date-range .form-control {
+  border: none;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+}
+
+.custom-date-range .form-control:focus {
+  box-shadow: none;
+  background-color: #fff;
+}
+
+.filter-actions .btn-success {
+  background-color: #4BB66D;
+  border-color: #4BB66D;
+}
+
+.filter-actions .btn-success:hover {
+  background-color: #3f975b;
+  border-color: #3f975b;
+}
+
+.filter-actions .btn-success:disabled {
+  background-color: #6c757d;
+  border-color: #6c757d;
+}
+
+.filter-status .badge {
+  font-size: 0.85rem;
+  padding: 8px 12px;
+  background-color: #f8f9fa !important;
+  border: 1px solid #dee2e6;
+}
+
 /* Statistics Cards */
 .stat-card {
   background: white;
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
   display: flex;
   align-items: center;
-  gap: 15px;
-  transition: transform 0.3s ease;
+  gap: 16px;
+  transition: all 0.3s ease;
   height: 100%;
+  border: 1px solid #e9ecef;
 }
 
 .stat-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  transform: translateY(-5px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
 }
 
 .stat-icon {
@@ -1407,54 +1564,24 @@ onMounted(() => {
   margin: 5px 0 0 0;
   color: #6c757d;
   font-size: 14px;
-}
-
-/* Filter Section */
-.filter-section {
-  background: white;
-  border-radius: 10px;
-  padding: 20px;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
-  margin-bottom: 20px;
-}
-
-.text-dark-teal {
-  color: #1e4449;
-  font-weight: 600;
-}
-
-.btn-dark-teal {
-  background-color: #1e4449;
-  border-color: #1e4449;
-  color: white;
-}
-
-.btn-dark-teal:hover {
-  background-color: #163136;
-  border-color: #163136;
-  color: white;
-}
-
-.btn-outline-dark-teal {
-  --bs-btn-color: #1e4449;
-  --bs-btn-border-color: #1e4449;
-  --bs-btn-hover-bg: #1e4449;
-  --bs-btn-hover-color: white;
+  font-weight: 500;
 }
 
 /* Table Cards */
 .table-card {
   background: white;
-  border-radius: 10px;
-  padding: 25px;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
   overflow: hidden;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+  border: 1px solid #e9ecef;
 }
 
 .table-card h5 {
   color: #1e4449;
   font-weight: 600;
+  font-size: 1.2rem;
 }
 
 /* Table Styles */
@@ -1466,41 +1593,48 @@ onMounted(() => {
 .table {
   margin-bottom: 0;
   font-size: 14px;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .table thead {
-  background-color: #1e4449;
+  background: linear-gradient(135deg, #1e4449 0%, #2c5f66 100%);
   color: white;
-  border-bottom: 2px solid #163136;
+  border-bottom: none;
 }
 
 .table th {
   font-weight: 600;
-  padding: 12px 8px;
+  padding: 14px 12px;
   white-space: nowrap;
   border: none;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  letter-spacing: 0.5px;
 }
 
 .table td {
-  padding: 10px 8px;
+  padding: 12px;
   vertical-align: middle;
-  border-top: 1px solid #dee2e6;
+  border-top: 1px solid #e9ecef;
 }
 
 .table tbody tr {
-  transition: background-color 0.2s;
+  transition: all 0.2s ease;
 }
 
 .table tbody tr:hover {
   background-color: rgba(30, 68, 73, 0.05);
+  transform: scale(1.002);
 }
 
 /* Badge Styles */
 .badge {
   font-size: 12px;
   font-weight: 500;
-  padding: 5px 10px;
+  padding: 6px 12px;
   border-radius: 20px;
+  letter-spacing: 0.3px;
 }
 
 .bg-dark-teal {
@@ -1526,14 +1660,16 @@ onMounted(() => {
 .form-control,
 .form-select {
   border: 1px solid #dee2e6;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 14px;
+  padding: 8px 12px;
+  transition: all 0.2s ease;
 }
 
 .form-control:focus,
 .form-select:focus {
   border-color: #1e4449;
-  box-shadow: 0 0 0 0.25rem rgba(30, 68, 73, 0.25);
+  box-shadow: 0 0 0 3px rgba(30, 68, 73, 0.15);
 }
 
 /* Success Button */
@@ -1547,11 +1683,19 @@ onMounted(() => {
   border-color: #3f975b;
 }
 
+.btn-outline-success {
+  --bs-btn-color: #198754;
+  --bs-btn-border-color: #198754;
+  --bs-btn-hover-bg: #198754;
+  --bs-btn-hover-color: white;
+}
+
 /* Alert Styles */
 .alert-danger {
   background-color: #f8d7da;
   border-color: #f5c6cb;
   color: #721c24;
+  border-radius: 8px;
 }
 
 /* Responsive Adjustments */
@@ -1560,8 +1704,12 @@ onMounted(() => {
     font-size: 1.5rem;
   }
   
+  .filter-body {
+    padding: 16px;
+  }
+  
   .stat-card {
-    padding: 15px;
+    padding: 16px;
   }
   
   .stat-icon {
@@ -1574,18 +1722,18 @@ onMounted(() => {
   }
   
   .table-card {
-    padding: 15px;
+    padding: 16px;
   }
   
   .table th,
   .table td {
     font-size: 13px;
-    padding: 8px 6px;
+    padding: 10px 8px;
   }
   
   .badge {
     font-size: 11px;
-    padding: 4px 8px;
+    padding: 4px 10px;
   }
   
   .d-flex.gap-2 {
@@ -1596,27 +1744,26 @@ onMounted(() => {
   .form-select {
     font-size: 13px;
   }
+  
+  .filter-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .filter-actions .btn {
+    width: 100%;
+  }
 }
 
 @media (max-width: 576px) {
   .section {
-    padding: 10px;
+    padding: 12px;
   }
   
   .stat-card {
     flex-direction: column;
     text-align: center;
-    gap: 10px;
-  }
-  
-  .filter-section .d-flex {
-    flex-direction: column;
-    align-items: flex-start !important;
-    gap: 10px !important;
-  }
-  
-  .filter-section .d-flex.gap-2 {
-    width: 100%;
+    gap: 12px;
   }
   
   .table-responsive {
@@ -1625,7 +1772,16 @@ onMounted(() => {
   
   .table th,
   .table td {
-    padding: 6px 4px;
+    padding: 8px 6px;
+  }
+  
+  .quick-date-buttons .d-flex {
+    flex-direction: column;
+  }
+  
+  .quick-date-buttons .btn {
+    width: 100%;
+    margin-bottom: 8px;
   }
 }
 
@@ -1637,8 +1793,8 @@ onMounted(() => {
     padding: 0 !important;
   }
   
+  .global-filter-card,
   .stat-card,
-  .filter-section,
   .table-card {
     box-shadow: none !important;
     border: none !important;
@@ -1655,5 +1811,17 @@ onMounted(() => {
   .table {
     font-size: 10px !important;
   }
+}
+
+/* Export Button Styles */
+.btn-outline-success:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-sm {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.875rem;
+  border-radius: 6px;
 }
 </style>
