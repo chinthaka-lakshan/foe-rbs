@@ -82,16 +82,126 @@
             </div>
           </div>
 
-          <!-- Booking History Calendar -->
+          <!-- Booking History Section -->
           <div class="card mt-4">
-            <div class="card-header bg-light">
-              <h5 class="mb-0">Booking History Calendar</h5>
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+              <h5 class="mb-0">Booking History</h5>
+              <div>
+                <button 
+                  class="btn btn-sm btn-outline-primary"
+                  @click="loadBookings"
+                  :disabled="isLoadingBookings"
+                >
+                  <i class="bi bi-arrow-clockwise" :class="{ 'fa-spin': isLoadingBookings }"></i>
+                  Refresh
+                </button>
+              </div>
             </div>
             <div class="card-body">
-              <!-- Calendar will be implemented here -->
-              <div class="text-center text-muted py-3">
-                <i class="bi bi-calendar" style="font-size: 2rem;"></i>
-                <p class="mt-2">Booking calendar will be displayed here</p>
+              <!-- Loading State for Bookings -->
+              <div v-if="isLoadingBookings" class="text-center py-4">
+                <div class="spinner-border spinner-border-sm text-primary" role="status">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2 text-muted small">Loading booking history...</p>
+              </div>
+
+              <!-- No Bookings Found -->
+              <div v-else-if="bookings.length === 0" class="text-center py-5 text-muted">
+                <i class="bi bi-calendar-x" style="font-size: 2rem;"></i>
+                <p class="mt-2 mb-0">No bookings found for this resource</p>
+              </div>
+
+              <!-- Bookings Table -->
+              <div v-else class="table-responsive">
+                <table class="table table-hover">
+                  <thead class="table-light">
+                    <tr>
+                      <th>No</th>
+                      <th>Booking Date</th>
+                      <th>Time Slot</th>
+                      <th>Booked By</th>
+                      <th>Amount</th>
+                      <th>Status</th>
+                      <th>Created At</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(booking, index) in bookings" :key="booking.id">
+                      <td>{{ index + 1 }}</td>
+                      <td>
+                        {{ formatDate(booking.booking_date) }}
+                      </td>
+                      <td>
+                        {{ formatTime(booking.start_time) }} - {{ formatTime(booking.end_time) }}
+                      </td>
+                      <td>
+                        <div class="d-flex align-items-center">
+                          <i class="bi bi-person-circle me-2"></i>
+                          <div>
+                            <div class="fw-medium small">{{ booking.user?.name || 'N/A' }}</div>
+                            <div class="text-muted extra-small">{{ booking.user?.email || booking.user_email || 'N/A' }}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span class="fw-bold text-success">
+                          Rs. {{ calculateBookingAmount(booking) }}
+                        </span>
+                      </td>
+                      <td>
+                        <span class="badge" :class="getBookingStatusClass(booking.status)">
+                          {{ getBookingStatusText(booking.status) }}
+                        </span>
+                      </td>
+                      <td>
+                        <small class="text-muted">
+                          {{ formatDateTime(booking.created_at) }}
+                        </small>
+                      </td>
+                      <td>
+                        <div class="btn-group btn-group-sm" role="group">
+                          <button 
+                            class="btn btn-outline-info"
+                            @click="viewBookingDetails(booking)"
+                            title="View Details"
+                          >
+                            <i class="bi bi-eye"></i>
+                          </button>
+                          <button 
+                            v-if="booking.status === 'pending' || booking.status === 'confirmed'"
+                            class="btn btn-outline-warning"
+                            @click="cancelBooking(booking)"
+                            title="Cancel Booking"
+                          >
+                            <i class="bi bi-x-circle"></i>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <!-- Pagination -->
+                <div v-if="bookings.length > 0" class="d-flex justify-content-between align-items-center mt-3">
+                  <div class="text-muted small">
+                    Showing {{ bookings.length }} bookings
+                  </div>
+                  <nav aria-label="Booking history pagination">
+                    <ul class="pagination pagination-sm mb-0">
+                      <li class="page-item disabled">
+                        <a class="page-link" href="#" tabindex="-1">Previous</a>
+                      </li>
+                      <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                      <li class="page-item"><a class="page-link" href="#">2</a></li>
+                      <li class="page-item"><a class="page-link" href="#">3</a></li>
+                      <li class="page-item">
+                        <a class="page-link" href="#">Next</a>
+                      </li>
+                    </ul>
+                  </nav>
+                </div>
               </div>
             </div>
           </div>
@@ -349,7 +459,152 @@
       </div>
     </div>
   </div>
+
+  <!-- Booking Details Modal -->
+  <div v-if="selectedBooking" class="modal-overlay">
+    <div class="modal-content" style="max-width: 700px;">
+      <div class="modal-header bg-info text-white">
+        <h5 class="modal-title">
+          <i class="bi bi-calendar-check me-2"></i>Booking Details
+        </h5>
+        <button type="button" class="btn-close btn-close-white" @click="selectedBooking = null"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row">
+          <div class="col-md-6">
+            <h6 class="fw-bold mb-3">Booking Information</h6>
+            <table class="table table-sm table-borderless">
+              <tbody>
+                <tr>
+                  <th width="40%">Reference:</th>
+                  <td>{{ selectedBooking.booking_reference || 'N/A' }}</td>
+                </tr>
+                <tr>
+                  <th>Status:</th>
+                  <td>
+                    <span class="badge" :class="getBookingStatusClass(selectedBooking.status)">
+                      {{ getBookingStatusText(selectedBooking.status) }}
+                    </span>
+                  </td>
+                </tr>
+                <tr>
+                  <th>Date:</th>
+                  <td>{{ formatDate(selectedBooking.booking_date) }}</td>
+                </tr>
+                <tr>
+                  <th>Time:</th>
+                  <td>{{ formatTime(selectedBooking.start_time) }} - {{ formatTime(selectedBooking.end_time) }}</td>
+                </tr>
+                <tr>
+                  <th>Duration:</th>
+                  <td>{{ calculateDuration(selectedBooking.start_time, selectedBooking.end_time) }} hours</td>
+                </tr>
+                <tr>
+                  <th>Amount:</th>
+                  <td class="fw-bold text-success">
+                    Rs. {{ calculateBookingAmount(selectedBooking) }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          
+          <div class="col-md-6">
+            <h6 class="fw-bold mb-3">Customer Information</h6>
+            <table class="table table-sm table-borderless">
+              <tbody>
+                <tr>
+                  <th width="40%">Name:</th>
+                  <td>{{ selectedBooking.user?.name || 'N/A' }}</td>
+                </tr>
+                <tr>
+                  <th>Email:</th>
+                  <td>{{ selectedBooking.user?.email || selectedBooking.user_email || 'N/A' }}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <h6 class="fw-bold mb-3 mt-4">Resource Details</h6>
+            <table class="table table-sm table-borderless">
+              <tbody>
+                <tr>
+                  <th width="40%">Resource:</th>
+                  <td>{{ resource?.name }}</td>
+                </tr>
+                <tr>
+                  <th>Category:</th>
+                  <td>{{ resource?.category?.name || 'N/A' }}</td>
+                </tr>
+                <tr>
+                  <th>Rate:</th>
+                  <td>Rs. {{ resource?.base_price }}/hour</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Booking Notes -->
+        <div v-if="selectedBooking.notes" class="mt-4">
+          <h6 class="fw-bold mb-2">Notes</h6>
+          <div class="alert alert-light border">
+            {{ selectedBooking.notes }}
+          </div>
+        </div>
+
+        <!-- Booking Timeline -->
+        <div class="mt-4">
+          <h6 class="fw-bold mb-3">Booking Timeline</h6>
+          <div class="timeline">
+            <div class="timeline-item">
+              <div class="timeline-marker bg-success"></div>
+              <div class="timeline-content">
+                <h6 class="mb-1">Booking Created</h6>
+                <p class="text-muted small mb-0">{{ formatDateTime(selectedBooking.created_at) }}</p>
+              </div>
+            </div>
+            <div v-if="selectedBooking.confirmed_at" class="timeline-item">
+              <div class="timeline-marker bg-primary"></div>
+              <div class="timeline-content">
+                <h6 class="mb-1">Booking Confirmed</h6>
+                <p class="text-muted small mb-0">{{ formatDateTime(selectedBooking.confirmed_at) }}</p>
+              </div>
+            </div>
+            <div v-if="selectedBooking.cancelled_at" class="timeline-item">
+              <div class="timeline-marker bg-danger"></div>
+              <div class="timeline-content">
+                <h6 class="mb-1">Booking Cancelled</h6>
+                <p class="text-muted small mb-0">{{ formatDateTime(selectedBooking.cancelled_at) }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" @click="selectedBooking = null">
+          Close
+        </button>
+        <button 
+          v-if="selectedBooking.status === 'pending'"
+          type="button" 
+          class="btn btn-primary"
+          @click="confirmBooking(selectedBooking)"
+        >
+          Confirm Booking
+        </button>
+        <button 
+          v-if="selectedBooking.status === 'pending' || selectedBooking.status === 'confirmed'"
+          type="button" 
+          class="btn btn-danger"
+          @click="cancelBooking(selectedBooking)"
+        >
+          Cancel Booking
+        </button>
+      </div>
+    </div>
+  </div>
 </template>
+
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -371,12 +626,40 @@ const getAuthToken = () => {
          localStorage.getItem('token');
 };
 
+// Formatting Functions
 const formatTime = (time: string | null): string => {
     if (!time) return '00:00';
     return time.substring(0, 5); 
 };
 
-// Interfaces (same as before)
+const formatDate = (dateString: string): string => {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  });
+};
+
+const formatDateTime = (dateString: string): string => {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
+
+const calculateDuration = (startTime: string, endTime: string): string => {
+  const start = new Date(`2000-01-01T${startTime}`);
+  const end = new Date(`2000-01-01T${endTime}`);
+  const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+  return hours.toFixed(1);
+};
+
+// Interfaces
 interface Resource {
   id: number;
   name: string;
@@ -416,9 +699,45 @@ interface BookingForm {
   purpose?: string;
 }
 
-// State (same as before)
+interface Booking {
+  id: number;
+  booking_reference: string;
+  user_id: number;
+  user_email: string;
+  booking_date: string;
+  start_time: string;
+  end_time: string;
+  total_amount: number;
+  status: string;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+  confirmed_at: string | null;
+  cancelled_at: string | null;
+  details: BookingDetail[];
+  user?: {
+    id: number;
+    name: string;
+    email: string;
+    phone?: string;
+  };
+}
+
+interface BookingDetail {
+  id: number;
+  item_type: string;
+  item_id: number;
+  quantity: number;
+  unit_price: number;
+  subtotal: number;
+}
+
+// State
 const resource = ref<Resource | null>(null);
+const bookings = ref<Booking[]>([]);
+const selectedBooking = ref<Booking | null>(null);
 const isLoading = ref(true);
+const isLoadingBookings = ref(false);
 const errorMessage = ref('');
 
 // OTP State
@@ -446,7 +765,7 @@ const bookingForm = ref<BookingForm>({
   purpose: ''
 });
 
-// Computed Properties (same as before)
+// Computed Properties
 const minDate = computed(() => {
   const today = new Date();
   return today.toISOString().split('T')[0];
@@ -484,7 +803,7 @@ const otpExpired = computed(() => {
   return otpTimer.value <= 0;
 });
 
-// Helper Functions (same as before)
+// Helper Functions
 const getImageUrl = (resource: Resource): string => {
   if (resource.images && resource.images.length > 0) {
     const filePath = resource.images[0].file_path;
@@ -506,20 +825,67 @@ const getStatusClass = (status: string): string => {
   }
 };
 
+const getBookingStatusClass = (status: string): string => {
+  switch (status) {
+    case 'pending':
+      return 'status-pending';  // Changed from 'bg-warning' to 'status-pending'
+    case 'confirmed':
+      return 'status-confirmed'; // Changed from 'bg-success' to 'status-confirmed'
+    case 'cancelled':
+      return 'status-cancelled'; // Changed from 'bg-danger' to 'status-cancelled'
+    case 'completed':
+      return 'status-completed'; // Changed from 'bg-info' to 'status-completed'
+    default:
+      return 'bg-secondary';
+  }
+};
+
+const getBookingStatusText = (status: string): string => {
+  switch (status) {
+    case 'pending':
+      return 'Pending';
+    case 'confirmed':
+      return 'Confirmed';
+    case 'cancelled':
+      return 'Cancelled';
+    case 'completed':
+      return 'Completed';
+    default:
+      return status.charAt(0).toUpperCase() + status.slice(1);
+  }
+};
+
+const calculateBookingAmount = (booking: Booking): number => {
+  // If booking has total_amount, use it
+  if (booking.total_amount) {
+    return booking.total_amount;
+  }
+  
+  // Otherwise calculate from details or duration
+  if (booking.details && booking.details.length > 0) {
+    return booking.details.reduce((sum, detail) => sum + detail.subtotal, 0);
+  }
+  
+  // Calculate from time duration and resource base price
+  const start = new Date(`2000-01-01T${booking.start_time}`);
+  const end = new Date(`2000-01-01T${booking.end_time}`);
+  const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+  
+  return Math.round(hours * (resource.value?.base_price || 0));
+};
+
 const formatCountdownTimer = () => {
   const minutes = Math.floor(otpTimer.value / 60);
   const seconds = otpTimer.value % 60;
   return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 };
 
-// OTP Functions - ENHANCED for better paste handling
+// OTP Functions
 const onOtpInput = (index: number, event: Event) => {
   const input = event.target as HTMLInputElement;
   const value = input.value;
   
-  // Handle paste event - check if it's a 6-digit OTP
   if (value.length === 6 && /^\d{6}$/.test(value)) {
-    // User pasted a complete OTP
     const digits = value.split('');
     digits.forEach((digit, i) => {
       if (i < 6) {
@@ -527,7 +893,6 @@ const onOtpInput = (index: number, event: Event) => {
       }
     });
     
-    // Focus on the last input
     nextTick(() => {
       const lastInput = otpInputs.value[5];
       if (lastInput) lastInput.focus();
@@ -535,7 +900,6 @@ const onOtpInput = (index: number, event: Event) => {
     return;
   }
   
-  // Normal single digit input
   if (value && !/^\d$/.test(value)) {
     otpDigits.value[index] = '';
     return;
@@ -559,7 +923,6 @@ const onOtpKeydown = (index: number, event: KeyboardEvent) => {
     });
   }
   
-  // Allow paste with Ctrl+V or Cmd+V
   if ((event.ctrlKey || event.metaKey) && event.key === 'v') {
     // Allow paste, it will be handled in onOtpInput
   }
@@ -582,7 +945,7 @@ const startOTPTimer = () => {
   }, 1000);
 };
 
-// API Functions - FIXED: Remove automatic OTP filling
+// API Functions - UPDATED ENDPOINT
 const loadResourceDetails = async () => {
   const resourceId = route.query.resourceId || route.params.id;
   
@@ -623,6 +986,9 @@ const loadResourceDetails = async () => {
       if (!resource.value.availability) {
         resource.value.availability = [];
       }
+      
+      // Load bookings for this resource
+      await loadBookings();
     } else {
       errorMessage.value = 'Resource data not found in response';
     }
@@ -654,7 +1020,85 @@ const loadResourceDetails = async () => {
   }
 };
 
-// Step 1: Create booking
+// UPDATED: Load bookings for this resource using correct endpoint
+const loadBookings = async () => {
+  if (!resource.value) return;
+  
+  isLoadingBookings.value = true;
+  
+  try {
+    const token = getAuthToken();
+    const resourceId = resource.value.id;
+    
+    // UPDATED ENDPOINT: Use /bookings/resource/{resourceId}
+    const response = await axios.get(`${API_BASE_URL}/bookings/resource/${resourceId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      }
+    });
+    
+    console.log('Bookings API Response:', response.data);
+    
+    // Handle different response formats
+    if (response.data) {
+      if (Array.isArray(response.data)) {
+        bookings.value = response.data;
+      } else if (response.data.bookings) {
+        bookings.value = response.data.bookings;
+      } else if (response.data.data) {
+        bookings.value = response.data.data;
+      } else {
+        bookings.value = [];
+      }
+    } else {
+      bookings.value = [];
+    }
+    
+    console.log(`Loaded ${bookings.value.length} bookings for resource ${resourceId}`);
+    
+  } catch (error: any) {
+    console.error('Error loading bookings:', error);
+    
+    // Alternative endpoint - try another format if first one fails
+    try {
+      const token = getAuthToken();
+      const resourceId = resource.value.id;
+      
+      // Try alternative endpoint format
+      const alternativeResponse = await axios.get(`${API_BASE_URL}/bookings?resource_id=${resourceId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        }
+      });
+      
+      console.log('Alternative bookings API Response:', alternativeResponse.data);
+      
+      if (alternativeResponse.data) {
+        if (Array.isArray(alternativeResponse.data)) {
+          bookings.value = alternativeResponse.data;
+        } else if (alternativeResponse.data.bookings) {
+          bookings.value = alternativeResponse.data.bookings;
+        } else if (alternativeResponse.data.data) {
+          bookings.value = alternativeResponse.data.data;
+        } else {
+          bookings.value = [];
+        }
+      }
+      
+      console.log(`Loaded ${bookings.value.length} bookings via alternative endpoint`);
+      
+    } catch (altError: any) {
+      console.log('Alternative endpoint also failed, showing empty list');
+      bookings.value = [];
+    }
+  } finally {
+    isLoadingBookings.value = false;
+  }
+};
+
+// Create booking
 const createBooking = async () => {
   if (!resource.value) {
     throw new Error('Resource not loaded');
@@ -723,14 +1167,14 @@ const createBooking = async () => {
   }
 };
 
-// Step 1: Validate form and create booking
+// Validate form and create booking
 const validateAndShowOTP = async () => {
   if (!resource.value) {
     errorMessage.value = 'Resource not loaded. Please try again.';
     return;
   }
   
-  // Validate form (same as before)
+  // Validate form
   if (!bookingForm.value.email || !bookingForm.value.date || !bookingForm.value.startTime || !bookingForm.value.endTime) {
     errorMessage.value = 'Please fill all required fields';
     return;
@@ -792,11 +1236,8 @@ const validateAndShowOTP = async () => {
       showOTPModal.value = true;
       startOTPTimer();
       
-      // IMPORTANT: DO NOT automatically fill OTP digits
-      // Just log it for debugging purposes
       if (bookingResponse.otp_code_for_testing) {
         console.log('TEST OTP Code (for debugging only):', bookingResponse.otp_code_for_testing);
-        // DO NOT fill it automatically - this is the fix!
       }
       
       // Clear any previous OTP digits
@@ -853,7 +1294,7 @@ const validateAndShowOTP = async () => {
   }
 };
 
-// Step 2: Verify OTP with the booking ID
+// Verify OTP with the booking ID
 const verifyOTP = async (otp: string) => {
   if (!pendingBookingId.value) {
     throw new Error('No pending booking found');
@@ -892,7 +1333,7 @@ const verifyOTP = async (otp: string) => {
   }
 };
 
-// Step 3: Resend OTP - FIXED: Don't auto-fill OTP
+// Resend OTP
 const resendOTP = async () => {
   if (!pendingBookingId.value) {
     throw new Error('No pending booking found');
@@ -921,10 +1362,8 @@ const resendOTP = async () => {
     otpSentSuccess.value = true;
     otpError.value = 'New OTP sent successfully!';
     
-    // IMPORTANT: DO NOT automatically fill OTP digits
     if (response.data.otp_code_for_testing) {
       console.log('TEST OTP Code (resend, for debugging only):', response.data.otp_code_for_testing);
-      // DO NOT fill it automatically - this is the fix!
     }
     
     // Focus on first input
@@ -947,7 +1386,7 @@ const resendOTP = async () => {
   }
 };
 
-// Step 2 & 3 combined: Verify OTP and complete booking
+// Verify OTP and complete booking
 const verifyOTPAndCompleteBooking = async () => {
   const enteredOTP = otpDigits.value.join('');
   
@@ -963,9 +1402,12 @@ const verifyOTPAndCompleteBooking = async () => {
     // Verify OTP with the booking
     await verifyOTP(enteredOTP);
     
-    // Success: Show success modal
+    // Success: Show success modal and refresh bookings
     closeOTPModal();
     showSuccessModal.value = true;
+    
+    // Refresh the booking list to show the new booking
+    await loadBookings();
     
   } catch (error: any) {
     console.error('Error in verification:', error);
@@ -983,6 +1425,75 @@ const verifyOTPAndCompleteBooking = async () => {
     });
   } finally {
     isVerifyingOTP.value = false;
+  }
+};
+
+// Booking Actions
+const viewBookingDetails = (booking: Booking) => {
+  selectedBooking.value = booking;
+};
+
+const confirmBooking = async (booking: Booking) => {
+  if (!confirm('Are you sure you want to confirm this booking?')) return;
+  
+  try {
+    const token = getAuthToken();
+    
+    const response = await axios.put(`${API_BASE_URL}/bookings/${booking.id}/confirm`, {}, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json'
+      }
+    });
+    
+    // Update the booking in the list
+    const index = bookings.value.findIndex(b => b.id === booking.id);
+    if (index !== -1) {
+      bookings.value[index] = response.data.booking || response.data;
+    }
+    
+    // Update selected booking if it's the same
+    if (selectedBooking.value && selectedBooking.value.id === booking.id) {
+      selectedBooking.value = response.data.booking || response.data;
+    }
+    
+    alert('Booking confirmed successfully!');
+    
+  } catch (error: any) {
+    console.error('Error confirming booking:', error);
+    alert(error.response?.data?.message || 'Failed to confirm booking');
+  }
+};
+
+const cancelBooking = async (booking: Booking) => {
+  if (!confirm('Are you sure you want to cancel this booking?')) return;
+  
+  try {
+    const token = getAuthToken();
+    
+    const response = await axios.put(`${API_BASE_URL}/bookings/${booking.id}/cancel`, {}, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json'
+      }
+    });
+    
+    // Update the booking in the list
+    const index = bookings.value.findIndex(b => b.id === booking.id);
+    if (index !== -1) {
+      bookings.value[index] = response.data.booking || response.data;
+    }
+    
+    // Update selected booking if it's the same
+    if (selectedBooking.value && selectedBooking.value.id === booking.id) {
+      selectedBooking.value = response.data.booking || response.data;
+    }
+    
+    alert('Booking cancelled successfully!');
+    
+  } catch (error: any) {
+    console.error('Error cancelling booking:', error);
+    alert(error.response?.data?.message || 'Failed to cancel booking');
   }
 };
 
@@ -1055,7 +1566,6 @@ onMounted(() => {
   loadResourceDetails();
 });
 </script>
-
 <style scoped>
 .section {
   animation: fadeIn 0.3s ease;
@@ -1102,10 +1612,12 @@ onMounted(() => {
   z-index: 100;
 }
 
+/* Status Badges for Resource */
 .badge {
   padding: 0.35em 0.65em;
   font-size: 0.75em;
   font-weight: 600;
+  border-radius: 4px;
 }
 
 .btn-success {
@@ -1151,6 +1663,84 @@ onMounted(() => {
   font-size: 0.875rem;
 }
 
+/* Table Styles */
+.table th {
+  font-weight: 600;
+  color: #1e4449;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.table td {
+  vertical-align: middle;
+}
+
+.table-hover tbody tr:hover {
+  background-color: rgba(30, 68, 73, 0.05);
+}
+
+.extra-small {
+  font-size: 0.75rem;
+}
+
+/* Booking Status Badges - SEPARATE CLASSES for each status */
+/* PENDING Status - WHITE */
+.badge.status-pending {
+  background-color: #ffffff !important;
+  color: #8B8000 !important;
+  border: 1px solid #FFD700;
+  font-weight: 500;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* CONFIRMED Status - GREEN */
+.badge.status-confirmed {
+  background-color: #28a745 !important;
+  color: white !important;
+  font-weight: 500;
+  border: none;
+}
+
+/* CANCELLED Status - RED */
+.badge.status-cancelled {
+  background-color: #dc3545 !important;
+  color: white !important;
+  font-weight: 500;
+  border: none;
+}
+
+/* COMPLETED Status - BLUE */
+.badge.status-completed {
+  background-color: #17a2b8 !important;
+  color: white !important;
+  font-weight: 500;
+  border: none;
+}
+
+/* Additional hover effects */
+.badge.status-pending:hover {
+  background-color: #f8f9fa !important;
+  border-color: #FFC107;
+}
+
+.badge.status-confirmed:hover {
+  background-color: #218838 !important;
+}
+
+.badge.status-cancelled:hover {
+  background-color: #c82333 !important;
+}
+
+.badge.status-completed:hover {
+  background-color: #138496 !important;
+}
+
+/* Make the white pending badge stand out more on table */
+.table .badge.status-pending {
+  background-color: #ffffff !important;
+  color: #8B8000 !important;
+  border: 1.5px solid #FFC107;
+}
+
 /* Modal Styles */
 .modal-overlay {
   position: fixed;
@@ -1173,6 +1763,10 @@ onMounted(() => {
   width: 100%;
   max-width: 450px;
   animation: modalSlideIn 0.3s ease;
+}
+
+.modal-content.large {
+  max-width: 800px;
 }
 
 .modal-header {
@@ -1236,6 +1830,30 @@ onMounted(() => {
 
 .schedule-list li:last-child {
   border-bottom: none;
+}
+
+/* Timeline Styles */
+.timeline {
+  position: relative;
+  padding-left: 30px;
+}
+
+.timeline-item {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.timeline-marker {
+  position: absolute;
+  left: -30px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: #dee2e6;
+}
+
+.timeline-content {
+  padding-left: 10px;
 }
 
 @keyframes fadeIn {
