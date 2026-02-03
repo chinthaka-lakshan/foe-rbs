@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up()
     {
-        Schema::create('resource_availability', function (Blueprint $table) {
+        Schema::create('resource_availabilities', function (Blueprint $table) {
             $table->id();
             $table->foreignId('resource_id')->constrained('resources')->onDelete('cascade');
             $table->smallInteger('day_of_week'); // 1=Monday, 2=Tuesday, ..., 7=Sunday
@@ -25,6 +25,6 @@ return new class extends Migration
     }
     public function down()
     {
-        Schema::dropIfExists('resource_availability');
+        Schema::dropIfExists('resource_availabilities');
     }
 };

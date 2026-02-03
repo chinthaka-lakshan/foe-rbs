@@ -6,18 +6,18 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Models\Resource;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ResourceAvailability extends Model
 {
-    protected $table = 'resource_availability';
+    protected $table = 'resource_availabilities';
+    use HasFactory;
 
     protected $fillable = [
         'resource_id',
         'day_of_week',
         'day_name',
         'is_available',
-        'start_time',
-        'end_time',
     ];
     protected $casts = [
         'is_available' => 'boolean',
@@ -47,6 +47,10 @@ class ResourceAvailability extends Model
     public static function getDayName(int $dayNumber): ?string
     {
         return array_search($dayNumber, self::$dayMap) ?: 'Monday';
+    }
+    public function slots(): HasMany
+    {
+        return $this->hasMany(ResourceAvailabilitySlots::class, 'resource_availability_id');
     }
 
 };
