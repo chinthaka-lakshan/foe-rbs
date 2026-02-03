@@ -113,14 +113,6 @@
                                     >
                                         <i class="bi bi-check-square"></i> Check Box
                                     </button>
-                                    <button
-                                        class="btn btn-outline-primary btn-sm"
-                                        @click="addField('photo')"
-                                        :class="{ active: activeFieldType === 'photo' }"
-                                        :disabled="isSaving"
-                                    >
-                                        <i class="bi bi-image"></i> Add Photo
-                                    </button>
                                 </div>
                             </div>
                             <div class="col-md-6">
@@ -175,15 +167,11 @@
                                             <input type="checkbox" class="form-check-input" disabled />
                                             <label class="form-label small text-muted">Field Type: Checkbox</label>
                                         </div>
-                                        <div v-else-if="field.type === 'photo'" class="photo-upload-area">
-                                            <i class="bi bi-image"></i>
-                                            <p>Photo Placeholder</p>
-                                        </div>
                                         
                                         <input
                                             type="text"
                                             class="form-control mt-2"
-                                            :placeholder="field.type === 'photo' ? 'Enter Photo Field Name' : 'Enter Field Name'"
+                                            :placeholder="'Enter Field Name'"
                                             v-model="field.field_name"
                                             required
                                             :disabled="isSaving"
@@ -366,17 +354,15 @@ const filteredTemplates = computed(() => {
 
 // --- Helper Functions ---
 
-const frontendTypeToBackendType = (type: 'input' | 'checkbox' | 'photo'): Field['field_type'] => {
+const frontendTypeToBackendType = (type: 'input' | 'checkbox'): Field['field_type'] => {
     if (type === 'input') return 'text';
     if (type === 'checkbox') return 'checkbox';
-    if (type === 'photo') return 'image';
     return 'text';
 };
 
-const backendTypeToFrontendType = (type: Field['field_type']): 'input' | 'checkbox' | 'photo' => {
+const backendTypeToFrontendType = (type: Field['field_type']): 'input' | 'checkbox' => {
     if (type === 'text' || type === 'number' || type === 'textarea') return 'input';
     if (type === 'checkbox') return 'checkbox';
-    if (type === 'image') return 'photo';
     return 'input';
 };
 
@@ -582,11 +568,11 @@ const openEditModal = async (template: Template) => {
     templateModalInstance?.show();
 };
 
-const addField = (type: 'input' | 'checkbox' | 'photo') => {
+const addField = (type: 'input' | 'checkbox') => {
     activeFieldType.value = type;
     const defaultName =
         type === 'input' ? 'New Input Field' :
-        type === 'checkbox' ? 'New Check Box' : 'Photo Upload';
+        'New Check Box';
 
     formData.value.fields!.push({
         field_name: defaultName,
