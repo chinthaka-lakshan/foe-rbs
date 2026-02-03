@@ -293,165 +293,103 @@ Route::middleware('auth:sanctum')->group(function () {
         }
     });
     // post a new resource
-    Route::post('/resources', function (Request $request) {
+    // post a new resource
+Route::post('/resources', function (Request $request) {
     try {
-        \Log::info('Gateway received request', [
-            'data' => $request->except(['images']),
-            'has_images' => $request->hasFile('images')
-        ]);
-        
-        $http = Http::timeout(30)->withToken($request->bearerToken());
-        $http->asMultipart();
+        $http = Http::timeout(30)->withToken($request->bearerToken())->asMultipart();
         $data = $request->except(['images']);
-        
-        foreach ($data as $key => $value) {
-            if (is_array($value)) {
-                foreach ($value as $index => $item) {
-                    if (is_array($item)) {
-                        foreach ($item as $subKey => $subValue) {
-                            $attachValue = $subValue;
-                            if (is_bool($subValue)) {
-                                $attachValue = $subValue ? '1' : '0';
-                            } elseif (is_null($subValue)) {
-                                $attachValue = '';
-                            }
-                            
-                            $http->attach(
-                                "{$key}[{$index}][{$subKey}]",
-                                $attachValue
-                            );
-                        }
-                    } else {
-                        $attachValue = $item;
-                        if (is_bool($item)) {
-                            $attachValue = $item ? '1' : '0';
-                        } elseif (is_null($item)) {
-                            $attachValue = '';
-                        }
-                        
-                        $http->attach("{$key}[{$index}]", $attachValue);
+
+        // Improved Recursive Function to handle 3+ levels of nesting (Slots)
+        $flattenAndAttach = function ($http, $data, $prefix = '') use (&$flattenAndAttach) {
+            foreach ($data as $key => $value) {
+                $currentKey = $prefix ? "{$prefix}[{$key}]" : $key;
+
+                if (is_array($value)) {
+                    $flattenAndAttach($http, $value, $currentKey);
+                } else {
+                    $attachValue = $value;
+                    if (is_bool($value)) {
+                        $attachValue = $value ? '1' : '0';
+                    } elseif (is_null($value)) {
+                        $attachValue = '';
                     }
+                    $http->attach($currentKey, $attachValue);
                 }
-            } else {
-                $attachValue = $value;
-                if (is_bool($value)) {
-                    $attachValue = $value ? '1' : '0';
-                } elseif (is_null($value)) {
-                    $attachValue = '';
+            }
+        };
+
+        $flattenAndAttach($http, $data);
+
+        // Handle Images
+        if ($request->hasFile('images')) {
+            foreach ($request->file('images') as $file) {
+                if ($file && $file->isValid()) {
+                    $http->attach(
+                        'images[]',
+                        file_get_contents($file->getRealPath()),
+                        $file->getClientOriginalName()
+                    );
                 }
-                
-                $http->attach($key, $attachValue);
             }
         }
+
+        $response = $http->post('http://resource_service/api/resources');
+        return handleProxyResponse($response, 'Resource creation failed.');
+
+    } catch (Exception $e) {
+        return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
+    }
+});
+
+    // Update resource
+Route::match(['put', 'post'], '/resources/{id}', function (Request $request, $id) {
+    try {
+        $http = Http::timeout(30)->withToken($request->bearerToken());
         
-        if ($request->hasFile('images')) {
-            foreach ($request->file('images') as $index => $file) {
-                if ($file && $file->isValid() && is_readable($file->getRealPath())) {
-                    $contents = file_get_contents($file->getRealPath());
-                    
-                    if ($contents !== false) {
+        // Use Multipart if there are files or complex nested arrays like availability slots
+        if ($request->hasFile('images') || $request->has('availability') || $request->has('equipment')) {
+            $http->asMultipart();
+            
+            // Define Recursive function to handle deep nesting (3+ levels)
+            $flattenAndAttach = function ($http, $data, $prefix = '') use (&$flattenAndAttach) {
+    foreach ($data as $key => $value) {
+        $currentKey = $prefix ? "{$prefix}[{$key}]" : $key;
+        if (is_array($value)) {
+            $flattenAndAttach($http, $value, $currentKey);
+        } else {
+            $http->attach($currentKey, $value);
+        }
+    }
+};
+            // Process all data except images (handled separately)
+            $flattenAndAttach($http, $request->except(['images']));
+            
+            // Attach image files properly
+            if ($request->hasFile('images')) {
+                foreach ($request->file('images') as $file) {
+                    if ($file && $file->isValid()) {
                         $http->attach(
                             'images[]',
-                            $contents, 
+                            file_get_contents($file->getRealPath()),
                             $file->getClientOriginalName()
                         );
                     }
                 }
             }
+            
+            // We use POST to the microservice because multipart PUT can be unstable in some PHP versions
+            $response = $http->post("http://resource_service/api/resources/{$id}");
+        } else {
+            // Use standard JSON PUT for simple updates (name, price, etc.)
+            $response = $http->put("http://resource_service/api/resources/{$id}", $request->all());
         }
         
-        \Log::info('Sending request to resource service');
-        
-        $response = $http->post('http://resource_service/api/resources');
-        
-        \Log::info('Resource service response', [
-            'status' => $response->status(),
-            'body' => $response->body()
-        ]);
-        
-        return handleProxyResponse($response, 'Resource creation failed.'); 
+        return handleProxyResponse($response, 'Resource update failed.');
         
     } catch (Exception $e) {
-        \Log::error('Resource proxy error: ' . $e->getMessage());
-        return response()->json([
-            'message' => 'Gateway error',
-            'error' => $e->getMessage()
-        ], 500);
+        return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
     }
 });
-
-    // Update resource
-    Route::match(['put', 'post'], '/resources/{id}', function (Request $request, $id) {
-        try {
-            $http = Http::timeout(30)->withToken($request->bearerToken());
-            
-            if ($request->hasFile('images') || $request->has('delete_images') || $request->has('delete_equipment')) {
-                $http->asMultipart();
-                
-                // Attach all fields with proper boolean/null handling
-                foreach ($request->except(['images']) as $key => $value) {
-                    if (is_array($value)) {
-                        foreach ($value as $index => $item) {
-                            if (is_array($item)) {
-                                foreach ($item as $subKey => $subValue) {
-                                    $attachValue = $subValue;
-                                    if (is_bool($subValue)) {
-                                        $attachValue = $subValue ? '1' : '0';
-                                    } elseif (is_null($subValue)) {
-                                        $attachValue = '';
-                                    }
-                                    
-                                    $http->attach("{$key}[{$index}][{$subKey}]", $attachValue);
-                                }
-                            } else {
-                                $attachValue = $item;
-                                if (is_bool($item)) {
-                                    $attachValue = $item ? '1' : '0';
-                                } elseif (is_null($item)) {
-                                    $attachValue = '';
-                                }
-                                
-                                $http->attach("{$key}[{$index}]", $attachValue);
-                            }
-                        }
-                    } else {
-                        $attachValue = $value;
-                        if (is_bool($value)) {
-                            $attachValue = $value ? '1' : '0';
-                        } elseif (is_null($value)) {
-                            $attachValue = '';
-                        }
-                        
-                        $http->attach($key, $attachValue);
-                    }
-                }
-                
-                // Attach image files
-                if ($request->hasFile('images')) {
-                    foreach ($request->file('images') as $file) {
-                        if ($file && $file->isValid()) {
-                            $http->attach(
-                                'images[]',
-                                file_get_contents($file->getRealPath()),
-                                $file->getClientOriginalName()
-                            );
-                        }
-                    }
-                }
-                
-                $response = $http->post("http://resource_service/api/resources/{$id}");
-            } else {
-                // Use JSON for simple updates
-                $response = $http->put("http://resource_service/api/resources/{$id}", $request->all());
-            }
-            
-            return handleProxyResponse($response, 'Resource update failed.');
-            
-        } catch (Exception $e) {
-            return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
-        }
-    });
-
     // Delete resource
     Route::delete('/resources/{id}', function (Request $request, $id) {
         try {
