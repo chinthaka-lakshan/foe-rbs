@@ -15,44 +15,43 @@ use Exception;
 
 class ResourceController extends Controller
 {
-    /**
-     * Get all resources with nested availability slots.
-     */
+    // List all resources with related data
     public function index(): JsonResponse
     {
         $resources = Resource::with(['category', 'images', 'equipment', 'availability.slots'])->get();
         return response()->json($resources);
     }
 
-    /**
-     * Get a single resource by ID.
-     */
+    // Show a specific resource with related data
     public function show($id): JsonResponse
     {
         $resource = Resource::with(['category', 'images', 'equipment', 'availability.slots'])->findOrFail($id);
         return response()->json($resource);
     }
 
-    /**
-     * Store a new resource with multiple time slots per day.
-     */
+    // Create a new resource with multiple time slots
     public function store(Request $request): JsonResponse
     {
+        // Validate input
         $validatedData = $this->validateResource($request);
         
+        // Use transaction to ensure data integrity
         DB::beginTransaction();
         try {
             $resourceData = collect($validatedData)->except(['images', 'equipment', 'availability'])->toArray();
             $resource = Resource::create($resourceData);
 
+            // Handle Image Uploads
             if ($request->hasFile('images')) {
                 $this->processImages($resource, $request->file('images'));
             }
 
+            // Handle Equipment
             if (!empty($validatedData['equipment'])) {
                 $resource->equipment()->createMany($validatedData['equipment']);
             }
 
+            // Handle Availability and Slots
             if (!empty($validatedData['availability'])) {
                 $this->syncAvailability($resource, $validatedData['availability']);
             }
@@ -68,11 +67,10 @@ class ResourceController extends Controller
         }
     }
 
-    /**
-     * Update an existing resource and its multiple time slots.
-     */
+    // Update an existing resource with multiple time slots
     public function update(Request $request, $id): JsonResponse
     {
+        // Validate input
         $resource = Resource::findOrFail($id);
         $validatedData = $this->validateResource($request, true);
 
@@ -111,41 +109,39 @@ class ResourceController extends Controller
         }
     }
 
-    /**
-     * Sync availability days and their multiple time slots.
-     */
+    // Sync Resource Availability and Slots
     private function syncAvailability(Resource $resource, array $availabilityData)
-{
-    foreach ($availabilityData as $data) {
-        // Use 'day_of_week' as the name if 'day_name' is missing from the request
-        $dayName = $data['day_name'] ?? $data['day_of_week']; 
-        
-        $availability = $resource->availability()->updateOrCreate(
-            ['day_name' => $dayName], // This ensures we find the right day
-            [
-                'day_of_week' => ResourceAvailability::getDayNumber($dayName),
-                'is_available' => filter_var($data['is_available'], FILTER_VALIDATE_BOOLEAN),
-                'day_name' => $dayName // Explicitly set it here for the insert
-            ]
-        );
+    {
+        foreach ($availabilityData as $data) {
+            // Use 'day_of_week' as the name if 'day_name' is missing from the request
+            $dayName = $data['day_name'] ?? $data['day_of_week']; 
+            
+            $availability = $resource->availability()->updateOrCreate(
+                ['day_name' => $dayName],
+                [
+                    'day_of_week' => ResourceAvailability::getDayNumber($dayName),
+                    'is_available' => filter_var($data['is_available'], FILTER_VALIDATE_BOOLEAN),
+                    'day_name' => $dayName
+                ]
+            );
 
-        $availability->slots()->delete();
-
-        if ($availability->is_available && !empty($data['slots'])) {
-            foreach ($data['slots'] as $slot) {
-                $availability->slots()->create([
-                    'start_time' => $slot['start_time'],
-                    'end_time' => $slot['end_time'],
-                ]);
+            $availability->slots()->delete();
+            // Add new slots if available
+            if ($availability->is_available && !empty($data['slots'])) {
+                foreach ($data['slots'] as $slot) {
+                    $availability->slots()->create([
+                        'start_time' => $slot['start_time'],
+                        'end_time' => $slot['end_time'],
+                    ]);
+                }
             }
         }
     }
-}
-    /**
-     * Validation Logic
-     */
+    
+    // Validate resource input data
     private function validateResource(Request $request, $isUpdate = false)
     {
+        // Validation rules
         return $request->validate([
             'name' => ($isUpdate ? 'sometimes' : 'required') . '|string|max:255',
             'location_name' => ($isUpdate ? 'sometimes' : 'required') . '|string',
@@ -166,11 +162,14 @@ class ResourceController extends Controller
         ]);
     }
 
+    // Process and store uploaded images
     private function processImages(Resource $resource, array $images)
     {
+        // Enforce maximum of 10 images
         if (($resource->images()->count() + count($images)) > 10) {
             throw new Exception("Maximum 10 images allowed.");
         }
+
         foreach ($images as $image) {
             $path = $image->store('resource_images/' . $resource->id, 'public');
             $resource->images()->create([
@@ -181,16 +180,19 @@ class ResourceController extends Controller
         }
     }
 
+    // Delete a resource and its associated images
     public function destroy($id): JsonResponse
     {
         $resource = Resource::with('images')->findOrFail($id);
         foreach ($resource->images as $image) {
             Storage::disk('public')->delete($image->file_path);
         }
+
         $resource->delete();
         return response()->json(['message' => 'Deleted successfully']);
     }
 
+    // Get resources in batch by IDs
     public function getBatch(Request $request): JsonResponse
     {
         $idsString = $request->query('ids');

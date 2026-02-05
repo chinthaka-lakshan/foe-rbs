@@ -14,9 +14,11 @@ class CategoryController extends Controller
         $categories = Category::all();
         return response()->json($categories, Response::HTTP_OK);
     }
+
     // Create a new category
     public function store(Request $request)
     {
+        // Validate input
         $validated = $request->validate([
             'name' => 'required|string|unique:categories,name',
             'description' => 'nullable|string',
@@ -26,14 +28,16 @@ class CategoryController extends Controller
 
         return response()->json($category, Response::HTTP_CREATED);
     }
+
     // Update an existing category
     public function update(Request $request, $id)
     {
+        // Find category
         $category = Category::find($id);
         if (!$category) {
             return response()->json(['message' => 'Category not found'], Response::HTTP_NOT_FOUND);
         }
-
+        // Validate input
         $validated = $request->validate([
             'name' => 'sometimes|required|string|unique:categories,name,' . $id,
             'description' => 'nullable|string',
@@ -43,6 +47,7 @@ class CategoryController extends Controller
 
         return response()->json($category, Response::HTTP_OK);
     }
+    
     // Delete a category
     public function destroy($id)
     {

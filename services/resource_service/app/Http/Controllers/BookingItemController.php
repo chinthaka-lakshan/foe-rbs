@@ -11,29 +11,24 @@ use Exception;
 
 class BookingItemController extends Controller
 {
-    /**
-     * Get list of all booking items
-     */
+    // List all booking items
     public function index(): JsonResponse
     {
         $items = BookingItem::orderBy('name')->get();
         return response()->json($items);
     }
 
-    /**
-     * Get a single booking item by ID
-     */
+    // Show a specific booking item
     public function show($id): JsonResponse
     {
         $item = BookingItem::findOrFail($id);
         return response()->json($item);
     }
 
-    /**
-     * Create a new booking item
-     */
+    // Create a new booking item
     public function store(Request $request): JsonResponse
     {
+        // Validate input
         $validatedData = $request->validate([
             'name' => 'required|string|max:255',
             'item_code' => 'nullable|string|unique:booking_items,item_code',
@@ -71,9 +66,7 @@ class BookingItemController extends Controller
         }
     }
 
-    /**
-     * Update an existing booking item
-     */
+    // Update an existing booking item
     public function update(Request $request, $id): JsonResponse
     {
         $item = BookingItem::findOrFail($id);
@@ -138,13 +131,12 @@ class BookingItemController extends Controller
         }
     }
 
-    /**
-     * Delete a booking item
-     */
+    // Delete a booking item
     public function destroy($id): JsonResponse
     {
         DB::beginTransaction();
         try {
+            // Find and delete the booking item
             $item = BookingItem::findOrFail($id);
             $item->delete();
 
@@ -166,11 +158,10 @@ class BookingItemController extends Controller
         }
     }
 
-    /**
-     * Get available booking items (for booking selection)
-     */
+    // List available booking items
     public function available(): JsonResponse
     {
+        // Fetch items that are available and have quantity > 0
         $items = BookingItem::where('status', 'Available')
             ->where('available_quantity', '>', 0)
             ->orderBy('name')

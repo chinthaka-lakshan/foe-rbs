@@ -10,6 +10,7 @@ use App\Models\ResourceAvailability;
 
 class ResourceAvailabilitySlots extends Model
 {
+    // Use HasFactory trait
     use HasFactory;
     protected $table = 'resource_availability_slots';
     protected $fillable = [
@@ -18,10 +19,9 @@ class ResourceAvailabilitySlots extends Model
         'end_time',
     ];
 
+    // Define relationship with ResourceAvailability model
     public function availability(): BelongsTo
     {
         return $this->belongsTo(ResourceAvailability::class, 'resource_availability_id');
-    }
-
-    
+    }  
 }
