@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Storage;
 
 class SystemSettingsController extends Controller
 {
+    // List all system settings
     public function index()
     {
         $rows = SystemSetting::all();
@@ -17,6 +18,7 @@ class SystemSettingsController extends Controller
         return response()->json($settings);
     }
 
+    // Update system settings
     public function update(Request $request)
     {
         $data = $request->except('logo');
@@ -35,6 +37,7 @@ class SystemSettingsController extends Controller
         return response()->json(['message' => 'Settings saved']);
     }
 
+    // Perform quick actions like clearing cache or logs
     public function action(Request $request, $action)
     {
         // quick actions: clear-cache, backup-db, clear-logs
