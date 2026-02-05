@@ -93,7 +93,7 @@ const fetchSettings = async () => {
   try {
     const res = await axios.get('http://localhost:8000/api/settings');
     settings.value = {
-      system_name: res.data.system_name || '',
+      system_name: res.data.site_name || '',
       organization_name: res.data.organization_name || '',
       contact_email: res.data.contact_email || '',
       phone_number: res.data.phone_number || '',
@@ -151,13 +151,15 @@ onMounted(fetchSettings);
 </script>
 
 <style scoped>
-.layout-wrapper { background: #f1f5f9; min-height: 100vh; }
+.layout-wrapper { background: #f1f5f9; min-height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
 
 /* Structural separation to prevent overlap with the 260px sidebar */
 .content-body { 
   margin-left: 260px; 
   padding: 50px 40px; 
-  /* margin-top: 10px;  */
+  margin-top: 2px; 
+  height: calc(100vh - 60px);
+  overflow-y: auto;
   transition: all 0.3s ease;
 }
 
