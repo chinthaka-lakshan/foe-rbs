@@ -9,33 +9,36 @@
     <div class="card p-4 shadow-sm">
       <form @submit.prevent="isEditMode ? handleUpdate() : handleSave()">
         <div class="row g-4">
+          <!-- Resource Name -->
           <div class="col-md-6">
             <label for="resourceName" class="form-label fw-bold">Resource Name <span class="text-danger">*</span></label>
             <input 
               type="text" 
               class="form-control" 
               id="resourceName" 
-              v-model="newResource.name" 
+              v-model="resource.name" 
               required
               placeholder="e.g., Conference Room A 301"
             >
           </div>
 
+          <!-- Location Name -->
           <div class="col-md-6">
             <label for="locationName" class="form-label fw-bold">Location Name <span class="text-danger">*</span></label>
             <input 
               type="text" 
               class="form-control" 
               id="locationName" 
-              v-model="newResource.location_name"
+              v-model="resource.location_name"
               placeholder="e.g., Building C, Floor 2"
               required
             >
           </div>
 
+          <!-- Category -->
           <div class="col-md-6">
             <label for="resourceCategory" class="form-label fw-bold">Resource Category <span class="text-danger">*</span></label>
-            <select class="form-select" id="resourceCategory" v-model="newResource.category_id" required>
+            <select class="form-select" id="resourceCategory" v-model="resource.category_id" required>
               <option value="" disabled>Select a Category</option>
               <option v-for="category in categories" :key="category.id" :value="category.id">
                 {{ category.name }}
@@ -43,13 +46,25 @@
             </select>
           </div>
 
+          <!-- Department -->
+          <div class="col-md-6">
+            <label for="resourceDepartment" class="form-label fw-bold">Department</label>
+            <select class="form-select" id="resourceDepartment" v-model="resource.department_id">
+              <option :value="null">No Department</option>
+              <option v-for="department in departments" :key="department.id" :value="department.id">
+                {{ department.name }}
+              </option>
+            </select>
+          </div>
+
+          <!-- Base Price -->
           <div class="col-md-6">
             <label for="resourcePrice" class="form-label fw-bold">Resource Base Price (Rs.) <span class="text-danger">*</span></label>
             <input 
               type="number" 
               class="form-control" 
               id="resourcePrice" 
-              v-model.number="newResource.base_price"
+              v-model.number="resource.base_price"
               placeholder="e.g., 500.00 Rs."
               min="0"
               step="0.01"
@@ -57,125 +72,164 @@
             >
           </div>
           
+          <!-- Assigned Admin -->
           <div class="col-md-6">
             <label for="assignee" class="form-label fw-bold">Assign Admin</label>
-            <select class="form-select" id="assignee" v-model="newResource.assigned_admin_id">
+            <select class="form-select" id="assignee" v-model="resource.assigned_admin_id">
               <option :value="null">No Assignee</option>
               <option v-for="admin in admins" :key="admin.id" :value="admin.id">
-                {{ admin.name }}
+                {{ admin.name }} ({{ admin.email }})
               </option>
             </select>
           </div>
           
+          <!-- Status -->
           <div class="col-md-6">
             <label for="status" class="form-label fw-bold">Status <span class="text-danger">*</span></label>
-            <select class="form-select" id="status" v-model="newResource.status" required>
+            <select class="form-select" id="status" v-model="resource.status" required>
               <option value="Active">Active</option>
               <option value="Inactive">Inactive</option>
               <option value="Maintenance">Maintenance</option>
             </select>
           </div>
 
+          <!-- Availability -->
           <div class="col-12">
-            <h5 class="section-subtitle fw-bold mb-3 mt-3">Available Time Duration</h5>
+            <h5 class="section-subtitle fw-bold mb-3 mt-3">Availability & Time Slots</h5>
             <div class="availability-matrix border p-3 rounded bg-light">
+              <div class="row fw-bold text-muted mb-2 border-bottom pb-2 mx-0 small">
+                <div class="col-2">Day</div>
+                <div class="col-2 text-center">Available</div>
+                <div class="col-5">Time Slots</div>
+                <div class="col-3">Actions</div>
+              </div>
+
+              <div 
+                v-for="(day, dayIndex) in availability" 
+                :key="day.day_name"
+                class="row align-items-center mb-3 mx-0 border-bottom pb-3"
+              >
+                <div class="col-2 fw-medium">{{ day.day_name }}</div>
                 
-                <div class="row fw-bold text-muted mb-2 border-bottom pb-2 mx-0 small">
-                    <div class="col-3">Day</div>
-                    <div class="col-3 text-center">Available</div>
-                    <div class="col-3">Start Time</div>
-                    <div class="col-3">End Time</div>
+                <div class="col-2 text-center">
+                  <div class="form-check form-switch d-inline-block">
+                    <input 
+                      class="form-check-input" 
+                      type="checkbox" 
+                      v-model="day.is_available"
+                      @change="handleAvailabilityChange(dayIndex)"
+                    >
+                  </div>
                 </div>
 
-                <div 
-                    v-for="(day, index) in newResource.schedule" 
-                    :key="day.dayName"
-                    class="row align-items-center mb-2 mx-0"
-                >
-                    <div class="col-3 fw-medium">{{ day.dayName }}</div>
-                    
-                    <div class="col-3 text-center">
-                        <div class="form-check form-switch d-inline-block">
-                            <input 
-                                class="form-check-input" 
-                                type="checkbox" 
-                                v-model="day.available"
-                            >
-                        </div>
+                <div class="col-5">
+                  <!-- Time Slots -->
+                  <div v-for="(slot, slotIndex) in day.slots" :key="slotIndex" class="row g-2 mb-2 align-items-center">
+                    <div class="col-5">
+                      <input 
+                        type="time" 
+                        class="form-control form-control-sm" 
+                        v-model="slot.start_time"
+                        :disabled="!day.is_available"
+                        required
+                      >
                     </div>
-
-                    <div class="col-3">
-                        <input 
-                            type="time" 
-                            class="form-control form-control-sm" 
-                            v-model="day.startTime"
-                            :disabled="!day.available"
-                        >
+                    <div class="col-5">
+                      <input 
+                        type="time" 
+                        class="form-control form-control-sm" 
+                        v-model="slot.end_time"
+                        :disabled="!day.is_available"
+                        required
+                      >
                     </div>
-                    <div class="col-3">
-                        <input 
-                            type="time" 
-                            class="form-control form-control-sm" 
-                            v-model="day.endTime"
-                            :disabled="!day.available"
-                        >
+                    <div class="col-2">
+                      <button 
+                        v-if="slotIndex > 0"
+                        type="button" 
+                        class="btn btn-sm btn-outline-danger"
+                        @click="removeSlot(dayIndex, slotIndex)"
+                        :disabled="!day.is_available"
+                      >
+                        <i class="bi bi-x"></i>
+                      </button>
                     </div>
+                  </div>
+                  
+                  <!-- Add Slot Button -->
+                  <button 
+                    v-if="day.is_available"
+                    type="button" 
+                    class="btn btn-sm btn-outline-secondary mt-1"
+                    @click="addSlot(dayIndex)"
+                  >
+                    <i class="bi bi-plus-circle me-1"></i> Add Time Slot
+                  </button>
+                  
+                  <div v-else class="text-muted small mt-1">
+                    <em>Enable day to add time slots</em>
+                  </div>
                 </div>
+
+                <div class="col-3">
+                  <span v-if="day.is_available && day.slots.length > 0" class="badge bg-info">
+                    {{ day.slots.length }} slot(s)
+                  </span>
+                </div>
+              </div>
             </div>
-            <small class="form-text text-muted">Define the daily hours when this resource can be booked. Times are disabled if the day is not available.</small>
           </div>
 
+          <!-- Equipment -->
           <div class="col-12">
             <label class="form-label fw-bold">Custom Equipment/Accessories</label>
             <div class="equipment-list border p-3 rounded">
-                <div 
-                    v-for="(item, index) in newResource.equipment" 
-                    :key="item.id" 
-                    class="d-flex align-items-center mb-3 p-2 border-bottom"
-                >
-                    <div class="flex-grow-1 me-3">
-                        <input 
-                            type="text" 
-                            class="form-control form-control-sm mb-2" 
-                            v-model="item.equipment_name" 
-                            placeholder="Equipment Name (e.g., Projector)"
-                            required
-                        >
-                    </div>
-                    
-                    <div class="me-3" style="width: 100px;">
-                        <input 
-                            type="number" 
-                            class="form-control form-control-sm" 
-                            v-model.number="item.quantity" 
-                            placeholder="Qty"
-                            min="1"
-                            required
-                        >
-                    </div>
-                    
-                    <button 
-                        type="button" 
-                        class="btn btn-sm btn-outline-danger flex-shrink-0" 
-                        @click="removeEquipment(index)"
-                    >
-                        <i class="bi bi-x"></i>
-                    </button>
+              <div 
+                v-for="(item, index) in equipment" 
+                :key="index" 
+                class="d-flex align-items-center mb-3 p-2 border-bottom"
+              >
+                <div class="flex-grow-1 me-3">
+                  <input 
+                    type="text" 
+                    class="form-control form-control-sm mb-2" 
+                    v-model="item.equipment_name" 
+                    placeholder="Equipment Name (e.g., Projector)"
+                  >
+                </div>
+                
+                <div class="me-3" style="width: 100px;">
+                  <input 
+                    type="number" 
+                    class="form-control form-control-sm" 
+                    v-model.number="item.quantity" 
+                    placeholder="Qty"
+                    min="1"
+                  >
                 </div>
                 
                 <button 
-                    type="button" 
-                    class="btn btn-sm btn-outline-dark-teal mt-2" 
-                    @click="addEquipment"
+                  type="button" 
+                  class="btn btn-sm btn-outline-danger flex-shrink-0" 
+                  @click="removeEquipment(index)"
                 >
-                    <i class="bi bi-plus-circle me-1"></i> Add Equipment
+                  <i class="bi bi-x"></i>
                 </button>
+              </div>
+              
+              <button 
+                type="button" 
+                class="btn btn-sm btn-outline-dark-teal mt-2" 
+                @click="addEquipment"
+              >
+                <i class="bi bi-plus-circle me-1"></i> Add Equipment
+              </button>
             </div>
-            <small class="form-text text-muted">Define custom equipment with quantities.</small>
           </div>
 
+          <!-- Images -->
           <div class="col-12">
-            <label for="resourcePhotoFile" class="form-label fw-bold">Upload Photos (Multiple)</label>
+            <label for="resourcePhotoFile" class="form-label fw-bold">Upload Photos</label>
             <input 
               type="file" 
               class="form-control" 
@@ -184,9 +238,9 @@
               accept="image/*"
               multiple
             >
-            <small class="form-text text-muted">Select one or more images to upload.</small>
             
-            <div v-if="selectedFiles.length > 0" class="mt-3">
+            <!-- Image Previews -->
+            <div v-if="imagePreviews.length > 0" class="mt-3">
               <h6>Selected Images:</h6>
               <div class="d-flex flex-wrap gap-2">
                 <div v-for="(preview, idx) in imagePreviews" :key="idx" class="position-relative">
@@ -204,18 +258,20 @@
             </div>
           </div>
           
+          <!-- Description - TRULY OPTIONAL FIELD -->
           <div class="col-12">
             <label for="resourceDescription" class="form-label fw-bold">Description</label>
             <textarea 
               class="form-control" 
               id="resourceDescription" 
               rows="4" 
-              v-model="newResource.description"
-              placeholder="Provide a detailed description of the resource, its features, and capacity."
+              v-model="resource.description"
+              placeholder="Optional: Provide a detailed description of the resource"
             ></textarea>
           </div>
         </div>
 
+        <!-- Error/Success Messages -->
         <div v-if="errorMessage" class="alert alert-danger mt-3">
           {{ errorMessage }}
         </div>
@@ -224,6 +280,7 @@
           {{ successMessage }}
         </div>
 
+        <!-- Buttons -->
         <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
           <button type="button" class="btn btn-secondary" @click="router.push('/master-admin/resource')">
             <i class="bi bi-x-circle me-1"></i> Cancel
@@ -239,485 +296,671 @@
   </div>
 </template>
 
-<script setup lang="ts">
+<script>
 import { ref, onMounted, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
-// NOTE: Adjust these paths if necessary
 import Navbar from '../../components/Navbar.vue';
 import MasterAdminSidebar from '../../components/Sidebar/MasterAdminSidebar.vue';
 
-// Get auth token from localStorage (adjust the key name if different)
-const getAuthToken = () => {
-    // Check all possible token storage locations
-    const token = localStorage.getItem('authToken') ||  // From your login
-                  localStorage.getItem('auth_token') || 
-                  localStorage.getItem('token') || 
-                  localStorage.getItem('access_token') ||
-                  sessionStorage.getItem('auth_token');
-    
-    // Debug: Log token status
-    console.log('Auth token found:', token ? 'Yes' : 'No');
-    if (token) {
-        console.log('Token preview:', token.substring(0, 20) + '...');
-    } else {
-        console.error('No auth token found! User might not be logged in.');
-        console.log('Checking localStorage keys:', Object.keys(localStorage));
-    }
-    
-    return token;
-};
+export default {
+  name: 'AddResource',
+  components: {
+    Navbar,
+    MasterAdminSidebar
+  },
+  setup() {
+    const router = useRouter();
+    const route = useRoute();
+    const API_BASE_URL = 'http://localhost:8000/api';
 
-// Set default authorization header if token exists
-const token = getAuthToken();
-if (token) {
-    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    console.log('Authorization header set');
-} else {
-    console.warn('No auth token found in storage');
-}
+    // Resource data
+    const resource = ref({
+      name: '',
+      location_name: '',
+      category_id: '',
+      department_id: null,
+      base_price: null,
+      assigned_admin_id: null,
+      description: '', // Completely optional - can be empty
+      status: 'Active',
+    });
 
-const router = useRouter();
-const route = useRoute();
+    // Availability data
+    const availability = ref([
+      { day_name: 'Monday', is_available: false, slots: [] },
+      { day_name: 'Tuesday', is_available: false, slots: [] },
+      { day_name: 'Wednesday', is_available: false, slots: [] },
+      { day_name: 'Thursday', is_available: false, slots: [] },
+      { day_name: 'Friday', is_available: false, slots: [] },
+      { day_name: 'Saturday', is_available: false, slots: [] },
+      { day_name: 'Sunday', is_available: false, slots: [] },
+    ]);
 
-// --- DEFINITIONS ---
+    // Equipment data
+    const equipment = ref([]);
 
-interface EquipmentItem {
-    id: number;
-    equipment_name: string;
-    quantity: number;
-}
+    // Other state
+    const selectedFiles = ref([]);
+    const imagePreviews = ref([]);
+    const isSubmitting = ref(false);
+    const errorMessage = ref('');
+    const successMessage = ref('');
+    const admins = ref([]);
+    const categories = ref([]);
+    const departments = ref([]);
 
-interface ScheduleDay {
-    dayName: string;
-    available: boolean;
-    startTime: string; 
-    endTime: string;   
-}
+    const isEditMode = computed(() => route.query.mode === 'edit' && !!route.query.id);
 
-interface NewResource {
-    name: string;
-    location_name: string;
-    category_id: string;
-    base_price: number | null; 
-    assigned_admin_id: number | null;
-    description: string;
-    status: 'Active' | 'Inactive' | 'Maintenance';
-    equipment: EquipmentItem[]; 
-    schedule: ScheduleDay[]; 
-}
+    // Get auth token
+    const getAuthToken = () => {
+      return localStorage.getItem('authToken') || 
+             localStorage.getItem('token') || 
+             localStorage.getItem('access_token');
+    };
 
-let equipmentIdCounter = 1;
-
-const defaultSchedule: ScheduleDay[] = [
-    { dayName: 'Monday', available: false, startTime: '09:00', endTime: '17:00' },
-    { dayName: 'Tuesday', available: false, startTime: '09:00', endTime: '17:00' },
-    { dayName: 'Wednesday', available: false, startTime: '09:00', endTime: '17:00' },
-    { dayName: 'Thursday', available: false, startTime: '09:00', endTime: '17:00' },
-    { dayName: 'Friday', available: false, startTime: '09:00', endTime: '17:00' },
-    { dayName: 'Saturday', available: false, startTime: '09:00', endTime: '13:00' },
-    { dayName: 'Sunday', available: false, startTime: '00:00', endTime: '00:00' },
-];
-
-const initialResourceState: NewResource = {
-    name: '',
-    location_name: '',
-    category_id: '',
-    base_price: null, 
-    assigned_admin_id: null,
-    description: '',
-    status: 'Active',
-    equipment: [], 
-    schedule: JSON.parse(JSON.stringify(defaultSchedule)), 
-};
-
-const newResource = ref<NewResource>({ ...initialResourceState });
-const selectedFiles = ref<File[]>([]);
-const imagePreviews = ref<string[]>([]);
-const isSubmitting = ref(false);
-const errorMessage = ref('');
-const successMessage = ref('');
-
-// Dynamic data from API
-const admins = ref<any[]>([]);
-const categories = ref<any[]>([]);
-
-// API Base URL - Adjust this to your Laravel backend URL
-const API_BASE_URL = 'http://localhost:8000/api';
-
-// --- EQUIPMENT MANAGEMENT ---
-
-const addEquipment = () => { 
-    newResource.value.equipment.push({
-        id: equipmentIdCounter++,
+    // Equipment methods
+    const addEquipment = () => {
+      equipment.value.push({
         equipment_name: '',
         quantity: 1,
-    });
-};
+      });
+    };
 
-const removeEquipment = (index: number) => {
-    newResource.value.equipment.splice(index, 1);
-};
+    const removeEquipment = (index) => {
+      equipment.value.splice(index, 1);
+    };
 
-// --- IMAGE HANDLING ---
+    // Availability methods
+    const addSlot = (dayIndex) => {
+      availability.value[dayIndex].slots.push({
+        start_time: '',
+        end_time: ''
+      });
+    };
 
-const handleFileUpload = (event: Event) => {
-    const input = event.target as HTMLInputElement;
-    if (input.files) {
-        selectedFiles.value = Array.from(input.files);
+    const removeSlot = (dayIndex, slotIndex) => {
+      if (availability.value[dayIndex].slots.length > 1) {
+        availability.value[dayIndex].slots.splice(slotIndex, 1);
+      }
+    };
+
+    const handleAvailabilityChange = (dayIndex) => {
+      const day = availability.value[dayIndex];
+      if (day.is_available && day.slots.length === 0) {
+        addSlot(dayIndex);
+      } else if (!day.is_available) {
+        day.slots = [];
+      }
+    };
+
+    // Image methods
+    const handleFileUpload = (event) => {
+      const input = event.target;
+      if (input.files) {
+        const files = Array.from(input.files);
+        selectedFiles.value = [...selectedFiles.value, ...files];
         
-        // Create previews
-        imagePreviews.value = [];
-        selectedFiles.value.forEach(file => {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                if (e.target && typeof e.target.result === 'string') {
-                    imagePreviews.value.push(e.target.result);
-                }
-            };
-            reader.readAsDataURL(file);
+        files.forEach(file => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            if (e.target && typeof e.target.result === 'string') {
+              imagePreviews.value.push(e.target.result);
+            }
+          };
+          reader.readAsDataURL(file);
         });
-    }
-};
+      }
+    };
 
-const removeImage = (index: number) => {
-    selectedFiles.value.splice(index, 1);
-    imagePreviews.value.splice(index, 1);
-};
+    const removeImage = (index) => {
+      selectedFiles.value.splice(index, 1);
+      imagePreviews.value.splice(index, 1);
+    };
 
-// --- UTILITIES ---
-
-const isEditMode = computed(() => route.query.mode === 'edit' && !!route.query.id);
-
-// --- PREPARE DATA FOR BACKEND ---
-
-const prepareFormData = (): FormData => {
-    const formData = new FormData();
-    
-    // Basic fields
-    formData.append('name', newResource.value.name);
-    formData.append('location_name', newResource.value.location_name);
-    formData.append('category_id', newResource.value.category_id);
-    formData.append('base_price', newResource.value.base_price?.toString() || '0');
-    formData.append('status', newResource.value.status);
-    
-    if (newResource.value.assigned_admin_id) {
-        formData.append('assigned_admin_id', newResource.value.assigned_admin_id.toString());
-    }
-    
-    if (newResource.value.description) {
-        formData.append('description', newResource.value.description);
-    }
-    
-    // Images
-    selectedFiles.value.forEach((file, index) => {
+    // Prepare form data for submission - Description is OPTIONAL
+    const prepareFormData = () => {
+      const formData = new FormData();
+      
+      // Add basic resource data
+      formData.append('name', resource.value.name);
+      formData.append('location_name', resource.value.location_name);
+      formData.append('category_id', resource.value.category_id.toString());
+      
+      // Add department_id if selected
+      formData.append('department_id',department.value.department_id.toString())
+      
+      // Handle base_price
+      if (resource.value.base_price === null || resource.value.base_price === undefined || resource.value.base_price === '') {
+        formData.append('base_price', '0.00');
+      } else {
+        const priceValue = parseFloat(resource.value.base_price);
+        if (isNaN(priceValue)) {
+          formData.append('base_price', '0.00');
+        } else {
+          formData.append('base_price', priceValue.toFixed(2));
+        }
+      }
+      
+      formData.append('status', resource.value.status);
+      
+      // Always send assigned_admin_id
+      formData.append('assigned_admin_id', resource.value.assigned_admin_id?.toString() || '');
+      
+      // CRITICAL FIX: Send description field - it's OPTIONAL, can be empty string
+      // Don't add any default text, just send what user entered (or empty string)
+      formData.append('description', resource.value.description || '');
+      
+      // Add images
+      selectedFiles.value.forEach((file, index) => {
         formData.append(`images[${index}]`, file);
-    });
-    
-    // Equipment - only include filled equipment
-    const validEquipment = newResource.value.equipment.filter(
-        item => item.equipment_name.trim() && item.quantity > 0
-    );
-    validEquipment.forEach((item, index) => {
-        formData.append(`equipment[${index}][equipment_name]`, item.equipment_name);
-        formData.append(`equipment[${index}][quantity]`, item.quantity.toString());
-    });
-    
-    // Availability - ONLY send available days (where available === true)
-    const availableDays = newResource.value.schedule.filter(day => day.available);
-    availableDays.forEach((day, index) => {
-        formData.append(`availability[${index}][day_of_week]`, day.dayName);
-        formData.append(`availability[${index}][is_available]`, '1');
-        formData.append(`availability[${index}][start_time]`, day.startTime);
-        formData.append(`availability[${index}][end_time]`, day.endTime);
-    });
-    
-    return formData;
-};
+      });
+      
+      // Add equipment - equipment fields are also optional
+      // Don't filter out empty ones, just send what user entered
+      equipment.value.forEach((item, index) => {
+        formData.append(`equipment[${index}][equipment_name]`, item.equipment_name || '');
+        formData.append(`equipment[${index}][quantity]`, item.quantity?.toString() || '1');
+      });
+      
+      // Add availability - only available days with slots
+      let availabilityIndex = 0;
+      availability.value.forEach((day) => {
+        if (day.is_available && day.slots.length > 0) {
+          const validSlots = day.slots.filter(slot => 
+            slot.start_time && slot.end_time && 
+            slot.start_time.trim() && slot.end_time.trim()
+          );
+          
+          if (validSlots.length > 0) {
+            formData.append(`availability[${availabilityIndex}][day_of_week]`, day.day_name);
+            formData.append(`availability[${availabilityIndex}][is_available]`, '1');
+            
+            validSlots.forEach((slot, slotIndex) => {
+              formData.append(`availability[${availabilityIndex}][slots][${slotIndex}][start_time]`, slot.start_time);
+              formData.append(`availability[${availabilityIndex}][slots][${slotIndex}][end_time]`, slot.end_time);
+            });
+            
+            availabilityIndex++;
+          }
+        }
+      });
+      
+      // Debug: Log what's being sent
+      console.log('=== FORM DATA DEBUG ===');
+      console.log('Description being sent:', `"${resource.value.description}"`);
+      console.log('Description length:', resource.value.description?.length || 0);
+      console.log('=== END DEBUG ===');
+      
+      return formData;
+    };
 
-// --- API HANDLERS ---
-
-const handleSave = async () => {
-    errorMessage.value = '';
-    successMessage.value = '';
-    isSubmitting.value = true;
-    
-    try {
+    // Save resource
+    const handleSave = async () => {
+      errorMessage.value = '';
+      successMessage.value = '';
+      isSubmitting.value = true;
+      
+      try {
         const formData = prepareFormData();
         const token = getAuthToken();
+        
+        if (!token) {
+          throw new Error('Authentication required. Please login again.');
+        }
+        
+        console.log('Saving resource...');
         
         const response = await axios.post(`${API_BASE_URL}/resources`, formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data',
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/json',
-            },
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+          },
         });
         
+        console.log('Success! Response:', response.data);
         successMessage.value = 'Resource created successfully!';
         
-        // Redirect after 2 seconds
         setTimeout(() => {
-            router.push('/master-admin/resource');
+          router.push('/master-admin/resource');
         }, 2000);
         
-    } catch (error: any) {
+      } catch (error) {
         console.error('Error creating resource:', error);
-        if (error.response?.status === 401) {
-            errorMessage.value = 'Authentication required. Please login again.';
-        } else {
-            errorMessage.value = error.response?.data?.message || 'Failed to create resource. Please try again.';
-        }
-    } finally {
-        isSubmitting.value = false;
-    }
-};
-
-const handleUpdate = async () => {
-    errorMessage.value = '';
-    successMessage.value = '';
-    isSubmitting.value = true;
-    
-    try {
-        const formData = prepareFormData();
-        formData.append('_method', 'PUT'); // Laravel method spoofing for FormData
+        console.error('Error response data:', error.response?.data);
         
-        const idToUpdate = route.query.id as string;
+        if (error.response?.status === 401) {
+          errorMessage.value = 'Authentication required. Please login again.';
+        } else if (error.response?.data?.errors) {
+          // Check if error is about description field
+          const errors = error.response.data.errors;
+          if (errors.description) {
+            errorMessage.value = `Description error: ${errors.description.join(', ')}`;
+          } else {
+            errorMessage.value = Object.values(errors).flat().join(', ');
+          }
+        } else if (error.response?.data?.message) {
+          errorMessage.value = error.response.data.message;
+        } else {
+          errorMessage.value = 'Failed to create resource. Please check console for details.';
+        }
+      } finally {
+        isSubmitting.value = false;
+      }
+    };
+
+    // Update resource
+    const handleUpdate = async () => {
+      errorMessage.value = '';
+      successMessage.value = '';
+      isSubmitting.value = true;
+      
+      try {
+        const formData = prepareFormData();
+        const idToUpdate = route.query.id;
         const token = getAuthToken();
+        
+        if (!token) {
+          throw new Error('Authentication required. Please login again.');
+        }
+        
+        // For PUT method with FormData
+        formData.append('_method', 'PUT');
+        
+        console.log('Updating resource ID:', idToUpdate);
         
         const response = await axios.post(`${API_BASE_URL}/resources/${idToUpdate}`, formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data',
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/json',
-            },
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+          },
         });
         
+        console.log('Update Success! Response:', response.data);
         successMessage.value = 'Resource updated successfully!';
         
-        // Redirect after 2 seconds
         setTimeout(() => {
-            router.push('/master-admin/resource');
+          router.push('/master-admin/resource');
         }, 2000);
         
-    } catch (error: any) {
+      } catch (error) {
         console.error('Error updating resource:', error);
+        console.error('Error details:', error.response?.data);
+        
         if (error.response?.status === 401) {
-            errorMessage.value = 'Authentication required. Please login again.';
+          errorMessage.value = 'Authentication required. Please login again.';
+        } else if (error.response?.data?.errors) {
+          const errors = error.response.data.errors;
+          errorMessage.value = Object.values(errors).flat().join(', ');
+        } else if (error.response?.data?.message) {
+          errorMessage.value = error.response.data.message;
         } else {
-            errorMessage.value = error.response?.data?.message || 'Failed to update resource. Please try again.';
+          errorMessage.value = 'Failed to update resource. Please try again.';
         }
-    } finally {
+      } finally {
         isSubmitting.value = false;
-    }
-};
+      }
+    };
 
-// --- LOAD RESOURCE FOR EDIT ---
-
-const loadResourceForEdit = async (resourceId: string) => {
-    try {
+    // Load resource for edit
+    const loadResourceForEdit = async (resourceId) => {
+      try {
         const token = getAuthToken();
+        if (!token) {
+          errorMessage.value = 'Authentication required. Please login again.';
+          return;
+        }
+        
+        console.log('Loading resource for edit:', resourceId);
+        
         const response = await axios.get(`${API_BASE_URL}/resources/${resourceId}`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/json',
-            }
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+          }
         });
-        const resource = response.data.resource || response.data;
         
-        // Load basic fields
-        newResource.value.name = resource.name;
-        newResource.value.location_name = resource.location_name;
-        newResource.value.category_id = resource.category_id?.toString() || '';
-        newResource.value.base_price = resource.base_price;
-        newResource.value.assigned_admin_id = resource.assigned_admin_id;
-        newResource.value.description = resource.description || '';
-        newResource.value.status = resource.status;
+        const resourceData = response.data;
         
-        // Load equipment
-        if (resource.equipment && Array.isArray(resource.equipment)) {
-            newResource.value.equipment = resource.equipment.map((item: any) => ({
-                id: equipmentIdCounter++,
-                equipment_name: item.equipment_name,
-                quantity: item.quantity,
-            }));
+        // Set basic resource data
+        resource.value = {
+          name: resourceData.name || '',
+          location_name: resourceData.location_name || '',
+          category_id: resourceData.category_id || '',
+          department_id: resourceData.department_id || null,
+          base_price: resourceData.base_price !== null && resourceData.base_price !== undefined 
+            ? parseFloat(resourceData.base_price) 
+            : null,
+          assigned_admin_id: resourceData.assigned_admin_id || null,
+          description: resourceData.description || '', // Load description, can be empty
+          status: resourceData.status || 'Active',
+        };
+        
+        console.log('Description loaded:', `"${resource.value.description}"`);
+        
+        // Set equipment
+        if (resourceData.equipment && Array.isArray(resourceData.equipment)) {
+          equipment.value = resourceData.equipment.map(item => ({
+            equipment_name: item.equipment_name || '',
+            quantity: item.quantity || 1,
+          }));
+        } else {
+          equipment.value = [];
         }
         
         // Load availability
-        if (resource.availability && Array.isArray(resource.availability)) {
-            newResource.value.schedule = defaultSchedule.map(defaultDay => {
-                const savedDay = resource.availability.find(
-                    (a: any) => a.day_name === defaultDay.dayName
-                );
-                
-                if (savedDay) {
-                    return {
-                        dayName: defaultDay.dayName,
-                        available: savedDay.is_available,
-                        startTime: savedDay.start_time || defaultDay.startTime,
-                        endTime: savedDay.end_time || defaultDay.endTime,
-                    };
-                }
-                
-                return { ...defaultDay };
-            });
+        if (resourceData.availability && Array.isArray(resourceData.availability)) {
+          // Reset availability array
+          availability.value = [
+            { day_name: 'Monday', is_available: false, slots: [] },
+            { day_name: 'Tuesday', is_available: false, slots: [] },
+            { day_name: 'Wednesday', is_available: false, slots: [] },
+            { day_name: 'Thursday', is_available: false, slots: [] },
+            { day_name: 'Friday', is_available: false, slots: [] },
+            { day_name: 'Saturday', is_available: false, slots: [] },
+            { day_name: 'Sunday', is_available: false, slots: [] },
+          ];
+          
+          // Map saved availability to our array
+          resourceData.availability.forEach(savedDay => {
+            const dayIndex = availability.value.findIndex(
+              day => day.day_name === savedDay.day_name
+            );
+            
+            if (dayIndex !== -1) {
+              availability.value[dayIndex].is_available = savedDay.is_available;
+              
+              if (savedDay.slots && Array.isArray(savedDay.slots)) {
+                availability.value[dayIndex].slots = savedDay.slots.map(slot => ({
+                  start_time: slot.start_time ? slot.start_time.substring(0, 5) : '',
+                  end_time: slot.end_time ? slot.end_time.substring(0, 5) : ''
+                }));
+              }
+            }
+          });
         }
         
-    } catch (error: any) {
+      } catch (error) {
         console.error('Error loading resource:', error);
-        if (error.response?.status === 401) {
-            errorMessage.value = 'Authentication required. Please login again.';
-        } else {
-            errorMessage.value = 'Failed to load resource data.';
-        }
-    }
-};
+        errorMessage.value = 'Failed to load resource data.';
+      }
+    };
 
-// --- FETCH ADMINS AND CATEGORIES ---
-
-const fetchAdmins = async () => {
-    try {
+    // Fetch departments from API
+    const fetchDepartments = async () => {
+      try {
         const token = getAuthToken();
-        const response = await axios.get(`${API_BASE_URL}/admins`, {
-            headers: {
+        if (!token) {
+          console.log('No token found for fetching departments');
+          return;
+        }
+        
+        const response = await axios.get(`${API_BASE_URL}/departments`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+          }
+        });
+        
+        departments.value = response.data || [];
+        
+      } catch (error) {
+        console.error('Error fetching departments:', error);
+        departments.value = [];
+      }
+    };
+
+    // Fetch admins
+    const fetchAdmins = async () => {
+      try {
+        const token = getAuthToken();
+        if (!token) {
+          console.log('No token found for fetching admins');
+          return;
+        }
+        
+        const endpoints = [
+          `${API_BASE_URL}/users/admins`,
+          `${API_BASE_URL}/admins`,
+          `${API_BASE_URL}/users`,
+          `${API_BASE_URL}/users?role=admin`
+        ];
+        
+        for (const endpoint of endpoints) {
+          try {
+            const response = await axios.get(endpoint, {
+              headers: {
                 'Authorization': `Bearer ${token}`,
                 'Accept': 'application/json',
+              }
+            });
+            
+            if (response.data) {
+              let adminsData = [];
+              
+              if (Array.isArray(response.data)) {
+                adminsData = response.data;
+              } else if (response.data.users && Array.isArray(response.data.users)) {
+                adminsData = response.data.users;
+              } else if (response.data.admins && Array.isArray(response.data.admins)) {
+                adminsData = response.data.admins;
+              } else if (response.data.data && Array.isArray(response.data.data)) {
+                adminsData = response.data.data;
+              }
+              
+              if (endpoint.includes('role=admin')) {
+                adminsData = adminsData.filter(user => user.role === 'admin');
+              }
+              
+              admins.value = adminsData;
+              return;
             }
-        });
-        admins.value = response.data.admins || response.data;
-    } catch (error: any) {
+          } catch (err) {
+            // Continue to next endpoint
+          }
+        }
+        
+        admins.value = [];
+        
+      } catch (error) {
         console.error('Error fetching admins:', error);
-        if (error.response?.status === 401) {
-            errorMessage.value = 'Authentication required. Please login again.';
-        } else {
-            errorMessage.value = 'Failed to load admin list.';
-        }
-    }
-};
+        admins.value = [];
+      }
+    };
 
-const fetchCategories = async () => {
-    try {
+    // Fetch categories
+    const fetchCategories = async () => {
+      try {
         const token = getAuthToken();
-        const response = await axios.get(`${API_BASE_URL}/categories`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/json',
-            }
-        });
-        categories.value = response.data.categories || response.data;
-    } catch (error: any) {
-        console.error('Error fetching categories:', error);
-        if (error.response?.status === 401) {
-            errorMessage.value = 'Authentication required. Please login again.';
-        } else {
-            errorMessage.value = 'Failed to load category list.';
+        if (!token) {
+          console.log('No token found for fetching categories');
+          return;
         }
-    }
-};
+        
+        const response = await axios.get(`${API_BASE_URL}/categories`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+          }
+        });
+        
+        categories.value = response.data || [];
+        
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+        categories.value = [];
+      }
+    };
 
-// --- INITIALIZATION ---
-
-onMounted(async () => {
-    // Load admins and categories first
-    await Promise.all([fetchAdmins(), fetchCategories()]);
-    
-    if (isEditMode.value) {
-        const idToEdit = route.query.id as string;
+    // Initialize
+    onMounted(async () => {
+      console.log('AddResource component mounted, isEditMode:', isEditMode.value);
+      
+      // Fetch all required data
+      await Promise.all([
+        fetchAdmins(), 
+        fetchCategories(), 
+        fetchDepartments()
+      ]);
+      
+      if (isEditMode.value) {
+        const idToEdit = route.query.id;
         await loadResourceForEdit(idToEdit);
-    } else {
-        // Initialize with default equipment for new resource
+      } else {
+        // Add one empty equipment field by default for new resource
         addEquipment();
-        addEquipment();
-    }
-});
+      }
+    });
+
+    return {
+      resource,
+      availability,
+      equipment,
+      selectedFiles,
+      imagePreviews,
+      isSubmitting,
+      errorMessage,
+      successMessage,
+      admins,
+      categories,
+      departments,
+      isEditMode,
+      router,
+      addEquipment,
+      removeEquipment,
+      addSlot,
+      removeSlot,
+      handleAvailabilityChange,
+      handleFileUpload,
+      removeImage,
+      handleSave,
+      handleUpdate
+    };
+  }
+};
 </script>
 
 <style scoped>
-/* Inherited section styles */
 .section {
-    animation: fadeIn 0.3s ease;
-    margin-left: 260px;
-    padding: 20px;
+  animation: fadeIn 0.3s ease;
+  margin-left: 260px;
+  padding: 20px;
 }
 
 @media (max-width: 768px) {
-    .section {
-        margin-left: 80px;
-    }
+  .section {
+    margin-left: 80px;
+  }
 }
 
 .section-title {
-    color: #1e4449;
-    font-weight: 600;
-    margin-bottom: 24px;
+  color: #1e4449;
+  font-weight: 600;
+  margin-bottom: 24px;
 }
+
 .section-subtitle {
-    color: #1e4449;
-    font-size: 1.1rem;
+  color: #1e4449;
+  font-size: 1.1rem;
 }
+
 .btn-outline-dark-teal {
-    --bs-btn-color: #1e4449;
-    --bs-btn-border-color: #1e4449;
-    --bs-btn-hover-bg: #fcc300;
-    --bs-btn-hover-color: #ffffff;
-    --bs-btn-hover-border-color: #fcc300;
+  --bs-btn-color: #1e4449;
+  --bs-btn-border-color: #1e4449;
+  --bs-btn-hover-bg: #fcc300;
+  --bs-btn-hover-color: #ffffff;
+  --bs-btn-hover-border-color: #fcc300;
 }
+
 .btn-success {
-    background-color: #4BB66D;
-    border-color: #4BB66D;
+  background-color: #4BB66D;
+  border-color: #4BB66D;
 }
 
 .btn-success:hover {
-    background-color: #3f975b;
-    border-color: #3f975b;
+  background-color: #3f975b;
+  border-color: #3f975b;
 }
 
 .btn-success:disabled {
-    background-color: #6c757d;
-    border-color: #6c757d;
-    cursor: not-allowed;
+  background-color: #6c757d;
+  border-color: #6c757d;
+  cursor: not-allowed;
 }
 
 .img-thumbnail {
-    object-fit: cover;
-    max-width: 100%;
+  object-fit: cover;
+  max-width: 100%;
 }
 
 .card {
-    align-items: flex-start;
+  align-items: flex-start;
 }
 
-/* Schedule and Equipment Styling */
 .equipment-list {
-    max-height: 350px;
-    overflow-y: auto;
-    background-color: #f8f9fa;
+  max-height: 350px;
+  overflow-y: auto;
+  background-color: #f8f9fa;
 }
-.equipment-list .form-check {
-    margin-bottom: 0;
-}
+
 .btn-outline-danger {
-    --bs-btn-color: #dc3545;
-    --bs-btn-border-color: #dc3545;
-    --bs-btn-hover-bg: #dc3545;
-    --bs-btn-hover-color: white;
+  --bs-btn-color: #dc3545;
+  --bs-btn-border-color: #dc3545;
+  --bs-btn-hover-bg: #dc3545;
+  --bs-btn-hover-color: white;
 }
+
 .availability-matrix {
-    background-color: #fafafa !important;
+  background-color: #fafafa !important;
 }
+
 .availability-matrix .form-check-input {
-    margin-top: 0.2rem;
-    cursor: pointer;
+  margin-top: 0.2rem;
+  cursor: pointer;
 }
-/* Disable styling when checkbox is disabled */
+
 .availability-matrix input[type="time"]:disabled {
-    background-color: #e9ecef;
-    opacity: 0.8;
+  background-color: #e9ecef;
+  opacity: 0.8;
 }
 
 .spinner-border-sm {
-    width: 1rem;
-    height: 1rem;
-    border-width: 0.15em;
+  width: 1rem;
+  height: 1rem;
+  border-width: 0.15em;
+}
+
+.badge {
+  font-size: 0.75rem;
+  padding: 0.25em 0.5em;
+}
+
+.form-check-input:checked {
+  background-color: #4BB66D;
+  border-color: #4BB66D;
+}
+
+.form-check-input:focus {
+  border-color: #4BB66D;
+  box-shadow: 0 0 0 0.25rem rgba(75, 182, 109, 0.25);
+}
+
+.alert {
+  border-radius: 0.375rem;
+  border: 1px solid transparent;
+}
+
+.alert-danger {
+  background-color: #f8d7da;
+  border-color: #f5c2c7;
+  color: #842029;
+}
+
+.alert-success {
+  background-color: #d1e7dd;
+  border-color: #badbcc;
+  color: #0f5132;
 }
 </style>
