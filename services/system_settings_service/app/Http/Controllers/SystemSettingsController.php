@@ -23,35 +23,27 @@ class SystemSettingsController extends Controller
     {
         $data = $request->except('logo');
         
-        // Update standard text settings
+        // Update text settings
         foreach ($data as $k => $v) {
             SystemSetting::updateOrCreate(['key' => $k], ['value' => $v]);
         }
 
-        // Handle logo update with cleanup
+        // Handle logo update and cleanup
         if ($request->hasFile('logo')) {
-            // 1. Find the existing logo record
             $oldSetting = SystemSetting::where('key', 'logo')->first();
 
             if ($oldSetting && $oldSetting->value) {
-                // 2. Delete the physical file if it exists
+                // Delete existing file
                 if (Storage::disk('public')->exists($oldSetting->value)) {
                     Storage::disk('public')->delete($oldSetting->value);
                 }
             }
 
-            // 3. Store the new logo
-            $file = $request->file('logo');
-            $path = $file->store('logos', 'public');
-
-            // 4. Update the database with the new path
-            SystemSetting::updateOrCreate(
-                ['key' => 'logo'], 
-                ['value' => $path, 'type' => 'file']
-            );
+            $path = $request->file('logo')->store('logos', 'public');
+            SystemSetting::updateOrCreate(['key' => 'logo'], ['value' => $path, 'type' => 'file']);
         }
 
-        return response()->json(['message' => 'Settings updated and old logo removed.']);
+        return response()->json(['message' => 'Settings finalized and stored.']);
     }
 
     // Perform quick actions like clearing cache or logs
