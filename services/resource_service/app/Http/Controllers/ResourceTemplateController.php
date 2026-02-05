@@ -11,6 +11,7 @@ use Exception;
 
 class ResourceTemplateController extends Controller
 {
+    // List all resource templates with related data
     public function index(): JsonResponse
     {
         $templates = ResourceTemplate::with(['category', 'fields'])
@@ -19,14 +20,17 @@ class ResourceTemplateController extends Controller
         return response()->json($templates);
     }
 
+    // Show a specific resource template with related data
     public function show($id): JsonResponse
     {
         $template = ResourceTemplate::with(['category', 'fields'])->findOrFail($id);
         return response()->json($template);
     }
 
+    // Create a new resource template with fields
     public function store(Request $request): JsonResponse
     {
+        // Validate input
         $validated = $request->validate([
             'template_name' => 'required|string|max:255',
             'category_id' => 'required|exists:categories,id',
@@ -37,9 +41,10 @@ class ResourceTemplateController extends Controller
             'fields.*.field_name' => 'required|string|max:255',
             'fields.*.field_type' => 'required|in:text,number,textarea,checkbox,image,dropdown',
             'fields.*.is_required' => 'sometimes|boolean',
-            'fields.*.metadata' => 'nullable', // Changed to allow array or string
+            'fields.*.metadata' => 'nullable',
         ]);
 
+        // Create template and fields in a transaction
         DB::beginTransaction();
         try {
             $template = ResourceTemplate::create([
@@ -70,8 +75,10 @@ class ResourceTemplateController extends Controller
         }
     }
 
+    // Update an existing resource template and its fields
     public function update(Request $request, $id): JsonResponse
     {
+        // Find template
         $template = ResourceTemplate::findOrFail($id);
         $validated = $request->validate([
             'template_name' => 'sometimes|string|max:255',
@@ -92,8 +99,10 @@ class ResourceTemplateController extends Controller
                 TemplateField::whereIn('id', $validated['delete_fields'])->delete();
             }
 
+            // Update or create fields
             if (!empty($validated['fields'])) {
                 foreach ($validated['fields'] as $index => $fieldData) {
+                    // Use the Model's create method to trigger $casts for metadata
                     $data = [
                         'field_name' => $fieldData['field_name'],
                         'field_key' => TemplateField::generateFieldKey($fieldData['field_name']),
@@ -119,6 +128,7 @@ class ResourceTemplateController extends Controller
         }
     }
 
+    // Delete a resource template
     public function destroy($id): JsonResponse
     {
         $template = ResourceTemplate::findOrFail($id);
