@@ -14,84 +14,23 @@ use Exception;
 
 class BookingController
 {
-    /**
-     * Get all bookings
-     */
+    //get all bookings
     public function index(): JsonResponse
     {
         $bookings = Booking::with('details')->orderBy('booking_date', 'desc')->get();
         return response()->json($bookings);
     }
 
-    // public function index(): JsonResponse
-    // {
-    //     // 1. Fetch bookings from the local database
-    //     $bookings = Booking::with('details')->orderBy('booking_date', 'desc')->get();
-
-    //     // 2. Extract all unique resource IDs from the results
-    //     $allResourceIds = $bookings->flatMap(function ($booking) {
-    //         return $booking->details->where('item_type', 'resource')->pluck('item_id');
-    //     })->unique()->filter()->values();
-
-    //     $resourceMap = collect();
-
-    //     // 3. One single HTTP call to get everything
-    //     if ($allResourceIds->isNotEmpty()) {
-    //         $resourceServiceUrl = env('RESOURCE_SERVICE_URL', 'http://resource_service/api');
-            
-    //         try {
-    //             // We pass the IDs as a comma-separated string: ?ids=1,2,3
-    //             $response = Http::timeout(5)->get("{$resourceServiceUrl}/resources/batch", [
-    //                 'ids' => $allResourceIds->implode(',')
-    //             ]);
-
-    //             if ($response->successful()) {
-    //                 // We key the collection by 'id' for ultra-fast lookup in Step 4
-    //                 $resourceMap = collect($response->json())->keyBy('id');
-    //             }
-    //         } catch (\Exception $e) {
-    //             \Log::error("Batch fetch failed: " . $e->getMessage());
-    //         }
-    //     }
-
-    //     // 4. Combine the data in memory
-    //     $formattedBookings = $bookings->map(function ($booking) use ($resourceMap) {
-    //         $resourceDetails = [];
-            
-    //         foreach ($booking->details as $detail) {
-    //             if ($detail->item_type === 'resource') {
-    //                 $resourceData = $resourceMap->get($detail->item_id);
-                    
-    //                 $resourceDetails[] = [
-    //                     'resource_id' => $detail->item_id,
-    //                     'name'        => $resourceData['name'] ?? $detail->item_name,
-    //                     'location'    => $resourceData['location_name'] ?? 'N/A',
-    //                     'price'       => $detail->price_per_hour,
-    //                     'subtotal'    => $detail->subtotal
-    //                 ];
-    //             }
-    //         }
-
-    //         return [
-    //             'booking' => $booking->makeHidden('details'),
-    //             'resource_details' => $resourceDetails
-    //         ];
-    //     });
-
-    //     return response()->json($formattedBookings);
-    // }
-
-    /**
-     * Get single booking
-     */
+    //get booking by id
     public function show($id): JsonResponse
     {
         $booking = Booking::with('details')->findOrFail($id);
-
+        // Fetch detailed info for each booking detail
         $resourceDetails = [];
         $bookingItemDetails = [];
+        // Base URL for Resource Service
         $resourceServiceUrl = env('RESOURCE_SERVICE_URL', 'http://resource_service/api');
-        
+        // Iterate through booking details
         foreach ($booking->details as $detail) {
             if ($detail->item_type === 'resource') {
                 $resourceResponse = Http::timeout(10)->get("{$resourceServiceUrl}/resources/{$detail->item_id}");
@@ -136,17 +75,18 @@ class BookingController
     //create booking
     public function store(Request $request): JsonResponse
     {
+        // Validate input
         $validated = $request->validate([
             'user_id' => 'required|integer',
-            'user_email' => 'required|email', // Add email validation
+            'user_email' => 'required|email',
             'booking_date' => 'required|date|after_or_equal:today',
             'start_time' => 'required|date_format:H:i',
             'end_time' => 'required|date_format:H:i|after:start_time',
             'notes' => 'nullable|string',
-            
+            // At least one of resources or booking_items must be present
             'resources' => 'nullable|array',
             'resources.*.resource_id' => 'required_with:resources|integer',
-            
+            // At least one of resources or booking_items must be present
             'booking_items' => 'nullable|array',
             'booking_items.*.item_id' => 'required_with:booking_items|integer',
             'booking_items.*.quantity' => 'required_with:booking_items|integer|min:1',
@@ -171,7 +111,7 @@ class BookingController
 
             $totalAmount = 0;
             $detailsToCreate = [];
-
+            // Base URL for Resource Service
             $resourceServiceUrl = env('RESOURCE_SERVICE_URL', 'http://resource_service/api');
 
             // Process Resources
@@ -180,23 +120,19 @@ class BookingController
                     $resourceId = $resourceData['resource_id'];
                     
                     $resourceResponse = Http::timeout(10)->get("{$resourceServiceUrl}/resources/{$resourceId}");
-                    
                     if (!$resourceResponse->successful()) {
                         DB::rollBack();
                         return response()->json([
                             'message' => "Resource ID {$resourceId} not found"
                         ], 404);
                     }
-
                     $resource = $resourceResponse->json();
-
                     if ($resource['status'] !== 'Active') {
                         DB::rollBack();
                         return response()->json([
                             'message' => "Resource '{$resource['name']}' is not active"
                         ], 422);
                     }
-
                     // Check day availability
                     $dayOfWeek = \Carbon\Carbon::parse($validated['booking_date'])->format('l');
                     
@@ -209,7 +145,6 @@ class BookingController
                             'message' => "Resource '{$resource['name']}' is not available on {$dayOfWeek}"
                         ], 422);
                     }
-
                     // Check time range
                     $requestStart = \Carbon\Carbon::parse($validated['start_time']);
                     $requestEnd = \Carbon\Carbon::parse($validated['end_time']);
@@ -222,7 +157,6 @@ class BookingController
                             'message' => "Resource '{$resource['name']}' is only available from {$availability['start_time']} to {$availability['end_time']} on {$dayOfWeek}"
                         ], 422);
                     }
-
                     // Calculate price (Free for internal users)
                     $pricePerHour = ($userType === 'internal') ? 0 : $resource['base_price'];
                     $subtotal = $pricePerHour * $hours;
@@ -362,92 +296,79 @@ class BookingController
     }
 
     //Verify booking with OTP
-
-public function verifyOTP(Request $request, $id): JsonResponse
-{
-    $validated = $request->validate([
-        'otp_code' => 'required|string|size:6',
-    ]);
-
-    $booking = Booking::findOrFail($id);
-
-    // Check if already verified
-    if ($booking->is_verified) {
+    public function verifyOTP(Request $request, $id): JsonResponse
+    {
+        // Validate input
+        $validated = $request->validate([
+            'otp_code' => 'required|string|size:6',
+        ]);
+        $booking = Booking::findOrFail($id);
+        // Check if already verified
+        if ($booking->is_verified) {
+            return response()->json([
+                'message' => 'Booking is already verified'
+            ], 422);
+        }
+        // Validate OTP
+        if (!$booking->isOTPValid($validated['otp_code'])) {
+            return response()->json([
+                'message' => 'Invalid or expired OTP code'
+            ], 422);
+        }
+        // Mark as verified
+        $booking->update([
+            'is_verified' => true,
+            'otp_code' => null,
+            'otp_expires_at' => null,
+        ]);
         return response()->json([
-            'message' => 'Booking is already verified'
-        ], 422);
+            'message' => 'Booking verified successfully',
+            'booking' => $booking
+        ]);
     }
 
-    // Validate OTP
-    if (!$booking->isOTPValid($validated['otp_code'])) {
+    // Resend OTP code
+    public function resendOTP($id): JsonResponse
+    {
+        $booking = Booking::findOrFail($id);
+        if ($booking->is_verified) {
+            return response()->json([
+                'message' => 'Booking is already verified'
+            ], 422);
+        }
+        // Generate new OTP
+        $otpCode = Booking::generateOTP();
+        $otpExpiresAt = now()->addMinutes(10);
+        $booking->update([
+            'otp_code' => $otpCode,
+            'otp_expires_at' => $otpExpiresAt,
+        ]);
+        // Send OTP via email
+        try {
+            Mail::to($booking->user_email)->send(
+                new BookingOTPMail($otpCode, $booking->booking_reference, 10)
+            );
+            \Log::info("Resent OTP email to {$booking->user_email}");
+        } catch (\Exception $e) {
+            \Log::error("Failed to resend OTP email: " . $e->getMessage());
+        }
         return response()->json([
-            'message' => 'Invalid or expired OTP code'
-        ], 422);
+            'message' => 'OTP has been resent to your email',
+            'otp_expires_in_minutes' => 10,
+            'otp_code_for_testing' => $otpCode
+        ]);
     }
-
-    // Mark as verified
-    $booking->update([
-        'is_verified' => true,
-        'otp_code' => null,
-        'otp_expires_at' => null,
-    ]);
-
-    return response()->json([
-        'message' => 'Booking verified successfully',
-        'booking' => $booking
-    ]);
-}
-
-/**
- * Resend OTP
- */
-public function resendOTP($id): JsonResponse
-{
-    $booking = Booking::findOrFail($id);
-
-    if ($booking->is_verified) {
-        return response()->json([
-            'message' => 'Booking is already verified'
-        ], 422);
-    }
-
-    // Generate new OTP
-    $otpCode = Booking::generateOTP();
-    $otpExpiresAt = now()->addMinutes(10);
-
-    $booking->update([
-        'otp_code' => $otpCode,
-        'otp_expires_at' => $otpExpiresAt,
-    ]);
-
-    // Send OTP via email
-    try {
-        Mail::to($booking->user_email)->send(
-            new BookingOTPMail($otpCode, $booking->booking_reference, 10)
-        );
-        \Log::info("Resent OTP email to {$booking->user_email}");
-    } catch (\Exception $e) {
-        \Log::error("Failed to resend OTP email: " . $e->getMessage());
-    }
-
-    return response()->json([
-        'message' => 'OTP has been resent to your email',
-        'otp_expires_in_minutes' => 10,
-        // For testing only - remove in production!
-        'otp_code_for_testing' => $otpCode
-    ]);
-}
 
     // Update booking status
     public function updateStatus(Request $request, $id): JsonResponse
     {
+        // Validate input
         $validated = $request->validate([
             'status' => 'required|in:Pending,Confirmed,Cancelled,Completed',
         ]);
-
+        // Update status
         $booking = Booking::findOrFail($id);
         $booking->update(['status' => $validated['status']]);
-
         return response()->json([
             'message' => 'Booking status updated successfully',
             'booking' => $booking
@@ -458,20 +379,18 @@ public function resendOTP($id): JsonResponse
     // Cancel booking
     public function cancel($id): JsonResponse
     {
+        // Update status to 'Cancelled'
         $booking = Booking::findOrFail($id);
-
         if ($booking->status === 'Cancelled') {
             return response()->json([
                 'message' => 'Booking is already cancelled'
             ], 422);
         }
-
         if ($booking->status === 'Completed') {
             return response()->json([
                 'message' => 'Cannot cancel completed booking'
             ], 422);
         }
-
         $booking->update(['status' => 'Cancelled']);
 
         return response()->json([
@@ -483,28 +402,26 @@ public function resendOTP($id): JsonResponse
     // Get bookings for resources assigned to a specific admin
     public function getByAssignedAdmin(Request $request): JsonResponse
     {
+        // Validate input
         $validated = $request->validate([
             'admin_id'   => 'required|integer',
             'status'     => 'nullable|in:Pending,Confirmed,Cancelled,Completed',
             'date_from'  => 'nullable|date',
             'date_to'    => 'nullable|date|after_or_equal:date_from',
         ]);
-
         $adminId = $validated['admin_id'];
+        //Fetch resources assigned to this admin
         $resourceServiceUrl = env('RESOURCE_SERVICE_URL', 'http://resource_service/api');
-
         try {
-
-            /** STEP 1 — Fetch resource list (only ONE API call) */
             $resourcesResponse = Http::timeout(10)->get("{$resourceServiceUrl}/resources");
-
+            // Handle failure
             if (!$resourcesResponse->successful()) {
                 return response()->json([
                     'message' => 'Failed to fetch resources',
                     'error'   => 'Resource service unavailable'
                 ], 500);
             }
-
+            // Map resources by ID for quick lookup
             $resourcesMap   = collect($resourcesResponse->json())->keyBy('id');
             $adminResourceIds = $resourcesMap
                 ->where('assigned_admin_id', $adminId)
@@ -519,7 +436,7 @@ public function resendOTP($id): JsonResponse
                 ]);
             }
 
-            /** STEP 2 — Get bookings with filters */
+            //Get bookings with filters
             $bookingsQuery = Booking::with('details');
 
             if (!empty($validated['status']))
@@ -533,24 +450,20 @@ public function resendOTP($id): JsonResponse
 
             $allBookings = $bookingsQuery->orderBy('booking_date', 'desc')->get();
 
-            /** STEP 3 — Filter bookings containing this admin’s resources */
+            //Filter bookings containing this admin’s resources
             $adminBookings = $allBookings->filter(function ($booking) use ($adminResourceIds) {
                 return $booking->details->contains(function ($d) use ($adminResourceIds) {
                     return $d->item_type === 'resource' && in_array($d->item_id, $adminResourceIds);
                 });
             });
 
-            /** STEP 4 — Format response output */
+            //STEP 4 — Format response output
             $formattedBookings = $adminBookings->values()->map(function ($booking) use ($resourcesMap, $adminResourceIds) {
-
                 $resourceDetails      = [];
                 $bookingItemDetails   = [];
-
                 foreach ($booking->details as $detail) {
-
-                    /** RESOURCE ITEMS */
+                    //RESOURCE ITEMS
                     if ($detail->item_type === 'resource' && in_array($detail->item_id, $adminResourceIds)) {
-
                         $resource     = $resourcesMap->get($detail->item_id);
                         $adminDetails = $this->fetchAdminDetails($resource['assigned_admin_id'] ?? null);
 
@@ -568,7 +481,7 @@ public function resendOTP($id): JsonResponse
                         ];
                     }
 
-                    /** OTHER BOOKING ITEMS */
+                    //OTHER BOOKING ITEMS
                     elseif ($detail->item_type === 'booking_item') {
                         $bookingItemDetails[] = [
                             'item_id'        => $detail->item_id,
@@ -603,7 +516,7 @@ public function resendOTP($id): JsonResponse
                 ];
             })
 
-            /** STEP 5 — Sort so ADMIN-owned resource bookings appear first */
+            //Sort so ADMIN-owned resource bookings appear first
             ->sortByDesc(fn($b) => count($b['resource_details']) > 0)
             ->values();
 
@@ -627,7 +540,7 @@ public function resendOTP($id): JsonResponse
         if (empty($adminId)) {
             return null;
         }
-
+        // Base URL for User Service
         $userServiceUrl = env('USER_SERVICE_URL', 'http://user_service/api');
 
         try {
@@ -647,6 +560,7 @@ public function resendOTP($id): JsonResponse
     //get bookings by resource id
     public function getByResourceId($resourceId): JsonResponse
     {
+        // Fetch bookings that include the specified resource
         $bookings = Booking::whereHas('details', function ($query) use ($resourceId) {
             $query->where('item_type', 'resource')
                   ->where('item_id', $resourceId);
