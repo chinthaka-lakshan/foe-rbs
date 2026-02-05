@@ -14,21 +14,21 @@ class ResetPasswordOtpMail extends Mailable
 
     public $otp;
 
-    /**
-     * Create a new message instance.
-     */
+    
+    //Create a new message instance.
     public function __construct(string $otp)
     {
         $this->otp = $otp;
     }
 
+    // Get the message envelope.
     public function envelope(): Envelope
     {
         return new Envelope(
             subject: 'Your Password Reset OTP Code',
         );
     }
-
+    // Get the message content definition.
     public function content(): Content
     {
         return new Content(

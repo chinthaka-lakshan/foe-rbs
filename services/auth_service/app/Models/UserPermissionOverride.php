@@ -20,10 +20,8 @@ class UserPermissionOverride extends Model
     protected $casts = [
         'is_allowed' => 'boolean',
     ];
-
-    /**
-     * Relationship back to the User
-     */
+    
+    // Define relationship with User model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
