@@ -9,8 +9,8 @@ use Illuminate\Support\Facades\Storage;
 
 class ResourceImage extends Model
 {
+    // Use HasFactory trait
     use HasFactory;
-
     protected $fillable = [
         'resource_id',
         'file_path',
@@ -19,15 +19,13 @@ class ResourceImage extends Model
     ];
     protected $appends = ['image_url'];
 
+    // Define relationship with Resource model
     public function resource()
     {
         return $this->belongsTo(Resource::class, 'resource_id');
     }
-    // public function getImageUrlAttribute()
-    // {
-    //     return asset('storage/' . $this->image_path);
-    // }
 
+    // Accessor for image URL
     public function getImageUrlAttribute()
     {
         if ($this->file_path) {
@@ -36,6 +34,7 @@ class ResourceImage extends Model
         return null;
     }
 
+    // Boot method to handle deletion of image file
     public static function boot()
     {
         parent::boot();

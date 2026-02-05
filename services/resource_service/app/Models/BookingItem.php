@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class BookingItem extends Model
 {
+    // Use HasFactory trait
+    use HasFactory;
     protected $fillable = [
         'name',
         'item_code',
@@ -16,11 +18,13 @@ class BookingItem extends Model
         'status',
     ];
 
+    // Cast attributes
     protected $casts = [
         'price_per_hour' => 'decimal:2',
         'available_quantity' => 'integer',
     ];
 
+    // Generate a unique item code
     public static function generateItemCode(): string
     {
         do{

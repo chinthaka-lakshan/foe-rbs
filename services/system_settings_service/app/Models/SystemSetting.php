@@ -7,7 +7,11 @@ use Illuminate\Database\Eloquent\Model;
 
 class SystemSetting extends Model
 {
-    protected $fillable = ['key', 'value', 'type'];
+    protected $fillable = [
+        'key',
+        'value',
+        'type'
+    ];
 
     // helper to read JSON values
     public function getValueAttribute($v)
@@ -17,6 +21,7 @@ class SystemSetting extends Model
         return $json === null ? $v : $json;
     }
 
+    // helper to set JSON values
     public function setValueAttribute($v)
     {
         if (is_array($v) || is_object($v)) {

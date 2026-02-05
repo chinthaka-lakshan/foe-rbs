@@ -15,41 +15,32 @@ use App\Mail\ResetPasswordOtpMail;
 
 class AuthController extends Controller
 {
+    // login
+    public function login(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required',
+        ]);
+        $user = User::with('roles')->where('email', $request->email)->first();
 
-public function login(Request $request)
-{
-    $request->validate([
-        'email' => 'required|email',
-        'password' => 'required',
-    ]);
-
-    // 1. Find user and load the roles relationship
-    $user = User::with('roles')->where('email', $request->email)->first();
-
-    if (!$user || !\Hash::check($request->password, $user->password)) {
-        return response()->json(['message' => 'Unauthorized'], 401);
+        if (!$user || !\Hash::check($request->password, $user->password)) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+        $permissions = $user->getAllPermissions();
+        $roleNames = $user->roles->pluck('name');
+        $token = $user->createToken('auth_token', $permissions)->plainTextToken;
+        return response()->json([
+            'user' => $user,
+            'roles' => $roleNames,
+            'token' => $token
+        ]);
     }
-
-    // 2. Calculate final permissions (Role + Overrides) for the token abilities
-    $permissions = $user->getAllPermissions();
-
-    // 3. Create the role names array for the response
-    $roleNames = $user->roles->pluck('name');
-
-    // 4. Issue Token with 'Abilities'
-    $token = $user->createToken('auth_token', $permissions)->plainTextToken;
-
-    // 5. Return the exact structure requested
-    return response()->json([
-        'user' => $user,
-        'roles' => $roleNames,
-        'token' => $token
-    ]);
-}
 
     // sendResetOtp
     public function sendResetOtp(Request $request): JsonResponse
     {
+        // Validate email
         $request->validate(['email' => 'required|email|exists:users,email']);
         $email = $request->email;
         $token = strval(rand(100000, 999999)); 
@@ -58,12 +49,8 @@ public function login(Request $request)
             ['email' => $email],
             ['token' => Hash::make($token), 'created_at' => now()]
         );
-        
-        // 🛑 CRITICAL FIX: Send the actual email
+        //Send the actual email
         Mail::to($email)->send(new ResetPasswordOtpMail($token));
-
-        // \Log::info(...) can be deleted or kept for debugging
-
         return response()->json([
             'message' => 'OTP sent successfully. Check your email.'
         ]);
@@ -73,11 +60,12 @@ public function login(Request $request)
     // verifyOtp
     public function verifyOtp(Request $request): JsonResponse
     {
+        // Validate input
         $validated = $request->validate([
             'email' => 'required|email|exists:users,email',
             'otp' => 'required|string|size:6',
         ]);
-
+        // Retrieve the password reset record
         $resetRecord = DB::table('password_resets')
             ->where('email', $validated['email'])
             ->first();
@@ -89,7 +77,6 @@ public function login(Request $request)
                 'message' => 'Invalid or expired OTP.'
             ], 401);
         }
-
         return response()->json([
             'message' => 'OTP verified successfully. You can now set your new password.'
         ]);
@@ -98,19 +85,21 @@ public function login(Request $request)
     // resetPassword
     public function resetPassword(Request $request): JsonResponse
     {
+        // Validate input
         $validated = $request->validate([
             'email' => 'required|email|exists:users,email',
             'otp' => 'required|string|size:6',
             'password' => 'required|string|min:6|confirmed',
         ]);
-
+        // Retrieve the password reset record
         $resetRecord = DB::table('password_resets')
             ->where('email', $validated['email'])
             ->first();
-
+        // Verify the OTP
         if (!$resetRecord || !Hash::check($validated['otp'], $resetRecord->token)) {
             return response()->json(['message' => 'Invalid verification token.'], 401);
         }
+        // Update the user's password
         $user = User::where('email', $validated['email'])->first();
         $user->password = Hash::make($validated['password']);
         $user->save();
@@ -123,7 +112,6 @@ public function login(Request $request)
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();
-
         return response()->json(['message' => 'Logged out successfully']);
     }
 }
