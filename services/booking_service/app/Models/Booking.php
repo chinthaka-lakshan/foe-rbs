@@ -8,7 +8,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Booking extends Model
 {
-    
+    // Use HasFactory trait
+    use HasFactory;
     protected $fillable = [
         'user_id',
         'user_email',
@@ -25,6 +26,7 @@ class Booking extends Model
         'notes',
     ];
 
+    // Cast attributes
     protected $casts = [
         'booking_date' => 'date',
         'total_amount' => 'decimal:2',
@@ -35,10 +37,13 @@ class Booking extends Model
         'otp_code',
     ];
 
+    // Define relationship with BookingDetail model
     public function details(): HasMany
     {
         return $this->hasMany(BookingDetail::class);
     }
+
+    // Only resource bookings
         public function resources(): HasMany
     {
         return $this->hasMany(BookingDetail::class)->where('item_type', 'resource');
@@ -49,6 +54,7 @@ class Booking extends Model
     {
         return $this->hasMany(BookingDetail::class)->where('item_type', 'booking_item');
     }
+
     // Generate a unique booking reference
     public static function generateReference(): string
     {
@@ -58,6 +64,7 @@ class Booking extends Model
 
         return $reference;
     }
+    
     //generate OTP code
     public static function generateOTP(): string
     {

@@ -16,9 +16,7 @@ class BookingOTPMail extends Mailable
     public $bookingReference;
     public $expiresInMinutes;
 
-    /**
-     * Create a new message instance.
-     */
+    // Create a new message instance.
     public function __construct($otpCode, $bookingReference = null, $expiresInMinutes = 10)
     {
         $this->otpCode = $otpCode;
@@ -26,9 +24,7 @@ class BookingOTPMail extends Mailable
         $this->expiresInMinutes = $expiresInMinutes;
     }
 
-    /**
-     * Get the message envelope.
-     */
+    // Get the message envelope.
     public function envelope(): Envelope
     {
         return new Envelope(
@@ -36,9 +32,7 @@ class BookingOTPMail extends Mailable
         );
     }
 
-    /**
-     * Get the message content definition.
-     */
+    // Get the message content definition.
     public function content(): Content
     {
         return new Content(
@@ -46,9 +40,7 @@ class BookingOTPMail extends Mailable
         );
     }
 
-    /**
-     * Get the attachments for the message.
-     */
+    // Get the attachments for the message.
     public function attachments(): array
     {
         return [];
