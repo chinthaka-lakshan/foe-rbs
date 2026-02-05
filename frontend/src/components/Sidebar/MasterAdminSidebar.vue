@@ -2,10 +2,14 @@
   <aside class="sidebar">
     <div class="brand-section">
       <div class="logo-box">
-        <img src="/logo.png" alt="FOE RBS" class="logo-img" />
+        <img 
+          :src="systemLogo" 
+          :alt="systemName" 
+          class="logo-img fixed-logo" 
+        />
       </div>
       <div class="brand-info">
-        <h1 class="brand-name">FOE RBS</h1>
+        <h1 class="brand-name">{{ systemName }}</h1>
         <p class="brand-role">Master Admin</p>
       </div>
     </div>
@@ -63,21 +67,55 @@
 </template>
 
 <script setup lang="ts">
+import { ref, onMounted, computed } from 'vue';
 import { useRoute } from 'vue-router';
+import axios from 'axios';
+
 const route = useRoute();
 const isActive = (path: string): boolean => route.path === path;
+
+// --- DYNAMIC BRANDING STATE ---
+const systemName = ref('FOE RBS');
+const logoPath = ref('');
+
+/**
+ * Fetches branding settings from the System Settings Service
+ * via the API Gateway on Port 8000.
+ */
+const fetchSidebarBranding = async () => {
+  try {
+    const res = await axios.get('http://localhost:8000/api/settings');
+    systemName.value = res.data.site_name || 'FOE RBS';
+    logoPath.value = res.data.logo || '';
+  } catch (e) {
+    console.error("Sidebar branding fetch failed", e);
+  }
+};
+
+/**
+ * Constructs the full URL for the logo.
+ * Points to the Gateway proxy for internal service storage.
+ */
+const systemLogo = computed(() => {
+  if (logoPath.value) {
+    // Extract filename to use with Gateway proxy or direct storage link
+    const filename = logoPath.value.split('/').pop();
+    return `http://localhost:8000/api/settings/logo/${filename}`;
+  }
+  return '/logo.png'; // Fallback to local public logo
+});
+
+onMounted(fetchSidebarBranding);
 </script>
 
 <style scoped>
 .sidebar {
   width: 260px;
   position: fixed;
-  top: 60px; /* Aligned with your top navbar */
+  top: 60px;
   left: 0;
   height: calc(100vh - 60px);
-  /* Key Change: Light off-white for separation */
-  background-color: #fcfdfe; 
-  /* Key Change: Stronger border and shadow for identity */
+  background-color: #fcfdfe; /* Off-white for identification */
   border-right: 1.5px solid #e2e8f0;
   box-shadow: 4px 0 15px rgba(0, 0, 0, 0.04);
   display: flex;
@@ -97,20 +135,35 @@ const isActive = (path: string): boolean => route.path === path;
   padding: 8px;
   border-radius: 12px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  min-height: 48px;
 }
 
-.logo-img { width: 32px; height: 32px; }
+/* FIXED LOGO SIZE: Prevents distortion and sidebar layout breakage */
+.fixed-logo {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  display: block;
+}
 
 .brand-name {
-  font-size: 1.15rem;
+  font-size: 1.1rem;
   font-weight: 800;
   color: #1e293b;
   margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
 }
 
 .brand-role {
   font-size: 0.75rem;
-  color: #10b981; /* Green touch */
+  color: #10b981; /* Emerald Green touch */
   font-weight: 600;
   margin: 0;
   text-transform: uppercase;
@@ -119,6 +172,7 @@ const isActive = (path: string): boolean => route.path === path;
 .nav-container {
   flex: 1;
   padding: 0 15px;
+  overflow-y: auto;
 }
 
 .nav-group { margin-bottom: 25px; }
@@ -155,7 +209,6 @@ const isActive = (path: string): boolean => route.path === path;
   border-radius: 8px;
   background: #f1f5f9;
   color: #64748b;
-  transition: all 0.2s ease;
 }
 
 .nav-link:hover {
@@ -163,7 +216,6 @@ const isActive = (path: string): boolean => route.path === path;
   color: #1e293b;
 }
 
-/* Green Touch Active State */
 .nav-link.active {
   background: #ecfdf5;
   color: #065f46;
