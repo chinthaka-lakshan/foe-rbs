@@ -38,9 +38,14 @@
                 </thead>
                 <tbody>
                     <tr v-if="isLoading"><td colspan="5" class="text-center py-4">Loading...</td></tr>
+                    <tr v-else-if="filteredTemplates.length === 0">
+                        <td colspan="5" class="text-center py-4 text-muted">
+                            No templates found. {{ searchQuery ? 'Try a different search.' : 'Click "Add New Template" to create one.' }}
+                        </td>
+                    </tr>
                     <tr v-for="template in filteredTemplates" :key="template.id">
                         <td><strong>{{ template.template_name }}</strong></td>
-                        <td>{{ template.category?.name || 'Uncategorized' }}</td>
+                        <td>{{ getCategoryName(template.category_id) }}</td>
                         <td><span class="badge bg-secondary">{{ template.fields?.length || 0 }} Fields</span></td>
                         <td>
                             <span :class="['badge', template.status === 'Active' ? 'bg-success' : 'bg-danger']">
@@ -51,7 +56,7 @@
                             <button class="btn btn-sm btn-outline-primary me-2" @click="openEditModal(template)">
                                 <i class="bi bi-pencil"></i>
                             </button>
-                            <button class="btn btn-sm btn-outline-danger" @click="confirmDelete(template)">
+                            <button class="btn btn-sm btn-outline-danger" @click="openDeleteConfirmation(template)">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </td>
@@ -61,29 +66,56 @@
         </div>
 
         <div class="modal fade" id="templateModal" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog modal-lg">
+            <div class="modal-dialog modal-lg modal-dialog-centered">
                 <div class="modal-content">
-                    <div class="modal-header bg-light">
-                        <h5 class="modal-title">{{ isEditMode ? 'Edit Template' : 'Create Template' }}</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="templateModalLabel">{{ isEditMode ? 'Edit Template' : 'Add New Template' }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
                         <form @submit.prevent="saveTemplate">
                             <div class="row g-3 mb-4">
                                 <div class="col-md-6">
-                                    <label class="form-label fw-bold">Template Name</label>
-                                    <input v-model="formData.template_name" type="text" class="form-control" placeholder="e.g. Laptop Specification" required>
+                                    <label for="templateName" class="form-label">Template Name</label>
+                                    <input
+                                        type="text"
+                                        class="form-control"
+                                        id="templateName"
+                                        placeholder="Enter template name (e.g., Category Specification)"
+                                        v-model="formData.template_name"
+                                        required
+                                        :disabled="isSaving"
+                                    >
+                                    <small class="text-danger" v-if="validationErrors.template_name">{{ validationErrors.template_name[0] }}</small>
                                 </div>
                                 <div class="col-md-6">
-                                    <label class="form-label fw-bold">Category</label>
-                                    <select v-model="formData.category_id" class="form-select" required>
+                                    <label for="category" class="form-label">Category</label>
+                                    <select v-model="formData.category_id" class="form-select" required :disabled="isSaving">
                                         <option value="" disabled>Select Category</option>
-                                        <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+                                        <option v-for="cat in categories" :key="cat.id" :value="cat.id">
+                                            {{ cat.name }}
+                                        </option>
                                     </select>
+                                    <small class="text-danger" v-if="validationErrors.category_id">{{ validationErrors.category_id[0] }}</small>
                                 </div>
                                 <div class="col-12">
-                                    <label class="form-label fw-bold">Description</label>
-                                    <textarea v-model="formData.description" class="form-control" rows="2"></textarea>
+                                    <label for="description" class="form-label">Description</label>
+                                    <textarea 
+                                        class="form-control" 
+                                        id="description"
+                                        rows="2" 
+                                        placeholder="Optional description"
+                                        v-model="formData.description"
+                                        :disabled="isSaving"
+                                    ></textarea>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="status" class="form-label">Status</label>
+                                    <select v-model="formData.status" class="form-select" required :disabled="isSaving">
+                                        <option value="Active">Active</option>
+                                        <option value="Inactive">Inactive</option>
+                                    </select>
+                                    <small class="text-danger" v-if="validationErrors.status">{{ validationErrors.status[0] }}</small>
                                 </div>
                             </div>
 
@@ -92,9 +124,9 @@
                             <div class="d-flex justify-content-between align-items-center mb-3">
                                 <h6 class="mb-0 fw-bold"><i class="bi bi-list-task me-2"></i>Form Fields</h6>
                                 <div class="btn-group">
-                                    <button type="button" class="btn btn-sm btn-outline-primary" @click="addField('input')">+ Text Input</button>
-                                    <button type="button" class="btn btn-sm btn-outline-primary" @click="addField('checkbox')">+ Checkbox</button>
-                                    <button type="button" class="btn btn-sm btn-outline-primary" @click="addField('dropdown')">+ Dropdown</button>
+                                    <button type="button" class="btn btn-sm btn-outline-primary" @click="addField('input')" :disabled="isSaving">+ Text Input</button>
+                                    <button type="button" class="btn btn-sm btn-outline-primary" @click="addField('checkbox')" :disabled="isSaving">+ Checkbox</button>
+                                    <button type="button" class="btn btn-sm btn-outline-primary" @click="addField('dropdown')" :disabled="isSaving">+ Dropdown</button>
                                 </div>
                             </div>
 
@@ -110,37 +142,32 @@
                                         <span class="badge rounded-pill text-uppercase" :class="field.type === 'dropdown' ? 'bg-primary' : (field.type === 'checkbox' ? 'bg-success' : 'bg-info')">
                                             {{ field.type === 'input' ? 'Text' : field.type }}
                                         </span>
-                                        <button type="button" class="btn-close" @click="removeField(index)"></button>
+                                        <button type="button" class="btn-close" @click="removeField(index)" :disabled="isSaving"></button>
                                     </div>
 
                                     <div class="row g-2 align-items-end">
-                                        <div class="col-md-7">
+                                        <div class="col-md-12">
                                             <label class="small text-muted mb-1">Field Label / Name</label>
-                                            <input v-model="field.field_name" type="text" class="form-control" placeholder="e.g. Serial Number" required>
-                                        </div>
-                                        <div class="col-md-3">
-                                            <div class="form-check mb-2">
-                                                <input v-model="field.is_required" class="form-check-input" type="checkbox" :id="'req-'+index">
-                                                <label class="form-check-label" :for="'req-'+index">Required?</label>
-                                            </div>
+                                            <input v-model="field.field_name" type="text" class="form-control" placeholder="e.g. Enter text..." required :disabled="isSaving">
                                         </div>
                                     </div>
 
                                     <div v-if="field.type === 'dropdown'" class="mt-3 p-2 bg-light rounded">
                                         <label class="small fw-bold mb-2">Dropdown Options:</label>
                                         <div v-for="(opt, optIdx) in field.options" :key="optIdx" class="input-group input-group-sm mb-1">
-                                            <input v-model="field.options![optIdx]" type="text" class="form-control" placeholder="Option Name">
-                                            <button type="button" class="btn btn-outline-danger" @click="removeOption(index, optIdx)"><i class="bi bi-dash"></i></button>
+                                            <input v-model="field.options[optIdx]" type="text" class="form-control" placeholder="Option Name" :disabled="isSaving">
+                                            <button type="button" class="btn btn-outline-danger" @click="removeOption(index, optIdx)" :disabled="isSaving"><i class="bi bi-dash"></i></button>
                                         </div>
-                                        <button type="button" class="btn btn-sm btn-link text-decoration-none" @click="addOption(index)">+ Add Option</button>
+                                        <button type="button" class="btn btn-sm btn-link text-decoration-none" @click="addOption(index)" :disabled="isSaving">+ Add Option</button>
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="modal-footer mt-4 px-0 pb-0">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                <button type="submit" class="btn btn-primary" :disabled="isLoading">
-                                    {{ isEditMode ? 'Update Changes' : 'Save Template' }}
+                            <div class="d-flex justify-content-end mt-4 pt-3 border-top">
+                                <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal" :disabled="isSaving">Cancel</button>
+                                <button type="submit" class="btn btn-success" :disabled="isSaving">
+                                    <span v-if="isSaving" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                    {{ isSaving ? (isEditMode ? 'Updating...' : 'Saving...') : (isEditMode ? 'Update' : 'Save') }}
                                 </button>
                             </div>
                         </form>
@@ -149,20 +176,40 @@
             </div>
         </div>
 
-        <div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog">
+        <div class="modal fade" id="deleteConfirmationModal" tabindex="-1" aria-labelledby="deleteConfirmationModalLabel" aria-hidden="true" ref="deleteModalRef">
+            <div class="modal-dialog delete-modal-top"> 
                 <div class="modal-content">
-                    <div class="modal-header bg-danger text-white">
-                        <h5 class="modal-title">Delete Template?</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        Are you sure you want to delete <strong>{{ selectedTemplate?.template_name }}</strong>?
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="button" class="btn btn-danger" @click="deleteTemplate">Confirm Delete</button>
-                    </div>
+
+                    <template v-if="deleteStep === 'confirm'">
+                        <div class="modal-header bg-warning text-dark">
+                            <h5 class="modal-title" id="deleteConfirmationModalLabel"><i class="bi bi-question-circle-fill me-2"></i>Confirmation</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body text-center">
+                            <p class="mb-0">Are you sure you want to delete the template <strong>{{ templateToDelete?.template_name }}</strong>?</p>
+                        </div>
+                        <div class="modal-footer justify-content-center">
+                            <button type="button" class="btn btn-secondary" @click="handleCancelDeletion" :disabled="isDeleting">No</button>
+                            <button type="button" class="btn btn-warning text-dark" @click="handleFirstConfirmation" :disabled="isDeleting">Yes</button>
+                        </div>
+                    </template>
+
+                    <template v-else-if="deleteStep === 'final'">
+                        <div class="modal-header bg-danger text-white">
+                            <h5 class="modal-title" id="deleteConfirmationModalLabel"><i class="bi bi-exclamation-triangle-fill me-2"></i>Confirm Permanent Deletion</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body text-center">
+                            <p class="mb-0">This action will permanently delete the template <strong>{{ templateToDelete?.template_name }}</strong>. Are you sure?</p>
+                        </div>
+                        <div class="modal-footer justify-content-center">
+                            <button type="button" class="btn btn-secondary" @click="handleCancelDeletion" :disabled="isDeleting">Cancel</button>
+                            <button type="button" class="btn btn-danger" @click="handleDelete" :disabled="isDeleting">
+                                <span v-if="isDeleting" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                {{ isDeleting ? 'Deleting...' : 'Confirm' }}
+                            </button>
+                        </div>
+                    </template>
                 </div>
             </div>
         </div>
@@ -179,10 +226,9 @@ import MasterAdminSidebar from '../../components/Sidebar/MasterAdminSidebar.vue'
 interface Field {
     id?: number;
     field_name: string;
-    field_type: string; // text, checkbox, dropdown (Backend)
+    field_type: string; // text, number, textarea, checkbox, image, dropdown (Backend)
     type: 'input' | 'checkbox' | 'dropdown'; // UI Logic
-    is_required: boolean;
-    options?: string[];
+    options: string[];
     metadata?: any;
 }
 
@@ -197,18 +243,34 @@ interface Template {
     category?: { id: number; name: string };
 }
 
+interface Category {
+    id: number;
+    name: string;
+    description?: string;
+    status?: string;
+}
+
+interface ValidationErrors {
+    [key: string]: string[];
+}
+
 // State
 const templates = ref<Template[]>([]);
-const categories = ref<any[]>([]);
+const categories = ref<Category[]>([]);
 const searchQuery = ref('');
 const isLoading = ref(false);
+const isSaving = ref(false);
+const isDeleting = ref(false);
 const successMessage = ref('');
 const errorMessage = ref('');
+const validationErrors = ref<ValidationErrors>({});
 const isEditMode = ref(false);
-const selectedTemplate = ref<Template | null>(null);
+const templateToDelete = ref<Template | null>(null);
+const deleteStep = ref<'confirm' | 'final'>('confirm');
 const deletedFieldIds = ref<number[]>([]);
 
-const formData = ref({
+// Default form data
+const defaultFormData = {
     id: null as number | null,
     template_name: '',
     category_id: '' as number | '',
@@ -216,48 +278,137 @@ const formData = ref({
     status: 'Active' as 'Active' | 'Inactive',
     created_by: 1,
     fields: [] as Field[]
-});
-
-let templateModal: Modal | null = null;
-let deleteModal: Modal | null = null;
-
-// Helpers
-const getUiType = (fieldType: string): 'input' | 'checkbox' | 'dropdown' => {
-    if (fieldType === 'dropdown') return 'dropdown';
-    if (fieldType === 'checkbox') return 'checkbox';
-    return 'input'; // Default 'text' to 'input'
 };
 
-const getBackendType = (uiType: string): string => {
-    if (uiType === 'input') return 'text';
-    return uiType; // checkbox, dropdown stay same
+const formData = ref({ ...defaultFormData });
+
+// Bootstrap Modal References and Instances
+const templateModalRef = ref<HTMLElement | null>(null);
+const deleteModalRef = ref<HTMLElement | null>(null);
+let templateModalInstance: Modal | null = null;
+let deleteModalInstance: Modal | null = null;
+
+// API Base URL
+const API_BASE_URL = 'http://127.0.0.1:8000/api';
+const RESOURCE_TEMPLATES_API_URL = `${API_BASE_URL}/resource-templates`;
+
+// Helper to get auth token
+const getAuthToken = () => {
+    return localStorage.getItem('authToken') || 
+           localStorage.getItem('auth_token') || 
+           localStorage.getItem('token') || 
+           localStorage.getItem('access_token') ||
+           sessionStorage.getItem('auth_token');
 };
 
-// Data Actions
+// Helper to get category name from ID
+const getCategoryName = (categoryId: number) => {
+    const category = categories.value.find(cat => cat.id === categoryId);
+    return category ? category.name : 'Uncategorized';
+};
+
+// Helper to convert UI type to backend field_type
+const getBackendFieldType = (uiType: string): string => {
+    switch(uiType) {
+        case 'input': return 'text';
+        case 'checkbox': return 'checkbox';
+        case 'dropdown': return 'dropdown';
+        default: return 'text';
+    }
+};
+
+// Helper to convert backend field_type to UI type
+const getUiType = (backendType: string): 'input' | 'checkbox' | 'dropdown' => {
+    switch(backendType) {
+        case 'text': return 'input';
+        case 'checkbox': return 'checkbox';
+        case 'dropdown': return 'dropdown';
+        default: return 'input';
+    }
+};
+
+// API Error Handler
+const handleApiError = (data: any, status: number) => {
+    validationErrors.value = {};
+    if (status === 422 && data.errors) {
+        validationErrors.value = data.errors;
+        errorMessage.value = "Validation failed. Check the form fields.";
+    } else if (status === 503) {
+        errorMessage.value = data.message || "Failed to connect to the resource service.";
+    } else {
+        errorMessage.value = data.message || `An error occurred (Status: ${status}).`;
+    }
+};
+
+// CRUD Operations
+
+// GET - Fetch all templates and categories
 const fetchData = async () => {
     isLoading.value = true;
+    errorMessage.value = '';
     try {
-        const [tRes, cRes] = await Promise.all([
-            fetch('http://127.0.0.1:8000/api/resource-templates'),
-            fetch('http://127.0.0.1:8000/api/categories')
+        const token = getAuthToken();
+        const headers: HeadersInit = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+        };
+        
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const [templatesResponse, categoriesResponse] = await Promise.all([
+            fetch(`${API_BASE_URL}/resource-templates`, { headers }),
+            fetch(`${API_BASE_URL}/categories`, { headers })
         ]);
-        templates.value = await tRes.json();
-        categories.value = await cRes.json();
-    } catch (e) { errorMessage.value = "Load error."; }
-    finally { isLoading.value = false; }
+
+        if (!templatesResponse.ok) {
+            const errorText = await templatesResponse.text();
+            throw new Error(`Failed to fetch templates: ${templatesResponse.status} ${templatesResponse.statusText}`);
+        }
+
+        if (!categoriesResponse.ok) {
+            const errorText = await categoriesResponse.text();
+            throw new Error(`Failed to fetch categories: ${categoriesResponse.status} ${categoriesResponse.statusText}`);
+        }
+
+        const templatesData = await templatesResponse.json();
+        const categoriesData = await categoriesResponse.json();
+        
+        templates.value = Array.isArray(templatesData) ? templatesData : [];
+        
+        if (Array.isArray(categoriesData)) {
+            categories.value = categoriesData;
+        } else if (categoriesData.categories && Array.isArray(categoriesData.categories)) {
+            categories.value = categoriesData.categories;
+        } else if (categoriesData.data && Array.isArray(categoriesData.data)) {
+            categories.value = categoriesData.data;
+        } else {
+            categories.value = [];
+        }
+
+    } catch (e: any) { 
+        console.error('Fetch data error:', e);
+        errorMessage.value = e.message || "Failed to load data. Please check your connection and try again."; 
+    } finally { 
+        isLoading.value = false; 
+    }
 };
 
+// Open modals
 const openAddModal = () => {
     isEditMode.value = false;
-    formData.value = { id: null, template_name: '', category_id: '', description: '', status: 'Active', created_by: 1, fields: [] };
+    formData.value = { ...defaultFormData };
     deletedFieldIds.value = [];
-    templateModal?.show();
+    validationErrors.value = {};
+    templateModalInstance?.show();
 };
 
 const openEditModal = (template: Template) => {
     isEditMode.value = true;
-    selectedTemplate.value = template;
+    validationErrors.value = {};
     deletedFieldIds.value = [];
+    
     formData.value = {
         id: template.id,
         template_name: template.template_name,
@@ -267,30 +418,55 @@ const openEditModal = (template: Template) => {
         created_by: template.created_by,
         fields: template.fields.map(f => {
             const uiType = getUiType(f.field_type);
-            let opts: string[] = [];
-            if (f.metadata) {
-                const meta = typeof f.metadata === 'string' ? JSON.parse(f.metadata) : f.metadata;
-                opts = meta.options || [];
+            
+            let options: string[] = [];
+            if (uiType === 'dropdown' && f.metadata) {
+                try {
+                    const meta = typeof f.metadata === 'string' ? JSON.parse(f.metadata) : f.metadata;
+                    options = meta.options || [];
+                } catch (e) {
+                    console.error('Error parsing metadata:', e);
+                    options = [];
+                }
             }
+            
             return {
                 id: f.id,
                 field_name: f.field_name,
                 field_type: f.field_type,
                 type: uiType,
-                is_required: Boolean(f.is_required),
-                options: uiType === 'dropdown' ? (opts.length ? [...opts] : ['Option 1', 'Option 2']) : []
+                options: uiType === 'dropdown' ? (options.length ? [...options] : ['Option 1', 'Option 2']) : []
             };
         })
     };
-    templateModal?.show();
+    
+    templateModalInstance?.show();
 };
 
+// Two-step delete modal handlers
+const openDeleteConfirmation = (template: Template) => {
+    templateToDelete.value = template;
+    deleteStep.value = 'confirm'; 
+    deleteModalInstance?.show();
+};
+
+const handleFirstConfirmation = () => {
+    deleteStep.value = 'final'; 
+};
+
+const handleCancelDeletion = () => {
+    deleteModalInstance?.hide();
+    templateToDelete.value = null;
+    deleteStep.value = 'confirm'; 
+};
+
+// Field management
 const addField = (uiType: 'input' | 'checkbox' | 'dropdown') => {
+    const backendType = getBackendFieldType(uiType);
     formData.value.fields.push({
         field_name: '',
-        field_type: getBackendType(uiType),
+        field_type: backendType,
         type: uiType,
-        is_required: false,
         options: uiType === 'dropdown' ? ['Option 1', 'Option 2'] : []
     });
 };
@@ -301,67 +477,514 @@ const removeField = (index: number) => {
     formData.value.fields.splice(index, 1);
 };
 
-const addOption = (idx: number) => formData.value.fields[idx].options?.push(`Option ${formData.value.fields[idx].options!.length + 1}`);
-const removeOption = (fIdx: number, oIdx: number) => formData.value.fields[fIdx].options?.splice(oIdx, 1);
+const addOption = (idx: number) => {
+    if (formData.value.fields[idx].options) {
+        formData.value.fields[idx].options.push(`Option ${formData.value.fields[idx].options.length + 1}`);
+    }
+};
 
+const removeOption = (fIdx: number, oIdx: number) => {
+    if (formData.value.fields[fIdx].options) {
+        formData.value.fields[fIdx].options.splice(oIdx, 1);
+    }
+};
+
+// POST/PUT - Save template
 const saveTemplate = async () => {
-    isLoading.value = true;
+    isSaving.value = true;
+    errorMessage.value = '';
+    successMessage.value = '';
+    validationErrors.value = {};
+    
     try {
+        if (!formData.value.template_name.trim()) {
+            errorMessage.value = "Template name is required.";
+            isSaving.value = false;
+            return;
+        }
+
+        if (!formData.value.category_id) {
+            errorMessage.value = "Please select a category.";
+            isSaving.value = false;
+            return;
+        }
+
+        for (const field of formData.value.fields) {
+            if (!field.field_name.trim()) {
+                errorMessage.value = "All fields must have a name.";
+                isSaving.value = false;
+                return;
+            }
+        }
+
+        const token = getAuthToken();
+        if (!token) {
+            errorMessage.value = "Authentication token not found. Please login again.";
+            isSaving.value = false;
+            return;
+        }
+
+        const headers: HeadersInit = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${token}`,
+        };
+
         const payloadFields = formData.value.fields.map((f, i) => {
             const obj: any = {
-                field_name: f.field_name,
-                field_type: getBackendType(f.type),
-                is_required: f.is_required,
+                field_name: f.field_name.trim(),
+                field_type: f.field_type,
+                is_required: 0, // Always set to 0 (false) since we removed the checkbox
                 order_index: i
             };
+            
             if (f.id) obj.id = f.id;
+            
             if (f.type === 'dropdown') {
-                obj.metadata = JSON.stringify({ options: (f.options || []).filter(o => o.trim() !== '') });
+                const validOptions = (f.options || []).filter(o => o.trim() !== '');
+                obj.metadata = JSON.stringify({ 
+                    options: validOptions.length > 0 ? validOptions : ['Default Option'] 
+                });
             }
+            
             return obj;
         });
 
-        const url = isEditMode.value ? `http://127.0.0.1:8000/api/resource-templates/${formData.value.id}` : 'http://127.0.0.1:8000/api/resource-templates';
-        const res = await fetch(url, {
-            method: isEditMode.value ? 'PUT' : 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...formData.value, fields: payloadFields, delete_fields: deletedFieldIds.value })
+        const payload: any = {
+            template_name: formData.value.template_name.trim(),
+            category_id: formData.value.category_id,
+            description: formData.value.description ? formData.value.description.trim() : '',
+            status: formData.value.status,
+            created_by: formData.value.created_by,
+            fields: payloadFields
+        };
+
+        if (isEditMode.value && deletedFieldIds.value.length > 0) {
+            payload.delete_fields = deletedFieldIds.value;
+        }
+
+        const url = isEditMode.value 
+            ? `${RESOURCE_TEMPLATES_API_URL}/${formData.value.id}`
+            : RESOURCE_TEMPLATES_API_URL;
+            
+        const method = isEditMode.value ? 'PUT' : 'POST';
+
+        const response = await fetch(url, {
+            method,
+            headers,
+            body: JSON.stringify(payload)
         });
 
-        if (res.ok) {
-            successMessage.value = "Template saved successfully!";
-            templateModal?.hide();
-            fetchData();
-        } else {
-            const err = await res.json();
-            errorMessage.value = err.message || "Save failed.";
+        let responseData;
+        const responseText = await response.text();
+        
+        try {
+            responseData = JSON.parse(responseText);
+        } catch (jsonError) {
+            if (response.ok && responseText.trim() === '') {
+                responseData = { message: 'Operation successful' };
+            } else {
+                throw new Error(`Invalid server response: ${response.status} ${response.statusText}`);
+            }
         }
-    } catch (e) { errorMessage.value = "Network error."; }
-    finally { isLoading.value = false; }
+
+        if (response.ok) {
+            successMessage.value = isEditMode.value 
+                ? "Template updated successfully!" 
+                : "Template created successfully!";
+            
+            templateModalInstance?.hide();
+            await fetchData();
+        } else {
+            handleApiError(responseData, response.status);
+        }
+    } catch (e: any) { 
+        console.error('Save template error:', e);
+        errorMessage.value = e.message || "An unexpected error occurred. Please try again."; 
+    } finally { 
+        isSaving.value = false; 
+    }
 };
 
-const confirmDelete = (t: Template) => { selectedTemplate.value = t; deleteModal?.show(); };
-const deleteTemplate = async () => {
+// DELETE - Confirm and delete template
+const handleDelete = async () => {
+    if (deleteStep.value !== 'final' || !templateToDelete.value) return; 
+    
+    isDeleting.value = true;
+    errorMessage.value = '';
+    successMessage.value = '';
+    
+    const token = getAuthToken();
+    const templateId = templateToDelete.value.id;
+
     try {
-        await fetch(`http://127.0.0.1:8000/api/resource-templates/${selectedTemplate.value?.id}`, { method: 'DELETE' });
-        successMessage.value = "Template deleted.";
-        deleteModal?.hide();
-        fetchData();
-    } catch (e) { errorMessage.value = "Delete failed."; }
+        const response = await fetch(`${RESOURCE_TEMPLATES_API_URL}/${templateId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+        });
+        
+        let responseData;
+        try {
+            responseData = await response.json();
+        } catch (e) {
+            responseData = { message: 'Request successful but no content received.', status: response.status };
+        }
+
+        if (response.ok) {
+            successMessage.value = responseData.message || 'Template deleted successfully.';
+            await fetchData();
+            deleteModalInstance?.hide();
+        } else {
+            handleApiError(responseData, response.status);
+        }
+    } catch (e: any) {
+        console.error('Failed to delete template:', e);
+        errorMessage.value = 'Failed to delete template due to a network error.';
+    } finally {
+        isDeleting.value = false;
+        if (successMessage.value || errorMessage.value) {
+            templateToDelete.value = null;
+            deleteStep.value = 'confirm'; 
+        }
+    }
 };
 
+// Initialize
 onMounted(() => {
+    templateModalRef.value = document.getElementById('templateModal') as HTMLElement;
+    deleteModalRef.value = document.getElementById('deleteConfirmationModal') as HTMLElement;
+    
+    if (templateModalRef.value) {
+        templateModalInstance = new Modal(templateModalRef.value);
+        templateModalRef.value.addEventListener('hidden.bs.modal', () => {
+            validationErrors.value = {};
+        });
+    }
+    
+    if (deleteModalRef.value) {
+        deleteModalInstance = new Modal(deleteModalRef.value);
+        deleteModalRef.value.addEventListener('hidden.bs.modal', handleCancelDeletion);
+    }
+    
     fetchData();
-    templateModal = new Modal(document.getElementById('templateModal')!);
-    deleteModal = new Modal(document.getElementById('deleteConfirmModal')!);
 });
 
-const filteredTemplates = computed(() => templates.value.filter(t => t.template_name.toLowerCase().includes(searchQuery.value.toLowerCase())));
+// Computed
+const filteredTemplates = computed(() => {
+    const query = searchQuery.value.toLowerCase().trim();
+    if (!query) return templates.value;
+    
+    return templates.value.filter(t => 
+        t.template_name.toLowerCase().includes(query) ||
+        getCategoryName(t.category_id).toLowerCase().includes(query)
+    );
+});
 </script>
 
 <style scoped>
-.template-page { background: #f8f9fa; min-height: 100vh; padding: 2rem; }
-.field-card { border-radius: 8px; transition: all 0.2s; }
-.field-card:hover { transform: translateY(-2px); }
-.field-container { max-height: 500px; overflow-y: auto; }
+/* --- General Section & Sidebar Layout --- */
+.template-page {
+    animation: fadeIn 0.3s ease;
+    padding: 20px; 
+    margin-left: 260px;
+    background: #f8f9fa;
+    min-height: 100vh;
+}
+
+@media (max-width: 768px) {
+    .template-page {
+        margin-left: 80px;
+    }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.section-title {
+    color: #1e4449;
+    font-weight: 600;
+    margin-bottom: 24px;
+}
+
+/* --- Page Header --- */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px; 
+    gap: 20px;
+}
+
+.search-box .input-group {
+    width: 300px;
+}
+
+.search-box .input-group-text {
+    background-color: #fff;
+    border-right: none;
+}
+
+.search-box .form-control {
+    border-left: none;
+}
+
+.btn-success { 
+    background-color: #4BB66D; 
+    border-color: #4BB66D; 
+}
+
+.btn-success:hover { 
+    background-color: #3f975b; 
+    border-color: #3f975b; 
+}
+
+/* --- Table Card --- */
+.table-responsive.card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.table thead { 
+    background: #f8f9fa; 
+}
+
+.table thead th {
+    background-color: #f8f9fa; 
+    font-weight: 600;
+    border-bottom: 1px solid #dee2e6; 
+    padding: 12px 15px;
+}
+
+.table tbody td { 
+    padding: 12px 15px; 
+    vertical-align: middle; 
+}
+
+.badge {
+    padding: 0.35em 0.65em;
+    font-weight: 500;
+}
+
+.btn-outline-primary { 
+    --bs-btn-color: #0d6efd; 
+    --bs-btn-border-color: #0d6efd; 
+}
+
+.btn-outline-danger { 
+    --bs-btn-color: #dc3545; 
+    --bs-btn-border-color: #dc3545; 
+}
+
+.btn-group-sm .btn { 
+    padding: 0.25rem 0.5rem; 
+}
+
+/* --- Modal Styling --- */
+.modal-dialog.modal-lg { 
+    max-width: 900px !important; 
+}
+
+.modal-header.bg-light {
+    background-color: #f8f9fa !important;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.form-select {
+    cursor: pointer;
+    border-color: #ced4da;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.form-select:focus {
+    border-color: #4BB66D;
+    box-shadow: 0 0 0 0.25rem rgba(75, 182, 109, 0.25);
+}
+
+.form-select option {
+    padding: 8px;
+}
+
+/* Field container styling */
+.field-container {
+    max-height: 500px;
+    overflow-y: auto;
+    border-radius: 8px;
+}
+
+.field-card {
+    border-radius: 8px;
+    transition: all 0.2s;
+    background: white;
+}
+
+.field-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+}
+
+.field-card.border-info {
+    border-left-color: #0dcaf0 !important;
+}
+
+.field-card.border-success {
+    border-left-color: #198754 !important;
+}
+
+.field-card.border-primary {
+    border-left-color: #0d6efd !important;
+}
+
+.badge.bg-info {
+    background-color: #0dcaf0 !important;
+}
+
+.badge.bg-success {
+    background-color: #198754 !important;
+}
+
+.badge.bg-primary {
+    background-color: #0d6efd !important;
+}
+
+.field-card .bg-light {
+    background-color: #f8f9fa !important;
+}
+
+.btn-primary:disabled,
+.btn-danger:disabled,
+.btn-warning:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+    border-width: 0.2em;
+}
+
+.text-danger {
+    color: #dc3545 !important;
+}
+
+.modal-dialog.delete-modal-top { 
+    align-items: flex-start; 
+    margin-top: 50px; 
+    height: auto; 
+}
+
+.btn-warning {
+    color: #212529 !important;
+    background-color: #ffc107 !important;
+    border-color: #ffc107 !important;
+}
+
+.btn-warning:hover {
+    background-color: #e0a800 !important;
+    border-color: #e0a800 !important;
+}
+
+/* --- Responsive Design --- */
+@media (max-width: 768px) {
+    .page-header { 
+        flex-direction: column; 
+        align-items: stretch; 
+    }
+    
+    .search-box .input-group {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    
+    .btn-success {
+        width: 100%;
+    }
+    
+    .modal-dialog.modal-lg { 
+        max-width: 95% !important; 
+    }
+    
+    .field-card .row {
+        flex-direction: column;
+    }
+    
+    .field-card .col-md-12 {
+        width: 100%;
+        margin-bottom: 10px;
+    }
+}
+
+.text-center.py-4 {
+    color: #6c757d;
+    font-style: italic;
+}
+
+.text-muted {
+    color: #6c757d !important;
+}
+
+.alert {
+    border-radius: 8px;
+    border: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: #4BB66D;
+    box-shadow: 0 0 0 0.25rem rgba(75, 182, 109, 0.25);
+}
+
+.input-group.input-group-sm {
+    margin-bottom: 5px;
+}
+
+.input-group.input-group-sm .form-control {
+    border-radius: 4px;
+}
+
+.modal-footer {
+    border-top: 1px solid #dee2e6;
+    padding-top: 1rem;
+}
+
+.modal-header.bg-danger.text-white {
+    background-color: #dc3545 !important;
+}
+
+.modal-body .row.g-3 {
+    margin-bottom: 1rem;
+}
+
+@media (min-width: 769px) {
+    .template-page {
+        width: calc(100% - 260px);
+        margin-left: 260px;
+    }
+}
+
+@media (max-width: 576px) {
+    .template-page {
+        padding: 15px;
+    }
+    
+    .section-title {
+        font-size: 1.5rem;
+    }
+    
+    .btn-group .btn {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.875rem;
+    }
+    
+    .modal-body {
+        padding: 1rem;
+    }
+}
 </style>
