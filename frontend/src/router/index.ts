@@ -17,6 +17,7 @@ import Single_Resource_Booking from '../views/MasterAdmin/Single_Resource_Bookin
 import Booking_Item from '../views/MasterAdmin/Booking_Item.vue';
 import User_Dashboard from '../views/User/User_Dashboard.vue';
 import Admin_Dashboard from '../views/Admin/Admin_Dashboard.vue';
+import Department from '../views/MasterAdmin/Department.vue';
 
 
 const routes: Array<RouteRecordRaw> = [
@@ -69,6 +70,16 @@ const routes: Array<RouteRecordRaw> = [
    path: '/booking_item',
    name: 'booking-item',
    component:Booking_Item
+  },
+
+   {
+    path: '/',
+    redirect: 'department'
+  },
+  {
+   path: '/department',
+   name: 'department',
+   component:Department
   },
   {
     path:'/',

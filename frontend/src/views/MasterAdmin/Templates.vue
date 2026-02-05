@@ -13,730 +13,355 @@
             <button type="button" class="btn-close" @click="errorMessage = ''"></button>
         </div>
 
-        <div class="page-header">
-            <div class="input-group mb-3 mb-md-0 w-100 w-md-auto me-md-3" style="max-width: 300px;">
-                <span class="input-group-text"><i class="bi bi-search"></i></span>
-                <input
-                    type="text"
-                    class="form-control"
-                    placeholder="Search Templates..."
-                    v-model="searchQuery"
-                    :disabled="isLoading"
-                />
+        <div class="page-header d-flex justify-content-between align-items-center mb-4">
+            <div class="search-box">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input v-model="searchQuery" type="text" class="form-control" placeholder="Search Templates...">
+                </div>
             </div>
-
-            <button class="btn btn-success add-new-btn" @click="openAddModal" :disabled="isLoading">
+            <button class="btn btn-success" @click="openAddModal">
                 <i class="bi bi-plus-circle me-2"></i> Add New Template
             </button>
         </div>
         
-        <div class="table-card">
-            <h5 class="mb-3">Resource Template List</h5> 
-
-            <div v-if="isLoading" class="text-center py-5 text-muted">
-                 <span class="spinner-border spinner-border-sm me-2" role="status"></span> Loading templates...
-            </div>
-             <div v-else-if="filteredTemplates.length === 0" class="text-center py-5 text-muted">
-                {{ searchQuery ? 'No templates found matching your search.' : 'No templates yet. Add your first template!' }}
-            </div>
-
-            <div v-else class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>Template ID</th>
-                            <th>Category Name</th>
-                            <th>Template Name</th>
-                            <th>Description</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-for="template in filteredTemplates" :key="template.id">
-                            <td>{{ template.id }}</td>
-                            <td>{{ template.category?.name || 'N/A' }}</td>
-                            <td>{{ template.template_name }}</td>
-                            <td>{{ template.description }}</td>
-                            <td>
-                                <div class="btn-group btn-group-sm">
-                                    <button
-                                        class="btn btn-outline-primary"
-                                        title="Edit"
-                                        @click="openEditModal(template)"
-                                        :disabled="isSaving"
-                                    >
-                                        <i class="bi bi-pencil-square"></i>
-                                    </button>
-                                    <button
-                                        class="btn btn-outline-danger ms-1"
-                                        title="Delete"
-                                        @click="openDeleteConfirmation(template)"
-                                        :disabled="isSaving"
-                                    >
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+        <div class="table-responsive card shadow-sm p-3">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Template Name</th>
+                        <th>Category</th>
+                        <th>Fields</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-if="isLoading"><td colspan="5" class="text-center py-4">Loading...</td></tr>
+                    <tr v-for="template in filteredTemplates" :key="template.id">
+                        <td><strong>{{ template.template_name }}</strong></td>
+                        <td>{{ template.category?.name || 'Uncategorized' }}</td>
+                        <td><span class="badge bg-secondary">{{ template.fields?.length || 0 }} Fields</span></td>
+                        <td>
+                            <span :class="['badge', template.status === 'Active' ? 'bg-success' : 'bg-danger']">
+                                {{ template.status }}
+                            </span>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary me-2" @click="openEditModal(template)">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" @click="confirmDelete(template)">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
 
-        <div class="modal fade" id="templateFormModal" tabindex="-1" aria-labelledby="templateFormModalLabel" aria-hidden="true" ref="templateModalRef">
-            <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal fade" id="templateModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
                 <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="templateFormModalLabel">
-                            {{ isEditMode ? 'Edit Template' : 'Add New Template' }}
-                        </h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <div class="modal-header bg-light">
+                        <h5 class="modal-title">{{ isEditMode ? 'Edit Template' : 'Create Template' }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
-                         <div v-if="modalErrorMessage" class="alert alert-danger">{{ modalErrorMessage }}</div>
-                         <div class="row mb-4">
-                            <div class="col-md-6 mb-3 mb-md-0">
-                                <div class="field-buttons">
-                                    <button
-                                        class="btn btn-outline-primary btn-sm"
-                                        @click="addField('input')"
-                                        :class="{ active: activeFieldType === 'input' }"
-                                        :disabled="isSaving"
-                                    >
-                                        <i class="bi bi-plus-square"></i> Input Field
-                                    </button>
-                                    <button
-                                        class="btn btn-outline-primary btn-sm"
-                                        @click="addField('checkbox')"
-                                        :class="{ active: activeFieldType === 'checkbox' }"
-                                        :disabled="isSaving"
-                                    >
-                                        <i class="bi bi-check-square"></i> Check Box
-                                    </button>
-                                    <button
-                                        class="btn btn-outline-primary btn-sm"
-                                        @click="addField('photo')"
-                                        :class="{ active: activeFieldType === 'photo' }"
-                                        :disabled="isSaving"
-                                    >
-                                        <i class="bi bi-image"></i> Add Photo
-                                    </button>
+                        <form @submit.prevent="saveTemplate">
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Template Name</label>
+                                    <input v-model="formData.template_name" type="text" class="form-control" placeholder="e.g. Laptop Specification" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Category</label>
+                                    <select v-model="formData.category_id" class="form-select" required>
+                                        <option value="" disabled>Select Category</option>
+                                        <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+                                    </select>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label fw-bold">Description</label>
+                                    <textarea v-model="formData.description" class="form-control" rows="2"></textarea>
                                 </div>
                             </div>
-                            <div class="col-md-6">
-                                <select class="form-select" v-model="formData.category_id" required :disabled="isSaving">
-                                    <option :value="null" disabled>Select Category </option>
-                                    <option v-for="cat in categories" :key="cat.id" :value="cat.id">
-                                        {{ cat.name }}
-                                    </option>
-                                </select>
-                                <small class="text-danger" v-if="validationErrors.category_id">{{ validationErrors.category_id[0] }}</small>
+
+                            <hr>
+
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="mb-0 fw-bold"><i class="bi bi-list-task me-2"></i>Form Fields</h6>
+                                <div class="btn-group">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" @click="addField('input')">+ Text Input</button>
+                                    <button type="button" class="btn btn-sm btn-outline-primary" @click="addField('checkbox')">+ Checkbox</button>
+                                    <button type="button" class="btn btn-sm btn-outline-primary" @click="addField('dropdown')">+ Dropdown</button>
+                                </div>
                             </div>
-                        </div>
 
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">Template Name</label>
-                            <input
-                                type="text"
-                                class="form-control"
-                                placeholder="Enter Template Name"
-                                v-model="formData.template_name"
-                                required
-                                :disabled="isSaving"
-                            />
-                             <small class="text-danger" v-if="validationErrors.template_name">{{ validationErrors.template_name[0] }}</small>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">Description</label>
-                            <input
-                                type="text"
-                                class="form-control"
-                                placeholder="Enter Template Description"
-                                v-model="formData.description"
-                                :disabled="isSaving"
-                            />
-                            <small class="text-danger" v-if="validationErrors.description">{{ validationErrors.description[0] }}</small>
-                        </div>
-
-                        <div class="template-builder">
-                            <div
-                                v-for="(field, index) in formData.fields"
-                                :key="index"
-                                class="field-item mb-3"
-                            >
-                                <div class="d-flex gap-2 align-items-start">
-                                    <div class="flex-grow-1">
-                                        <div v-if="field.type === 'input'">
-                                            <label class="form-label small text-muted">Field Type: Text Input</label>
-                                            <input type="text" class="form-control" placeholder="Value is set by resource creator" disabled/>
-                                        </div>
-                                        <div v-else-if="field.type === 'checkbox'" class="d-flex align-items-center gap-3">
-                                            <input type="checkbox" class="form-check-input" disabled />
-                                            <label class="form-label small text-muted">Field Type: Checkbox</label>
-                                        </div>
-                                        <div v-else-if="field.type === 'photo'" class="photo-upload-area">
-                                            <i class="bi bi-image"></i>
-                                            <p>Photo Placeholder</p>
-                                        </div>
-                                        
-                                        <input
-                                            type="text"
-                                            class="form-control mt-2"
-                                            :placeholder="field.type === 'photo' ? 'Enter Photo Field Name' : 'Enter Field Name'"
-                                            v-model="field.field_name"
-                                            required
-                                            :disabled="isSaving"
-                                        />
-                                        <small class="text-danger" v-if="validationErrors[`fields.${index}.field_name`]">{{ validationErrors[`fields.${index}.field_name`][0] }}</small>
-
+                            <div class="field-container p-3 bg-light rounded border">
+                                <div v-if="formData.fields.length === 0" class="text-center text-muted py-4">
+                                    No fields added yet. Click a button above to add fields.
+                                </div>
+                                
+                                <div v-for="(field, index) in formData.fields" :key="index" class="field-card mb-3 p-3 bg-white shadow-sm border-start border-4" 
+                                    :class="field.type === 'dropdown' ? 'border-primary' : (field.type === 'checkbox' ? 'border-success' : 'border-info')">
+                                    
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="badge rounded-pill text-uppercase" :class="field.type === 'dropdown' ? 'bg-primary' : (field.type === 'checkbox' ? 'bg-success' : 'bg-info')">
+                                            {{ field.type === 'input' ? 'Text' : field.type }}
+                                        </span>
+                                        <button type="button" class="btn-close" @click="removeField(index)"></button>
                                     </div>
-                                    <button
-                                        class="btn btn-sm btn-danger flex-shrink-0"
-                                        @click="removeField(index)"
-                                        :disabled="isSaving"
-                                    >
-                                        <i class="bi bi-trash"></i>
-                                    </button>
+
+                                    <div class="row g-2 align-items-end">
+                                        <div class="col-md-7">
+                                            <label class="small text-muted mb-1">Field Label / Name</label>
+                                            <input v-model="field.field_name" type="text" class="form-control" placeholder="e.g. Serial Number" required>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="form-check mb-2">
+                                                <input v-model="field.is_required" class="form-check-input" type="checkbox" :id="'req-'+index">
+                                                <label class="form-check-label" :for="'req-'+index">Required?</label>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div v-if="field.type === 'dropdown'" class="mt-3 p-2 bg-light rounded">
+                                        <label class="small fw-bold mb-2">Dropdown Options:</label>
+                                        <div v-for="(opt, optIdx) in field.options" :key="optIdx" class="input-group input-group-sm mb-1">
+                                            <input v-model="field.options![optIdx]" type="text" class="form-control" placeholder="Option Name">
+                                            <button type="button" class="btn btn-outline-danger" @click="removeOption(index, optIdx)"><i class="bi bi-dash"></i></button>
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-link text-decoration-none" @click="addOption(index)">+ Add Option</button>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div
-                                v-if="formData.fields.length === 0"
-                                class="text-center text-muted py-5"
-                            >
-                                <i class="bi bi-inbox" style="font-size: 48px"></i>
-                                <p class="mt-3">Click buttons above to add fields to your template</p>
+                            <div class="modal-footer mt-4 px-0 pb-0">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="submit" class="btn btn-primary" :disabled="isLoading">
+                                    {{ isEditMode ? 'Update Changes' : 'Save Template' }}
+                                </button>
                             </div>
-                        </div>
-                    </div>
-
-                    <div class="modal-footer">
-                        <button class="btn btn-success" @click="saveTemplate" :disabled="isSaving">
-                            <span v-if="isSaving" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                            <i v-else class="bi bi-save me-2"></i> {{ saving ? (isEditMode ? 'Updating...' : 'Saving...') : (isEditMode ? 'Update' : 'Save') }}
-                        </button>
+                        </form>
                     </div>
                 </div>
             </div>
         </div>
 
-
-        <div class="modal fade" id="deleteConfirmationModal" tabindex="-1" aria-labelledby="deleteConfirmationModalLabel" aria-hidden="true" ref="deleteModalRef">
-            <div class="modal-dialog delete-modal-top"> 
+        <div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
                 <div class="modal-content">
-
-                    <template v-if="deleteStep === 'confirm'">
-                        <div class="modal-header bg-warning text-dark">
-                            <h5 class="modal-title" id="deleteConfirmationModalLabel"><i class="bi bi-question-circle-fill me-2"></i>Confirmation</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body text-center">
-                            <p class="mb-0">Are you sure you want to delete the template for **{{ templateToDeleteName }}**?</p>
-                        </div>
-                        <div class="modal-footer justify-content-center">
-                            <button type="button" class="btn btn-secondary" @click="handleCancelDeletion" :disabled="isSaving">No</button>
-                            <button type="button" class="btn btn-warning text-dark" @click="handleFirstConfirmation" :disabled="isSaving">Yes</button>
-                        </div>
-                    </template>
-
-                    <template v-else-if="deleteStep === 'final'">
-                        <div class="modal-header bg-danger text-white">
-                            <h5 class="modal-title" id="deleteConfirmationModalLabel"><i class="bi bi-exclamation-triangle-fill me-2"></i>Confirm Permanent Deletion</h5>
-                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body text-center">
-                            <p class="mb-0">This action will **permanently delete** the template for **{{ templateToDeleteName }}**. Are you sure?</p>
-                        </div>
-                        <div class="modal-footer justify-content-center">
-                            <button type="button" class="btn btn-secondary" @click="handleCancelDeletion" :disabled="isSaving">Cancel</button>
-                            <button type="button" class="btn btn-danger" @click="deletePermanently" :disabled="isSaving">
-                                <span v-if="isSaving" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                                {{ isSaving ? 'Deleting...' : 'Confirm' }}
-                            </button>
-                        </div>
-                    </template>
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title">Delete Template?</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        Are you sure you want to delete <strong>{{ selectedTemplate?.template_name }}</strong>?
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-danger" @click="deleteTemplate">Confirm Delete</button>
+                    </div>
                 </div>
             </div>
         </div>
-
     </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
-import { Modal } from 'bootstrap'; 
+import { ref, onMounted, computed } from 'vue';
+import { Modal } from 'bootstrap';
 import Navbar from '../../components/Navbar.vue';
 import MasterAdminSidebar from '../../components/Sidebar/MasterAdminSidebar.vue';
 
-// --- API CONFIG ---
-const API_BASE_URL = 'http://localhost:8000/api'; 
-const TEMPLATES_API_URL = `${API_BASE_URL}/resource-templates`; 
-const CATEGORIES_API_URL = `${API_BASE_URL}/categories`; 
-const getAuthToken = () => localStorage.getItem('authToken');
-const saving = ref(false);
-
-// --- Interfaces (Mapping to Backend) ---
+// Types
 interface Field {
-    id?: number; // Added for updates/deletes
-    field_key?: string;
-    field_name: string; // Maps to label in original frontend
-    field_type: 'text' | 'checkbox' | 'image' | 'number' | 'textarea'; // Must match backend enum
-}
-
-interface BackendCategory {
-    id: number;
-    name: string;
+    id?: number;
+    field_name: string;
+    field_type: string; // text, checkbox, dropdown (Backend)
+    type: 'input' | 'checkbox' | 'dropdown'; // UI Logic
+    is_required: boolean;
+    options?: string[];
+    metadata?: any;
 }
 
 interface Template {
     id: number;
-    template_name: string; // Maps to templateName in original frontend
+    template_name: string;
     category_id: number;
     description: string;
     status: 'Active' | 'Inactive';
-    category?: BackendCategory; // Nested object
-    fields: Field[];
+    created_by: number;
+    fields: any[];
+    category?: { id: number; name: string };
 }
 
-interface TemplateData {
-    id?: number;
-    category_id: number | null; // Maps to categoryName in original frontend
-    template_name: string;
-    description: string;
-    fields: Field[];
-    created_by: number; // Required by backend store method
-    status: 'Active' | 'Inactive'; // Required by backend store method
-}
-
-interface ValidationErrors {
-    [key: string]: string[];
-}
-
-// --- Template Data & State ---
+// State
+const templates = ref<Template[]>([]);
+const categories = ref<any[]>([]);
 const searchQuery = ref('');
-const isEditMode = ref(false); 
-const activeFieldType = ref<string | null>(null);
-
-// API/UI State
-const isLoading = ref(true);
-const isSaving = ref(false);
+const isLoading = ref(false);
 const successMessage = ref('');
 const errorMessage = ref('');
-const modalErrorMessage = ref('');
-const validationErrors = ref<ValidationErrors>({});
-
-// Form data for the TemplateFormModal
-const formData = ref<Partial<TemplateData>>({
-    category_id: null,
-    template_name: '',
-    description: '',
-    fields: [],
-    status: 'Active',
-    created_by: 1, // Mock user ID 
-});
-
-const templates = ref<Template[]>([]);
-const categories = ref<BackendCategory[]>([]); // To hold fetched categories
-
-// MODAL STATE AND REFS
-const templateModalRef = ref<HTMLElement | null>(null);
-const deleteModalRef = ref<HTMLElement | null>(null);
-let templateModalInstance: Modal | null = null;
-let deleteModalInstance: Modal | null = null;
-
+const isEditMode = ref(false);
 const selectedTemplate = ref<Template | null>(null);
-const templateToDeleteId = ref<number | null>(null);
-const templateToDeleteName = computed(() => templates.value.find(t => t.id === templateToDeleteId.value)?.template_name || 'this template');
-const deleteStep = ref<'confirm' | 'final'>('confirm');
+const deletedFieldIds = ref<number[]>([]);
 
-
-// --- Computed Property for Search ---
-const filteredTemplates = computed(() => {
-    if (!searchQuery.value) return templates.value;
-    const query = searchQuery.value.toLowerCase();
-    return templates.value.filter(
-        (t) =>
-            t.template_name.toLowerCase().includes(query) ||
-            t.description.toLowerCase().includes(query) ||
-            (t.category?.name?.toLowerCase()?.includes(query) ?? false)
-    );
+const formData = ref({
+    id: null as number | null,
+    template_name: '',
+    category_id: '' as number | '',
+    description: '',
+    status: 'Active' as 'Active' | 'Inactive',
+    created_by: 1,
+    fields: [] as Field[]
 });
 
+let templateModal: Modal | null = null;
+let deleteModal: Modal | null = null;
 
-// --- Helper Functions ---
-
-const frontendTypeToBackendType = (type: 'input' | 'checkbox' | 'photo'): Field['field_type'] => {
-    if (type === 'input') return 'text';
-    if (type === 'checkbox') return 'checkbox';
-    if (type === 'photo') return 'image';
-    return 'text';
+// Helpers
+const getUiType = (fieldType: string): 'input' | 'checkbox' | 'dropdown' => {
+    if (fieldType === 'dropdown') return 'dropdown';
+    if (fieldType === 'checkbox') return 'checkbox';
+    return 'input'; // Default 'text' to 'input'
 };
 
-const backendTypeToFrontendType = (type: Field['field_type']): 'input' | 'checkbox' | 'photo' => {
-    if (type === 'text' || type === 'number' || type === 'textarea') return 'input';
-    if (type === 'checkbox') return 'checkbox';
-    if (type === 'image') return 'photo';
-    return 'input';
+const getBackendType = (uiType: string): string => {
+    if (uiType === 'input') return 'text';
+    return uiType; // checkbox, dropdown stay same
 };
 
-const handleApiError = (data: any, status: number) => {
-    validationErrors.value = {};
-    if (status === 422 && data.errors) {
-        validationErrors.value = data.errors;
-        modalErrorMessage.value = "Validation failed. Please check the fields and try again.";
-    } else {
-        errorMessage.value = data.message || `An error occurred (Status: ${status}).`;
-    }
-};
-
-// --- API FETCH (READ) ---
-
-const fetchTemplates = async () => {
+// Data Actions
+const fetchData = async () => {
     isLoading.value = true;
-    errorMessage.value = '';
-    const token = getAuthToken();
-
     try {
-        const response = await fetch(TEMPLATES_API_URL, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        const data = await response.json();
-
-        if (response.ok) {
-            templates.value = data;
-        } else {
-            handleApiError(data, response.status);
-        }
-    } catch (e) {
-        errorMessage.value = 'Failed to connect to the API to load templates.';
-    } finally {
-        isLoading.value = false;
-    }
+        const [tRes, cRes] = await Promise.all([
+            fetch('http://127.0.0.1:8000/api/resource-templates'),
+            fetch('http://127.0.0.1:8000/api/categories')
+        ]);
+        templates.value = await tRes.json();
+        categories.value = await cRes.json();
+    } catch (e) { errorMessage.value = "Load error."; }
+    finally { isLoading.value = false; }
 };
 
-const fetchCategories = async () => {
-    const token = getAuthToken();
-    try {
-        const response = await fetch(CATEGORIES_API_URL, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        const data = await response.json();
-        if (response.ok) {
-            categories.value = data;
-        }
-    } catch (e) {
-        console.error("Could not fetch categories:", e);
-    }
-}
-
-// --- API CRUD (CREATE/UPDATE/DELETE) ---
-
-const saveTemplate = async () => {
-    if (!formData.value.category_id || !formData.value.template_name) {
-        modalErrorMessage.value = 'Template Name and Category are required.';
-        return;
-    }
-    if (!formData.value.fields || formData.value.fields.length === 0) {
-        modalErrorMessage.value = 'Please add at least one field to the template.';
-        return;
-    }
-
-    isSaving.value = true;
-    modalErrorMessage.value = '';
-    validationErrors.value = {};
-    successMessage.value = '';
-    errorMessage.value = '';
-    
-    const token = getAuthToken();
-    const isUpdate = isEditMode.value && selectedTemplate.value?.id;
-    const url = isUpdate ? `${TEMPLATES_API_URL}/${selectedTemplate.value!.id}` : TEMPLATES_API_URL;
-    const method = isUpdate ? 'PUT' : 'POST';
-
-    try {
-        // Prepare API payload (Mapping frontend structure to backend keys)
-        const payload = {
-            template_name: formData.value.template_name.trim(),
-            category_id: formData.value.category_id,
-            description: formData.value.description || null,
-            status: formData.value.status,
-            created_by: formData.value.created_by,
-            fields: formData.value.fields.map(field => ({
-                // Keep the 'id' for existing fields during update
-                ...(isUpdate && field.id && { id: field.id }), 
-                field_name: field.field_name,
-                field_type: field.field_type,
-                is_required: true, // Assuming all template fields are required by default
-            })),
-        };
-
-        const response = await fetch(url, {
-            method: method,
-            headers: { 
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(payload),
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-            successMessage.value = data.message || (isUpdate ? 'Template updated successfully!' : 'Template created successfully!');
-            await fetchTemplates();
-            templateModalInstance?.hide();
-        } else {
-            handleApiError(data, response.status);
-            modalErrorMessage.value = validationErrors.value.template_name?.[0] || validationErrors.value['fields.0.field_name']?.[0] || data.message || "Failed to save template.";
-        }
-    } catch (e) {
-        errorMessage.value = 'Network error while saving template.';
-    } finally {
-        isSaving.value = false;
-    }
-};
-
-
-const deletePermanently = async () => {
-    if (deleteStep.value !== 'final' || templateToDeleteId.value === null) return; 
-
-    isSaving.value = true;
-    errorMessage.value = '';
-    successMessage.value = '';
-    
-    const token = getAuthToken();
-    const id = templateToDeleteId.value;
-
-    try {
-        const response = await fetch(`${TEMPLATES_API_URL}/${id}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        const data = await response.json();
-
-        if (response.ok) {
-            successMessage.value = data.message || 'Template deleted successfully.';
-            await fetchTemplates();
-            deleteModalInstance?.hide();
-        } else {
-            handleApiError(data, response.status);
-            // Display error prominently
-            errorMessage.value = data.message || "Failed to delete template.";
-        }
-
-    } catch (e) {
-        errorMessage.value = 'Network error while deleting template.';
-    } finally {
-        isSaving.value = false;
-        handleCancelDeletion(); // Close and reset modal state
-    }
-};
-
-// --- Form Logic (Add/Edit) ---
-
-const resetFormData = () => {
-    formData.value = {
-        category_id: null,
-        template_name: '',
-        description: '',
-        fields: [],
-        status: 'Active',
-        created_by: 1, // Mock user ID 
-    };
-    activeFieldType.value = null;
-    modalErrorMessage.value = '';
-    validationErrors.value = {};
-};
-
-
-const openAddModal = () => {  
+const openAddModal = () => {
     isEditMode.value = false;
-    resetFormData();
-    templateModalInstance?.show();
+    formData.value = { id: null, template_name: '', category_id: '', description: '', status: 'Active', created_by: 1, fields: [] };
+    deletedFieldIds.value = [];
+    templateModal?.show();
 };
 
-const openEditModal = async (template: Template) => {
-    selectedTemplate.value = template;
-    resetFormData(); // Resetting first clears old validation errors
+const openEditModal = (template: Template) => {
     isEditMode.value = true;
-    
-    // Set basic fields
-    formData.value.id = template.id;
-    formData.value.template_name = template.template_name;
-    formData.value.description = template.description;
-    formData.value.category_id = template.category_id;
-    formData.value.status = template.status;
-
-    // Map backend fields to frontend format
-    formData.value.fields = template.fields.map(f => ({
-        id: f.id,
-        field_name: f.field_name,
-        field_type: f.field_type,
-        // Map backend type string to frontend component type
-        type: backendTypeToFrontendType(f.field_type), 
-    } as Field)); 
-
-    templateModalInstance?.show();
+    selectedTemplate.value = template;
+    deletedFieldIds.value = [];
+    formData.value = {
+        id: template.id,
+        template_name: template.template_name,
+        category_id: template.category_id,
+        description: template.description || '',
+        status: template.status,
+        created_by: template.created_by,
+        fields: template.fields.map(f => {
+            const uiType = getUiType(f.field_type);
+            let opts: string[] = [];
+            if (f.metadata) {
+                const meta = typeof f.metadata === 'string' ? JSON.parse(f.metadata) : f.metadata;
+                opts = meta.options || [];
+            }
+            return {
+                id: f.id,
+                field_name: f.field_name,
+                field_type: f.field_type,
+                type: uiType,
+                is_required: Boolean(f.is_required),
+                options: uiType === 'dropdown' ? (opts.length ? [...opts] : ['Option 1', 'Option 2']) : []
+            };
+        })
+    };
+    templateModal?.show();
 };
 
-const addField = (type: 'input' | 'checkbox' | 'photo') => {
-    activeFieldType.value = type;
-    const defaultName =
-        type === 'input' ? 'New Input Field' :
-        type === 'checkbox' ? 'New Check Box' : 'Photo Upload';
-
-    formData.value.fields!.push({
-        field_name: defaultName,
-        field_type: frontendTypeToBackendType(type), // Store backend type
-        type: type, // Store frontend type for rendering
-    } as Field);
+const addField = (uiType: 'input' | 'checkbox' | 'dropdown') => {
+    formData.value.fields.push({
+        field_name: '',
+        field_type: getBackendType(uiType),
+        type: uiType,
+        is_required: false,
+        options: uiType === 'dropdown' ? ['Option 1', 'Option 2'] : []
+    });
 };
 
 const removeField = (index: number) => {
-    formData.value.fields!.splice(index, 1);
+    const field = formData.value.fields[index];
+    if (field.id) deletedFieldIds.value.push(field.id);
+    formData.value.fields.splice(index, 1);
 };
 
+const addOption = (idx: number) => formData.value.fields[idx].options?.push(`Option ${formData.value.fields[idx].options!.length + 1}`);
+const removeOption = (fIdx: number, oIdx: number) => formData.value.fields[fIdx].options?.splice(oIdx, 1);
 
-// --- Delete Logic ---
+const saveTemplate = async () => {
+    isLoading.value = true;
+    try {
+        const payloadFields = formData.value.fields.map((f, i) => {
+            const obj: any = {
+                field_name: f.field_name,
+                field_type: getBackendType(f.type),
+                is_required: f.is_required,
+                order_index: i
+            };
+            if (f.id) obj.id = f.id;
+            if (f.type === 'dropdown') {
+                obj.metadata = JSON.stringify({ options: (f.options || []).filter(o => o.trim() !== '') });
+            }
+            return obj;
+        });
 
-const openDeleteConfirmation = (template: Template) => {
-    templateToDeleteId.value = template.id;
-    deleteStep.value = 'confirm'; 
-    deleteModalInstance?.show();
+        const url = isEditMode.value ? `http://127.0.0.1:8000/api/resource-templates/${formData.value.id}` : 'http://127.0.0.1:8000/api/resource-templates';
+        const res = await fetch(url, {
+            method: isEditMode.value ? 'PUT' : 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...formData.value, fields: payloadFields, delete_fields: deletedFieldIds.value })
+        });
+
+        if (res.ok) {
+            successMessage.value = "Template saved successfully!";
+            templateModal?.hide();
+            fetchData();
+        } else {
+            const err = await res.json();
+            errorMessage.value = err.message || "Save failed.";
+        }
+    } catch (e) { errorMessage.value = "Network error."; }
+    finally { isLoading.value = false; }
 };
 
-const handleFirstConfirmation = () => {
-    deleteStep.value = 'final'; 
+const confirmDelete = (t: Template) => { selectedTemplate.value = t; deleteModal?.show(); };
+const deleteTemplate = async () => {
+    try {
+        await fetch(`http://127.0.0.1:8000/api/resource-templates/${selectedTemplate.value?.id}`, { method: 'DELETE' });
+        successMessage.value = "Template deleted.";
+        deleteModal?.hide();
+        fetchData();
+    } catch (e) { errorMessage.value = "Delete failed."; }
 };
 
-const handleCancelDeletion = () => {
-    deleteModalInstance?.hide();
-    templateToDeleteId.value = null;
-    deleteStep.value = 'confirm'; 
-};
-
-
-// --- LIFECYCLE ---
 onMounted(() => {
-    // Initialize Bootstrap Modals
-    if (templateModalRef.value) {
-        templateModalInstance = new Modal(templateModalRef.value);
-        templateModalRef.value.addEventListener('hidden.bs.modal', resetFormData);
-    }
-    if (deleteModalRef.value) {
-        deleteModalInstance = new Modal(deleteModalRef.value);
-        deleteModalRef.value.addEventListener('hidden.bs.modal', handleCancelDeletion);
-    }
-    
-    // Fetch initial data
-    fetchCategories();
-    fetchTemplates();
+    fetchData();
+    templateModal = new Modal(document.getElementById('templateModal')!);
+    deleteModal = new Modal(document.getElementById('deleteConfirmModal')!);
 });
+
+const filteredTemplates = computed(() => templates.value.filter(t => t.template_name.toLowerCase().includes(searchQuery.value.toLowerCase())));
 </script>
 
 <style scoped>
-/* --- General Section & Sidebar Layout --- */
-.template-page.section {
-    animation: fadeIn 0.3s ease;
-    padding: 20px;
-    margin-left: 260px; 
-}
-@media (max-width: 768px) {
-    .template-page.section {
-        margin-left: 80px; 
-    }
-}
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-.section-title {
-    color: #1e4449;
-    font-weight: 600;
-    margin-bottom: 24px;
-}
-.page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 24px; 
-    gap: 20px;
-}
-
-/* --- Button Styling --- */
-.btn-success { background-color: #4BB66D; border-color: #4BB66D; }
-.btn-success:hover { background-color: #3f975b; border-color: #3f975b; }
-.btn-success.add-new-btn { padding: 10px 20px; border-radius: 8px; }
-
-.btn-outline-primary { --bs-btn-color: #0d6efd; --bs-btn-border-color: #0d6efd; }
-.btn-outline-danger { --bs-btn-color: #dc3545; --bs-btn-border-color: #dc3545; }
-
-.btn-warning { color: #212529 !important; background-color: #ffc107 !important; border-color: #ffc107 !important; }
-.btn-warning:hover { background-color: #e0a800 !important; border-color: #e0a800 !important; }
-
-/* --- Table & Card Styling --- */
-.table-card {
-    background: white;
-    border-radius: 8px; 
-    padding: 24px; 
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); 
-    overflow: hidden;
-}
-.table thead th {
-    background-color: #f8f9fa; 
-    font-weight: 600;
-    border-bottom: 1px solid #dee2e6; 
-    padding: 12px 15px; 
-}
-.table tbody td {
-    padding: 12px 15px; 
-    vertical-align: middle;
-}
-.btn-group-sm .btn {
-    padding: 0.25rem 0.5rem; 
-}
-
-/* --- Modal & Builder Styles --- */
-.modal-dialog.modal-lg { max-width: 900px !important; }
-.modal-content { border-radius: 12px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2); }
-.modal-header, .modal-footer { border-color: #dee2e6; padding: 20px; }
-.modal-body { padding: 30px; }
-.modal-dialog.delete-modal-top { align-items: flex-start; margin-top: 50px; height: auto; }
-
-
-.field-buttons { display: flex; gap: 10px; flex-wrap: wrap; }
-.field-buttons .btn { border-radius: 8px; }
-.field-buttons .btn.active { background-color: #0d6efd; color: white; }
-
-.template-builder {
-    border: 2px dashed #dee2e6;
-    border-radius: 8px;
-    padding: 20px;
-    min-height: 300px;
-    background-color: #f8f9fa;
-}
-.field-item {
-    background: white;
-    padding: 15px;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-.photo-upload-area {
-    border: 2px dashed #dee2e6;
-    border-radius: 8px;
-    padding: 20px;
-    text-align: center;
-    background-color: #f8f9fa;
-}
-.photo-upload-area i { font-size: 48px; color: #6c757d; }
-
-@media (max-width: 768px) {
-    .page-header { flex-direction: column; align-items: stretch; }
-    .input-group, .template-page .add-new-btn { width: 100% !important; max-width: 100% !important; }
-    .field-buttons { flex-direction: column; }
-    .field-buttons .btn { width: 100%; }
-}
+.template-page { background: #f8f9fa; min-height: 100vh; padding: 2rem; }
+.field-card { border-radius: 8px; transition: all 0.2s; }
+.field-card:hover { transform: translateY(-2px); }
+.field-container { max-height: 500px; overflow-y: auto; }
 </style>

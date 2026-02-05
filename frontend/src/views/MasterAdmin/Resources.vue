@@ -5,6 +5,12 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
       <h2 class="section-title mb-0">Resources</h2>
       <div class="d-flex gap-2 mt-3">
+        <button
+          class="btn btn-outline-dark-teal btn-sm"
+          @click="navigateToDepartment"
+        >
+          <i class="bi bi-list-ul me-1"></i>Department
+        </button>
          <button
           class="btn btn-outline-dark-teal btn-sm"
           @click="navigateToBooking_Item"
@@ -453,6 +459,10 @@ const handleDeleteResource = async () => {
 };
 
 // Navigation Handlers
+const navigateToDepartment = () => {
+    router.push('/department');
+};
+
 const navigateToBooking_Item = () => {
     router.push('/booking_item');
 };
