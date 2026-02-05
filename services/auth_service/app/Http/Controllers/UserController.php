@@ -15,20 +15,23 @@ class UserController extends Controller
         return User::with('roles')->get();
     }
 
-    //store
+    // store
     public function store(Request $request)
     {
+        // Validate input
         $validated = $request->validate([
             'name' => 'required|string',
             'email' => 'required|email|unique:users',
             'password' => 'required|string|min:6',
         ]);
+        // Create user
         $user = User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
             'status' => 'active',
         ]);
+        // Assign default role 'User'
         $role = Role::where('name', 'User')->first();
         if ($role) {
             $user->roles()->attach($role);
@@ -37,9 +40,10 @@ class UserController extends Controller
         return response()->json($user, 201);
     }
 
-    //update
+    // update
     public function update(Request $request, User $user)
     {
+        // Validate input
         $validated = $request->validate([
             'name' => 'nullable|string',
             'email' => 'nullable|email|unique:users,email,' . $user->id, 
@@ -48,17 +52,18 @@ class UserController extends Controller
             'role' => 'nullable|string|exists:roles,name',
         ]);
         $dataToUpdate = $validated;
-
+        // Hash password if provided
         if (isset($dataToUpdate['password'])) {
             $dataToUpdate['password'] = Hash::make($dataToUpdate['password']);
         }
+        // Update status if provided
         if (isset($request['status'])) {
             $user->update(['status' => $request['status']]);
         }
-
+        // Remove role from data to update
         unset($dataToUpdate['role']); 
         $user->update($dataToUpdate);
-
+        // Update role if provided
         if (isset($validated['role'])) {
             $role = Role::where('name', $validated['role'])->first();
             $user->roles()->sync([$role->id]);
@@ -69,6 +74,7 @@ class UserController extends Controller
     //get all admins
     public function getAdmins()
     {
+        // Fetch users with 'Admin' role
         $adminRole = Role::where('name', 'Admin')->first();
         if (!$adminRole) {
             return response()->json([], 200);
