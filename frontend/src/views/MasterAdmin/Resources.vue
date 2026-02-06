@@ -253,6 +253,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { resourceStore } from '../../store/resourceStore';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
 import Navbar from '../../components/Navbar.vue';
@@ -301,7 +302,7 @@ const searchQuery = ref('');
 const selectedCategory = ref('');
 const resources = ref<Resource[]>([]);
 const categories = ref<Category[]>([]);
-const isLoading = ref(false);
+const isLoading = ref(!resourceStore.isLoaded);
 const isDeleting = ref(false);
 const errorMessage = ref('');
 
@@ -314,7 +315,8 @@ const deleteStep = ref<'confirm' | 'final'>('confirm');
 
 // Computed
 const filteredResources = computed(() => {
-  return resources.value.filter(resource => {
+  // MUST use resourceStore.resources
+  return resourceStore.resources.filter(resource => {
     const matchesSearch = resource.name.toLowerCase().includes(searchQuery.value.toLowerCase());
     const matchesCategory = !selectedCategory.value || resource.category_id.toString() === selectedCategory.value;
     return matchesSearch && matchesCategory;
@@ -346,8 +348,8 @@ const getImageUrl = (resource: Resource): string => {
 };
 
 const getCategoryName = (categoryId: number): string => {
-    const category = categories.value.find(c => c.id === categoryId);
-    return category ? category.name : 'Unknown';
+  const category = resourceStore.categories.find(c => c.id === categoryId);
+  return category ? category.name : 'Unknown';
 };
 
 const getStatusClass = (status: string): string => {
@@ -409,53 +411,38 @@ const fetchCategories = async () => {
 };
 
 const toggleResourceStatus = async (id: number) => {
-    const resource = resources.value.find(r => r.id === id);
-    if (!resource) return;
-    
-    const newStatus = resource.status === 'Active' ? 'Inactive' : 'Active';
-    
-    try {
-        const token = getAuthToken();
-        await axios.put(`${API_BASE_URL}/resources/${id}`, 
-            { status: newStatus },
-            {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json',
-                }
-            }
-        );
-        
-        resource.status = newStatus;
-    } catch (error) {
-        console.error('Error updating status:', error);
-        errorMessage.value = 'Failed to update resource status.';
-    }
+  const resource = resourceStore.resources.find(r => r.id === id);
+  if (!resource) return;
+  const newStatus = resource.status === 'Active' ? 'Inactive' : 'Active';
+
+  try {
+    const token = getAuthToken();
+    await axios.put(`${API_BASE_URL}/resources/${id}`, { status: newStatus }, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    // Update the store directly - UI updates instantly
+    resourceStore.updateStatus(id, newStatus);
+  } catch (error) {
+    errorMessage.value = 'Failed to update resource status.';
+  }
 };
 
 const handleDeleteResource = async () => {
-    if (!resourceToDelete.value) return;
-    
-    isDeleting.value = true;
-    
-    try {
-        const token = getAuthToken();
-        await axios.delete(`${API_BASE_URL}/resources/${resourceToDelete.value.id}`, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/json',
-            }
-        });
-        
-        // Remove from local array
-        resources.value = resources.value.filter(r => r.id !== resourceToDelete.value!.id);
-        
-        handleCancelDeletion();
-    } catch (error) {
-        console.error('Error deleting resource:', error);
-        errorMessage.value = 'Failed to delete resource.';
-        isDeleting.value = false;
-    }
+  if (!resourceToDelete.value) return;
+  isDeleting.value = true;
+  try {
+    const token = getAuthToken();
+    await axios.delete(`${API_BASE_URL}/resources/${resourceToDelete.value.id}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    // Remove from store instantly
+    resourceStore.removeResource(resourceToDelete.value.id);
+    handleCancelDeletion();
+  } catch (error) {
+    errorMessage.value = 'Failed to delete resource.';
+  } finally {
+    isDeleting.value = false;
+  }
 };
 
 // Navigation Handlers
@@ -519,10 +506,13 @@ const handleCancelDeletion = () => {
     deleteStep.value = 'confirm';
     isDeleting.value = false;
 };
-
 // Initialization
 onMounted(async () => {
-    await Promise.all([fetchResources(), fetchCategories()]);
+    // 1. Only fetch from the API if the store is empty
+    if (!resourceStore.isLoaded) {
+        await resourceStore.fetchAll();
+    }
+    isLoading.value = false;
 });
 </script>
 
