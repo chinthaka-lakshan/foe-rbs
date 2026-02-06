@@ -75,100 +75,86 @@ import Navbar from '../../components/Navbar.vue';
 import MasterAdminSidebar from '../../components/Sidebar/MasterAdminSidebar.vue';
 import { systemStore } from '../../store/systemSettings';
 
-const settings = ref({
-  site_name: '',
-  organization_name: '',
-  contact_email: '',
-  phone_number: '',
-  address: ''
-});
-
+// Local state initialized from the Global Store
+const settings = ref({ ...systemStore.settings });
 const selectedFile = ref<File | null>(null);
 const logoPreview = ref<string | null>(null);
 const isLoading = ref(false);
-const serverLogo = ref<string | null>(null); // Track original server image
 
-// SystemSettings.vue
-
-const fetchSettings = async () => {
-  try {
-    const res = await axios.get('http://localhost:8000/api/settings');
-    settings.value = {
-      site_name: res.data.site_name || '',
-      organization_name: res.data.organization_name || '',
-      contact_email: res.data.contact_email || '',
-      phone_number: res.data.phone_number || '',
-      address: res.data.address || ''
-    };
-
-    if (res.data.logo) {
-      // Extract the filename from the path (e.g., "logos/abc.png" -> "abc.png")
-      const filename = res.data.logo.split('/').pop();
-      // Point to our new Gateway Proxy route
-      logoPreview.value = `http://localhost:8000/api/settings/logo/${filename}`;
-    }
-  } catch (e) { 
-    console.error("Fetch error:", e); 
-  }
-};
+/**
+ * Handles instant local preview of uploaded logo
+ */
 const handleFileUpload = (e: Event) => {
   const file = (e.target as HTMLInputElement).files?.[0];
   if (file) {
     selectedFile.value = file;
-    logoPreview.value = URL.createObjectURL(file); // Instant local blob preview
+    logoPreview.value = URL.createObjectURL(file);
   }
 };
 
+/**
+ * Reverts the logo to the currently saved version
+ */
 const resetLogo = () => {
   selectedFile.value = null;
-  logoPreview.value = serverLogo.value; // Revert to what is currently on the server
+  logoPreview.value = systemStore.logo;
 };
 
+/**
+ * Persists settings to the database and updates the global store
+ */
 const saveSettings = async () => {
   isLoading.value = true;
   const formData = new FormData();
   
-  // 1. Manually map the keys to match your Database/Postman output
-  // Your Postman shows "site_name", so we must send "site_name"
+  // Mapping local site_name to the database key
   formData.append('site_name', settings.value.site_name); 
   formData.append('organization_name', settings.value.organization_name);
   formData.append('contact_email', settings.value.contact_email);
   formData.append('phone_number', settings.value.phone_number);
   formData.append('address', settings.value.address);
 
-  // 2. Handle the logo file
   if (selectedFile.value) {
     formData.append('logo', selectedFile.value);
   }
 
   try {
-    // 3. Send to API Gateway
     const response = await axios.post('http://localhost:8000/api/settings', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
+      headers: { 'Content-Type': 'multipart/form-data' }
     });
     
-    // 4. Update the Global Store so the sidebar updates instantly
+    // Push the new data to the Global Store memory immediately
     systemStore.updateState(response.data); 
 
-    // 5. Success cleanup
+    // Success cleanup
     selectedFile.value = null;
-    serverLogo.value = logoPreview.value; 
-
-    alert('Configuration updated successfully in database.');
-    
-    // Refresh to ensure frontend matches DB exactly
-    await fetchSettings(); 
+    logoPreview.value = systemStore.logo; 
+    alert('System identity updated successfully.');
 
   } catch (e) {
     console.error("Save Error:", e);
-    alert('Failed to save settings. Check if the API Gateway is forwarding all fields.');
+    alert('Failed to save settings. Check if the API Gateway is reachable.');
   } finally {
     isLoading.value = false;
   }
 };
-onMounted(fetchSettings);
+
+/**
+ * Lifecycle Hook: Instant Load Logic
+ */
+onMounted(async () => {
+  // If data isn't in memory yet, fetch it once.
+  // If we pre-fetched at login, this happens in 0ms.
+  if (!systemStore.isLoaded) {
+    isLoading.value = true;
+    await systemStore.loadSettings();
+    isLoading.value = false;
+  }
+  
+  // Sync form with memory
+  settings.value = { ...systemStore.settings };
+  logoPreview.value = systemStore.logo;
+});
 </script>
 
 <style scoped>

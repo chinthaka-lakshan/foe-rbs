@@ -69,45 +69,72 @@ class ResourceController extends Controller
 
     // Update an existing resource with multiple time slots
     public function update(Request $request, $id): JsonResponse
-    {
-        // Validate input
-        $resource = Resource::findOrFail($id);
-        $validatedData = $this->validateResource($request, true);
+{
+    // 1. Find the resource or fail early
+    $resource = Resource::findOrFail($id);
+    
+    // 2. Validate input using your custom method
+    $validatedData = $this->validateResource($request, true);
 
-        DB::beginTransaction();
-        try {
-            // Update base resource data
-            $resource->update(collect($validatedData)->except(['images', 'equipment', 'availability', 'removeImages', 'delete_equipment'])->toArray());
+    DB::beginTransaction();
+    try {
+        // 3. Update base resource data
+        // We exclude relationship keys to prevent SQL errors in the main table update
+        $resource->update(collect($validatedData)->except([
+            'images', 'equipment', 'availability', 'removeImages', 'delete_equipment'
+        ])->toArray());
 
-            // Handle Image Deletions
-            if (!empty($request->removeImages)) {
-                $images = ResourceImage::where('resource_id', $id)->whereIn('id', $request->removeImages)->get();
-                foreach ($images as $img) {
-                    Storage::disk('public')->delete($img->file_path);
-                    $img->delete();
-                }
+        // 4. Handle Image Deletions
+        if (!empty($request->removeImages)) {
+            $images = ResourceImage::where('resource_id', $id)
+                ->whereIn('id', $request->removeImages)
+                ->get();
+                
+            foreach ($images as $img) {
+                Storage::disk('public')->delete($img->file_path);
+                $img->delete();
             }
-
-            // Handle new image uploads
-            if ($request->hasFile('images')) {
-                $this->processImages($resource, $request->file('images'));
-            }
-
-            // Sync Availability and Slots
-            if (isset($validatedData['availability'])) {
-                $this->syncAvailability($resource, $validatedData['availability']);
-            }
-
-            DB::commit();
-            return response()->json([
-                'message' => 'Resource updated successfully',
-                'resource' => $resource->load(['category', 'images', 'equipment', 'availability.slots'])
-            ]);
-        } catch (Exception $e) {
-            DB::rollBack();
-            return response()->json(['message' => 'Update failed', 'error' => $e->getMessage()], 500);
         }
+
+        // 5. Handle new image uploads
+        if ($request->hasFile('images')) {
+            $this->processImages($resource, $request->file('images'));
+        }
+
+        // 6. Sync Equipment (Fixed missing brace logic)
+        if (isset($validatedData['equipment'])) {
+            // Delete old equipment records and replace with new ones (Atomic Sync)
+            $resource->equipment()->delete(); 
+            
+            foreach ($validatedData['equipment'] as $item) {
+                $resource->equipment()->create([
+                    'equipment_name' => $item['equipment_name'],
+                    'quantity' => $item['quantity'],
+                ]);
+            }
+        } // <--- Added the missing closing brace here
+
+        // 7. Sync Availability and Slots
+        if (isset($validatedData['availability'])) {
+            $this->syncAvailability($resource, $validatedData['availability']);
+        }
+
+        DB::commit();
+
+        // 8. Return the fully loaded resource for the Global Store
+        return response()->json([
+            'message' => 'Resource updated successfully',
+            'resource' => $resource->load(['category', 'images', 'equipment', 'availability.slots'])
+        ]);
+
+    } catch (Exception $e) {
+        DB::rollBack();
+        return response()->json([
+            'message' => 'Update failed', 
+            'error' => $e->getMessage()
+        ], 500);
     }
+}
 
     // Sync Resource Availability and Slots
     private function syncAvailability(Resource $resource, array $availabilityData)
