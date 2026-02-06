@@ -86,10 +86,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import StatCard from '../../components/StatCard.vue';
 import PieChart from '../../components/PieChart.vue';
 import Navbar from '../../components/Navbar.vue';
+import { userStore } from '../../store/userStore'
 import MasterAdminSidebar from '../../components/Sidebar/MasterAdminSidebar.vue';
 
 // --- API CONFIG ---
@@ -99,7 +100,7 @@ const getAuthToken = () => localStorage.getItem('authToken');
 // --- STATE ---
 const isLoading = ref(true);
 const stats = ref({
-  totalUsers: 0,
+  totalUsers: computed(() => userStore.users.length),
   totalResources: 0,
   pendingBookings: 0,
   approvedBookings: 0,
@@ -127,12 +128,8 @@ const fetchDashboardData = async () => {
 
   try {
     // 1. Fetch Users Count
-    const userRes = await fetch(`${API_BASE_URL}/users`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    if (userRes.ok) {
-        const usersData = await userRes.json();
-        stats.value.totalUsers = Array.isArray(usersData) ? usersData.length : 0;
+    if (!userStore.isLoaded) {
+      await userStore.fetchUsers();
     }
 
     // 2. Fetch Bookings and filter by exact Backend Status strings

@@ -303,9 +303,11 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { userStore } from '../../store/userStore';
 import { Modal } from 'bootstrap'; 
 import Navbar from '../../components/Navbar.vue';
 import MasterAdminSidebar from '../../components/Sidebar/MasterAdminSidebar.vue';
+
 
 // --- API CONFIG ---
 const API_BASE_URL = 'http://localhost:8000/api'; 
@@ -380,18 +382,14 @@ let userModalInstance: Modal | null = null;
 let roleModalInstance: Modal | null = null;
 let deleteModalInstance: Modal | null = null;
 
-// --- COMPUTED PROPERTIES ---
-const stats = computed(() => {
-  const totalUsers = users.value.length;
-  const totalAdmins = users.value.filter(u => u.primaryRole.toLowerCase().includes('admin')).length;
-  return {
-    totalUsers,
-    totalAdmins 
-  };
-});
+
+const stats = computed(() => ({
+  totalUsers: userStore.users.length,
+  totalAdmins: userStore.users.filter(u => u.primaryRole.toLowerCase().includes('admin')).length
+}));
 
 const filteredUsers = computed(() => {
-  return users.value.filter(user => {
+  return userStore.users.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchQuery.value.toLowerCase());
     const matchesRole = !selectedRole.value || user.primaryRole.toLowerCase() === selectedRole.value.toLowerCase();
@@ -461,9 +459,7 @@ const toggleUserStatus = async (user: User) => {
     }
 
     if (response.ok) {
-      successMessage.value = `User "${user.name}" status updated to ${newStatus} successfully!`;
-      // Update the local user status immediately for better UX
-      user.status = newStatus;
+      userStore.updateUserLocally(user.id, { status: newStatus });               
     } else {
       handleApiError(data, response.status);
       // Revert the toggle if API call fails
@@ -525,8 +521,7 @@ const handleDelete = async () => {
     }));
 
     if (response.ok) {
-      successMessage.value = data.message || `User "${userToDelete.value.name}" deleted successfully.`;
-      await fetchUsers();
+      userStore.removeUserLocally(userToDelete.value.id);
       deleteModalInstance?.hide();
     } else {
       handleApiError(data, response.status);
@@ -654,9 +649,9 @@ const handleStore = async () => {
     }
 
     if (response.ok) {
-      successMessage.value = `User '${data.name}' created successfully!`;
+      userStore.addUserLocally(data);
       userModalInstance?.hide();
-      await fetchUsers();
+      successMessage.value = "User added successfully!";
     } else {
       handleApiError(data, response.status);
     }
@@ -722,8 +717,8 @@ const fetchUsers = async () => {
 };
 
 // --- LIFECYCLE HOOK ---
-onMounted(() => {
-  // Initialize Bootstrap Modals
+onMounted(async () => {
+  // 1. Initialize Bootstrap Modals first
   if (userModalRef.value) {
     userModalInstance = new Modal(userModalRef.value);
     userModalRef.value.addEventListener('hidden.bs.modal', resetNewUserForm);
@@ -738,7 +733,15 @@ onMounted(() => {
     deleteModalRef.value.addEventListener('hidden.bs.modal', handleCancelDeletion);
   }
 
-  fetchUsers();
+  // 2. Global Store Logic: Only fetch if we don't have the data yet
+  if (!userStore.isLoaded) {
+    // This triggers the API call only once per session
+    await userStore.fetchUsers();
+  } 
+  
+  // 3. Stop the local loading spinner
+  // Whether we just fetched or already had data, we are done loading now
+  isLoading.value = false;
 });
 </script>
 
