@@ -685,28 +685,38 @@ Route::get('/settings', function (Request $request) {
         return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
     }
 });
-// Update system settings
+// Optimized Gateway Update
 Route::post('/settings', function (Request $request) {
-    try {
-        $response = Http::timeout(30)
-            ->withToken($request->bearerToken())
-            ->post('http://system_settings_service/api/settings', $request->all());
-        
+    $req = Http::timeout(30)->withToken($request->bearerToken());
+
     if ($request->hasFile('logo')) {
-            $file = $request->file('logo');
-            $response = Http::timeout(30)
-                ->withToken($request->bearerToken())
-                ->attach(
-                    'logo',
-                    file_get_contents($file->getRealPath()),
-                    $file->getClientOriginalName()
-                )
-                ->post('http://system_settings_service/api/settings');
+        $file = $request->file('logo');
+        $req->attach(
+            'logo', 
+            file_get_contents($file->getRealPath()), 
+            $file->getClientOriginalName()
+        );
+    }
+
+    // Send everything (text + file) in one single POST
+    $response = $req->post('http://system_settings_service/api/settings', $request->except('logo'));
+    
+    return handleProxyResponse($response, 'Update failed.');
+});
+
+// image retrieval route
+Route::get('/settings/logo/{filename}', function ($filename) {
+    try {
+        // We fetch the file directly from the internal service's storage path
+        $response = Http::get("http://system_settings_service/storage/logos/{$filename}");
+        
+        if ($response->successful()) {
+            return response($response->body(), 200)
+                ->header('Content-Type', $response->header('Content-Type'));
         }
         
-        return handleProxyResponse($response, 'Failed to update system settings.');
+        return response()->json(['message' => 'Image not found'], 404);
     } catch (Exception $e) {
-        \Log::error('System settings update gateway error: ' . $e->getMessage());
-        return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
+        return response()->json(['message' => 'Gateway file error'], 500);
     }
 });
