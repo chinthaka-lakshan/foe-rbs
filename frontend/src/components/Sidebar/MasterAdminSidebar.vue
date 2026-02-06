@@ -2,14 +2,10 @@
   <aside class="sidebar">
     <div class="brand-section">
       <div class="logo-box">
-        <img 
-          :src="systemLogo" 
-          :alt="systemName" 
-          class="logo-img fixed-logo" 
-        />
+        <img :src="systemStore.logo || '/default-logo.png'" :alt="systemStore.name" class="logo-img fixed-logo" />
       </div>
       <div class="brand-info">
-        <h1 class="brand-name">{{ systemName }}</h1>
+        <h1 class="brand-name">{{ systemStore.name }}</h1>
         <p class="brand-role">Master Admin</p>
       </div>
     </div>
@@ -67,45 +63,22 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { onMounted } from 'vue';
 import { useRoute } from 'vue-router';
-import axios from 'axios';
+import { systemStore } from '../../store/systemSettings';
 
+// 1. Initialize the route helper
 const route = useRoute();
-const isActive = (path: string): boolean => route.path === path;
 
-// --- DYNAMIC BRANDING STATE ---
-const systemName = ref('FOE RBS');
-const logoPath = ref('');
-
-/**
- * Fetches branding settings from the System Settings Service
- * via the API Gateway on Port 8000.
- */
-const fetchSidebarBranding = async () => {
-  try {
-    const res = await axios.get('http://localhost:8000/api/settings');
-    systemName.value = res.data.site_name || 'FOE RBS';
-    logoPath.value = res.data.logo || '';
-  } catch (e) {
-    console.error("Sidebar branding fetch failed", e);
-  }
+// 2. Define the isActive function (This was missing!)
+const isActive = (path: string): boolean => {
+  return route.path === path;
 };
 
-/**
- * Constructs the full URL for the logo.
- * Points to the Gateway proxy for internal service storage.
- */
-const systemLogo = computed(() => {
-  if (logoPath.value) {
-    // Extract filename to use with Gateway proxy or direct storage link
-    const filename = logoPath.value.split('/').pop();
-    return `http://localhost:8000/api/settings/logo/${filename}`;
-  }
-  return '/logo.png'; // Fallback to local public logo
+// 3. Load global settings once on mount
+onMounted(() => {
+  systemStore.loadSettings();
 });
-
-onMounted(fetchSidebarBranding);
 </script>
 
 <style scoped>

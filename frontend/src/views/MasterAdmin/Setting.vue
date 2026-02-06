@@ -25,7 +25,7 @@
             <div class="row g-4">
               <div class="col-md-6">
                 <label class="form-label">System Name</label>
-                <input type="text" class="form-control shadow-none" v-model="settings.system_name" placeholder="e.g., University RBS">
+                <input type="text" class="form-control shadow-none" v-model="settings.site_name" placeholder="e.g., University RBS">
               </div>
               <div class="col-md-6">
                 <label class="form-label">Organization Name</label>
@@ -73,9 +73,10 @@ import { ref, onMounted } from 'vue';
 import axios from 'axios';
 import Navbar from '../../components/Navbar.vue';
 import MasterAdminSidebar from '../../components/Sidebar/MasterAdminSidebar.vue';
+import { systemStore } from '../../store/systemSettings';
 
 const settings = ref({
-  system_name: '',
+  site_name: '',
   organization_name: '',
   contact_email: '',
   phone_number: '',
@@ -93,7 +94,7 @@ const fetchSettings = async () => {
   try {
     const res = await axios.get('http://localhost:8000/api/settings');
     settings.value = {
-      system_name: res.data.site_name || '',
+      site_name: res.data.site_name || '',
       organization_name: res.data.organization_name || '',
       contact_email: res.data.contact_email || '',
       phone_number: res.data.phone_number || '',
@@ -127,26 +128,46 @@ const saveSettings = async () => {
   isLoading.value = true;
   const formData = new FormData();
   
-  // Flatten keys for standard backend processing
-  Object.entries(settings.value).forEach(([k, v]) => formData.append(k, v));
-  
+  // 1. Manually map the keys to match your Database/Postman output
+  // Your Postman shows "site_name", so we must send "site_name"
+  formData.append('site_name', settings.value.site_name); 
+  formData.append('organization_name', settings.value.organization_name);
+  formData.append('contact_email', settings.value.contact_email);
+  formData.append('phone_number', settings.value.phone_number);
+  formData.append('address', settings.value.address);
+
+  // 2. Handle the logo file
   if (selectedFile.value) {
     formData.append('logo', selectedFile.value);
   }
 
   try {
-    await axios.post('http://localhost:8000/api/settings', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
+    // 3. Send to API Gateway
+    const response = await axios.post('http://localhost:8000/api/settings', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
     });
-    alert('System identity updated successfully.');
-    await fetchSettings(); // Refresh preview with new server path
+    
+    // 4. Update the Global Store so the sidebar updates instantly
+    systemStore.updateState(response.data); 
+
+    // 5. Success cleanup
+    selectedFile.value = null;
+    serverLogo.value = logoPreview.value; 
+
+    alert('Configuration updated successfully in database.');
+    
+    // Refresh to ensure frontend matches DB exactly
+    await fetchSettings(); 
+
   } catch (e) {
-    alert('Communication error. Verify API Gateway and Resource Service ports.');
+    console.error("Save Error:", e);
+    alert('Failed to save settings. Check if the API Gateway is forwarding all fields.');
   } finally {
     isLoading.value = false;
   }
 };
-
 onMounted(fetchSettings);
 </script>
 
