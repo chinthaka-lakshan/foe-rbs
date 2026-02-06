@@ -91,6 +91,7 @@ import StatCard from '../../components/StatCard.vue';
 import PieChart from '../../components/PieChart.vue';
 import Navbar from '../../components/Navbar.vue';
 import { userStore } from '../../store/userStore'
+import { resourceStore } from '../../store/resourceStore';
 import MasterAdminSidebar from '../../components/Sidebar/MasterAdminSidebar.vue';
 
 // --- API CONFIG ---
@@ -101,7 +102,7 @@ const getAuthToken = () => localStorage.getItem('authToken');
 const isLoading = ref(true);
 const stats = ref({
   totalUsers: computed(() => userStore.users.length),
-  totalResources: 0,
+  totalResources: computed(() => resourceStore.resources.length),
   pendingBookings: 0,
   approvedBookings: 0,
   rejectedBookings: 0,
@@ -148,12 +149,8 @@ const fetchDashboardData = async () => {
     }
 
     // 3. Fetch Resources Count
-    const resourceRes = await fetch(`${API_BASE_URL}/resources`, {
-       headers: { 'Authorization': `Bearer ${token}` }
-    });
-    if (resourceRes.ok) {
-        const resources = await resourceRes.json();
-        stats.value.totalResources = Array.isArray(resources) ? resources.length : 0;
+    if (!resourceStore.isLoaded) {
+      await resourceStore.fetchAll();
     }
 
   } catch (error) {
