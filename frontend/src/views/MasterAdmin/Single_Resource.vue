@@ -27,7 +27,7 @@
             </div>
 
             <div class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
-              <span :class="resource.status === 'Active' ? 'badge bg-success' : 'badge bg-secondary'" class="fs-6">
+              <span :class="resource.status === 'Active' ? 'badge bg-success' : resource.status === 'Maintenance' ? 'badge bg-warning' : 'badge bg-secondary'" class="fs-6">
                   {{ resource.status.toUpperCase() }}
               </span>
               <span class="fw-bold fs-5 text-dark-teal">
@@ -84,29 +84,50 @@
                 </div>
             </div>
 
+            <!-- UPDATED: Weekly Availability Section -->
             <div class="schedule-details mb-4 pb-3 border-bottom">
                 <h6 class="text-muted fw-bold mb-3">Weekly Availability</h6>
                 
                 <div v-if="!resource.availability || resource.availability.length === 0" class="text-muted small">
-                    Schedule not defined.
+                    No schedule defined.
                 </div>
                 
-                <ul v-else class="list-unstyled schedule-list">
-                    <li v-for="day in resource.availability" :key="day.day_name" class="d-flex justify-content-between align-items-center small">
-                        <span class="fw-medium">{{ day.day_name }}</span>
-                        
-                        <span :class="day.is_available ? 'text-success fw-medium' : 'text-danger'">
-                            <span v-if="day.is_available">
-                                <i class="bi bi-check-circle-fill me-1"></i>
-                                {{ formatTime(day.start_time) }} - {{ formatTime(day.end_time) }}
+                <!-- Day-by-day availability display -->
+                <div v-else class="availability-list">
+                  <div v-for="day in sortedAvailability" :key="day.day_name" class="day-availability mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                      <span class="fw-medium text-dark">{{ day.day_name }}</span>
+                      <span :class="day.is_available ? 'badge bg-success' : 'badge bg-secondary'">
+                        {{ day.is_available ? 'Available' : 'Not Available' }}
+                      </span>
+                    </div>
+                    
+                    <!-- Time slots for the day -->
+                    <div v-if="day.is_available && day.slots && day.slots.length > 0">
+                      <div class="time-slots-container ms-2">
+                        <div v-for="(slot, index) in day.slots" :key="index" class="time-slot mb-2">
+                          <div class="d-flex align-items-center">
+                            <i class="bi bi-clock text-dark-teal me-2"></i>
+                            <span class="slot-time">
+                              {{ formatTime(slot.start_time) }} - {{ formatTime(slot.end_time) }}
                             </span>
-                            <span v-else>
-                                <i class="bi bi-x-circle-fill me-1"></i>
-                                Unavailable
+                            <span v-if="day.slots.length > 1" class="badge bg-light text-dark border ms-2">
+                              Slot {{ index + 1 }}
                             </span>
-                        </span>
-                    </li>
-                </ul>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div v-else-if="day.is_available" class="text-muted small ms-2">
+                      <i class="bi bi-info-circle me-1"></i> No specific time slots defined (available all day)
+                    </div>
+                    
+                    <div v-else class="text-muted small ms-2">
+                      <i class="bi bi-x-circle me-1"></i> Not available on this day
+                    </div>
+                  </div>
+                </div>
             </div>
 
             <div class="equipment-details">
@@ -132,7 +153,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter} from 'vue-router';
 import axios from 'axios';
 import Navbar from '../../components/Navbar.vue';
@@ -145,7 +166,7 @@ const router = useRouter();
 const API_BASE_URL = 'http://localhost:8000/api';
 const STORAGE_URL_ROOT = 'http://localhost:8000/storage';
 
-// Interfaces adjusted to match backend response structure
+// Interfaces updated to match new data structure
 interface ResourceImage {
     id: number;
     file_path: string;
@@ -158,13 +179,17 @@ interface ResourceEquipment {
     quantity: number;
 }
 
+interface TimeSlot {
+    start_time: string;
+    end_time: string;
+}
+
 interface ResourceAvailability {
     id: number;
     day_name: string;
     day_of_week: number;
     is_available: boolean;
-    start_time: string | null;
-    end_time: string | null;
+    slots: TimeSlot[]; // Changed from start_time/end_time to slots array
 }
 
 interface ResourceCategory {
@@ -192,7 +217,6 @@ const resource = ref<Resource | null>(null);
 const isLoading = ref(false);
 const errorMessage = ref('');
 const assignedAdminName = ref<string>('');
-const isFetchingAdminName = ref(false);
 
 // Helper to get auth token
 const getAuthToken = (): string | null => {
@@ -209,14 +233,25 @@ const getImageUrl = (resource: Resource): string => {
 
 const formatTime = (time: string | null): string => {
     if (!time) return '00:00';
-    return time.substring(0, 5); 
+    // Handle both formats: "14:30:00" and "14:30"
+    return time.includes(':') ? time.substring(0, 5) : '00:00';
 };
 
-// Fetch admin details from users table - SIMPLIFIED VERSION
+// Sort availability by day of week (Monday to Sunday)
+const sortedAvailability = computed(() => {
+  if (!resource.value || !resource.value.availability) return [];
+  
+  const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  
+  return [...resource.value.availability].sort((a, b) => {
+    return dayOrder.indexOf(a.day_name) - dayOrder.indexOf(b.day_name);
+  });
+});
+
+// Fetch admin details
 const fetchAdminDetails = async (adminId: number) => {
     if (!adminId) return;
     
-    isFetchingAdminName.value = true;
     try {
         const token = getAuthToken();
         if (!token) {
@@ -224,7 +259,7 @@ const fetchAdminDetails = async (adminId: number) => {
             return;
         }
 
-        // OPTION 1: Try to fetch from users endpoint
+        // Try users endpoint first
         try {
             const response = await axios.get(`${API_BASE_URL}/users`, {
                 headers: {
@@ -251,10 +286,10 @@ const fetchAdminDetails = async (adminId: number) => {
                 return;
             }
         } catch (usersError) {
-            console.log('Users endpoint not available or failed, trying admins...');
+            console.log('Users endpoint not available, trying admins...');
         }
 
-        // OPTION 2: Try admins endpoint
+        // Try admins endpoint
         try {
             const response = await axios.get(`${API_BASE_URL}/admins/${adminId}`, {
                 headers: {
@@ -275,23 +310,53 @@ const fetchAdminDetails = async (adminId: number) => {
                 assignedAdminName.value = `Admin ID: ${adminId}`;
             }
         } catch (adminsError) {
-            console.error('Both users and admins endpoints failed');
+            console.error('Both endpoints failed');
             assignedAdminName.value = `Admin ID: ${adminId}`;
         }
         
     } catch (error: any) {
         console.error('Error fetching admin details:', error);
         assignedAdminName.value = `Admin ID: ${adminId}`;
-    } finally {
-        isFetchingAdminName.value = false;
     }
+};
+
+// Process availability data - handle both old and new formats
+const processAvailabilityData = (availabilityData: any[]) => {
+  if (!availabilityData || !Array.isArray(availabilityData)) return [];
+  
+  return availabilityData.map(day => {
+    // If slots array exists, use it
+    if (day.slots && Array.isArray(day.slots)) {
+      return {
+        ...day,
+        slots: day.slots.map((slot: any) => ({
+          start_time: slot.start_time || '',
+          end_time: slot.end_time || ''
+        }))
+      };
+    }
+    
+    // Otherwise, create a slots array from old format
+    const slots = [];
+    if (day.start_time && day.end_time) {
+      slots.push({
+        start_time: day.start_time,
+        end_time: day.end_time
+      });
+    }
+    
+    return {
+      ...day,
+      slots
+    };
+  });
 };
 
 // API Calls
 const fetchResourceDetails = async (id: number) => {
     isLoading.value = true;
     errorMessage.value = '';
-    assignedAdminName.value = ''; // Reset admin name
+    assignedAdminName.value = '';
     
     try {
         const token = getAuthToken();
@@ -308,11 +373,14 @@ const fetchResourceDetails = async (id: number) => {
             }
         });
         
-        const fetchedResource = response.data.resource || response.data;
+        let fetchedResource = response.data.resource || response.data;
         
-        // Log the response to see what data we're getting
-        console.log('Resource API Response:', fetchedResource);
+        // Process availability data to ensure consistent format
+        if (fetchedResource.availability) {
+          fetchedResource.availability = processAvailabilityData(fetchedResource.availability);
+        }
         
+        // Process other fields
         if (fetchedResource.base_price) {
             fetchedResource.base_price = parseFloat(fetchedResource.base_price);
         } else {
@@ -325,12 +393,12 @@ const fetchResourceDetails = async (id: number) => {
 
         resource.value = fetchedResource as Resource;
 
+        // Debug log to check availability data structure
+        console.log('Resource availability data:', fetchedResource.availability);
+
         // Fetch admin name if admin ID exists
         if (fetchedResource.assigned_admin_id) {
-            console.log('Fetching admin name for ID:', fetchedResource.assigned_admin_id);
             await fetchAdminDetails(fetchedResource.assigned_admin_id);
-        } else {
-            console.log('No assigned_admin_id found in resource data');
         }
 
     } catch (error: any) {
@@ -362,7 +430,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* NOTE: Retaining your existing styles */
+/* Your existing styles */
 .text-dark-teal {
     color: #1e4449;
     font-weight: 600;
@@ -404,11 +472,57 @@ onMounted(() => {
     margin-bottom: 0;
 }
 
-.schedule-list li {
-    padding: 4px 0;
-    font-size: 0.9rem;
+/* NEW: Availability specific styles */
+.availability-list {
+  max-height: 300px;
+  overflow-y: auto;
 }
 
+.day-availability {
+  padding: 12px;
+  background-color: #f8f9fa;
+  border-radius: 6px;
+  border-left: 4px solid #1e4449;
+}
+
+.day-availability:last-child {
+  margin-bottom: 0;
+}
+
+.time-slots-container {
+  background-color: white;
+  padding: 10px;
+  border-radius: 5px;
+  border: 1px solid #e9ecef;
+}
+
+.time-slot {
+  padding: 6px 10px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  border-left: 3px solid #4BB66D;
+}
+
+.slot-time {
+  font-family: monospace;
+  font-weight: 500;
+  color: #495057;
+}
+
+.badge.bg-success {
+  background-color: #4BB66D !important;
+}
+
+.badge.bg-secondary {
+  background-color: #6c757d !important;
+}
+
+.badge.bg-warning {
+  background-color: #ffc107 !important;
+  color: #212529;
+}
+
+/* Existing styles */
 .bg-success {
     background-color: #4BB66D !important;
 }
@@ -438,5 +552,24 @@ onMounted(() => {
     background-color: #fcc300;
     color: #1e4449;
     border-color: #fcc300;
+}
+
+/* Scrollbar styling for availability list */
+.availability-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.availability-list::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.availability-list::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.availability-list::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
 }
 </style>

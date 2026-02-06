@@ -124,47 +124,54 @@
 
                 <div class="col-5">
                   <!-- Time Slots -->
-                  <div v-for="(slot, slotIndex) in day.slots" :key="slotIndex" class="row g-2 mb-2 align-items-center">
-                    <div class="col-5">
-                      <input 
-                        type="time" 
-                        class="form-control form-control-sm" 
-                        v-model="slot.start_time"
-                        :disabled="!day.is_available"
-                        required
-                      >
+                  <div v-if="day.is_available" class="time-slots-container">
+                    <div v-for="(slot, slotIndex) in day.slots" :key="slotIndex" class="row g-2 mb-2 align-items-center">
+                      <div class="col-5">
+                        <input 
+                          type="time" 
+                          class="form-control form-control-sm" 
+                          v-model="slot.start_time"
+                          required
+                          @change="validateTimeSlot(dayIndex, slotIndex)"
+                        >
+                      </div>
+                      <div class="col-5">
+                        <input 
+                          type="time" 
+                          class="form-control form-control-sm" 
+                          v-model="slot.end_time"
+                          required
+                          @change="validateTimeSlot(dayIndex, slotIndex)"
+                        >
+                      </div>
+                      <div class="col-2">
+                        <button 
+                          v-if="day.slots.length > 1"
+                          type="button" 
+                          class="btn btn-sm btn-outline-danger"
+                          @click="removeSlot(dayIndex, slotIndex)"
+                          title="Remove this time slot"
+                        >
+                          <i class="bi bi-x"></i>
+                        </button>
+                        <span v-else class="text-muted small">Required</span>
+                      </div>
                     </div>
-                    <div class="col-5">
-                      <input 
-                        type="time" 
-                        class="form-control form-control-sm" 
-                        v-model="slot.end_time"
-                        :disabled="!day.is_available"
-                        required
-                      >
-                    </div>
-                    <div class="col-2">
-                      <button 
-                        v-if="slotIndex > 0"
-                        type="button" 
-                        class="btn btn-sm btn-outline-danger"
-                        @click="removeSlot(dayIndex, slotIndex)"
-                        :disabled="!day.is_available"
-                      >
-                        <i class="bi bi-x"></i>
-                      </button>
+                    
+                    <!-- Add Slot Button - Only show if day is available -->
+                    <button 
+                      type="button" 
+                      class="btn btn-sm btn-outline-secondary mt-1"
+                      @click="addSlot(dayIndex)"
+                    >
+                      <i class="bi bi-plus-circle me-1"></i> Add Time Slot
+                    </button>
+                    
+                    <!-- Validation message -->
+                    <div v-if="day.slotError" class="text-danger small mt-1">
+                      {{ day.slotError }}
                     </div>
                   </div>
-                  
-                  <!-- Add Slot Button -->
-                  <button 
-                    v-if="day.is_available"
-                    type="button" 
-                    class="btn btn-sm btn-outline-secondary mt-1"
-                    @click="addSlot(dayIndex)"
-                  >
-                    <i class="bi bi-plus-circle me-1"></i> Add Time Slot
-                  </button>
                   
                   <div v-else class="text-muted small mt-1">
                     <em>Enable day to add time slots</em>
@@ -174,6 +181,9 @@
                 <div class="col-3">
                   <span v-if="day.is_available && day.slots.length > 0" class="badge bg-info">
                     {{ day.slots.length }} slot(s)
+                  </span>
+                  <span v-else-if="day.is_available && day.slots.length === 0" class="badge bg-warning">
+                    No slots
                   </span>
                 </div>
               </div>
@@ -286,7 +296,7 @@
           <button type="button" class="btn btn-secondary" @click="router.push('/master-admin/resource')">
             <i class="bi bi-x-circle me-1"></i> Cancel
           </button>
-          <button type="submit" class="btn btn-success" :disabled="isSubmitting">
+          <button type="submit" class="btn btn-success" :disabled="isSubmitting || hasAvailabilityErrors">
             <span v-if="isSubmitting" class="spinner-border spinner-border-sm me-1"></span>
             <i v-else class="bi bi-save me-1"></i> 
             {{ isEditMode ? 'Update Resource' : 'Save Resource' }}
@@ -315,7 +325,7 @@ export default {
     const route = useRoute();
     const API_BASE_URL = 'http://localhost:8000/api';
 
-    // Resource data - IMPORTANT: Make sure description is reactive
+    // Resource data
     const resource = ref({
       name: '',
       location_name: '',
@@ -323,19 +333,19 @@ export default {
       department_id: '',
       base_price: null,
       assigned_admin_id: '',
-      description: 'Test Description', // Start with empty string
+      description: '',
       status: 'Active',
     });
 
-    // Availability data
+    // Availability data - Updated with slotError property
     const availability = ref([
-      { day_name: 'Monday', is_available: false, slots: [] },
-      { day_name: 'Tuesday', is_available: false, slots: [] },
-      { day_name: 'Wednesday', is_available: false, slots: [] },
-      { day_name: 'Thursday', is_available: false, slots: [] },
-      { day_name: 'Friday', is_available: false, slots: [] },
-      { day_name: 'Saturday', is_available: false, slots: [] },
-      { day_name: 'Sunday', is_available: false, slots: [] },
+      { day_name: 'Monday', is_available: false, slots: [], slotError: '' },
+      { day_name: 'Tuesday', is_available: false, slots: [], slotError: '' },
+      { day_name: 'Wednesday', is_available: false, slots: [], slotError: '' },
+      { day_name: 'Thursday', is_available: false, slots: [], slotError: '' },
+      { day_name: 'Friday', is_available: false, slots: [], slotError: '' },
+      { day_name: 'Saturday', is_available: false, slots: [], slotError: '' },
+      { day_name: 'Sunday', is_available: false, slots: [], slotError: '' },
     ]);
 
     // Equipment data
@@ -352,6 +362,13 @@ export default {
     const departments = ref([]);
 
     const isEditMode = computed(() => route.query.mode === 'edit' && !!route.query.id);
+    
+    // Check if there are availability validation errors
+    const hasAvailabilityErrors = computed(() => {
+      return availability.value.some(day => 
+        day.is_available && day.slotError
+      );
+    });
 
     // Get auth token
     const getAuthToken = () => {
@@ -372,27 +389,106 @@ export default {
       equipment.value.splice(index, 1);
     };
 
-    // Availability methods
+    // Availability methods - FIXED
     const addSlot = (dayIndex) => {
       availability.value[dayIndex].slots.push({
         start_time: '',
         end_time: ''
       });
+      // Clear any previous error when adding a new slot
+      availability.value[dayIndex].slotError = '';
     };
 
     const removeSlot = (dayIndex, slotIndex) => {
-      if (availability.value[dayIndex].slots.length > 1) {
-        availability.value[dayIndex].slots.splice(slotIndex, 1);
-      }
+      availability.value[dayIndex].slots.splice(slotIndex, 1);
+      // Validate remaining slots
+      validateTimeSlotsForDay(dayIndex);
     };
 
     const handleAvailabilityChange = (dayIndex) => {
       const day = availability.value[dayIndex];
       if (day.is_available && day.slots.length === 0) {
+        // Add one empty slot when enabling a day
         addSlot(dayIndex);
       } else if (!day.is_available) {
         day.slots = [];
+        day.slotError = '';
       }
+    };
+
+    // Validate time slot
+    const validateTimeSlot = (dayIndex, slotIndex) => {
+      const slot = availability.value[dayIndex].slots[slotIndex];
+      
+      if (!slot.start_time || !slot.end_time) {
+        availability.value[dayIndex].slotError = 'Both start and end time are required';
+        return false;
+      }
+      
+      if (slot.start_time >= slot.end_time) {
+        availability.value[dayIndex].slotError = 'End time must be after start time';
+        return false;
+      }
+      
+      // Check for overlapping slots
+      const slots = availability.value[dayIndex].slots;
+      for (let i = 0; i < slots.length; i++) {
+        if (i !== slotIndex && slots[i].start_time && slots[i].end_time) {
+          if ((slot.start_time >= slots[i].start_time && slot.start_time < slots[i].end_time) ||
+              (slot.end_time > slots[i].start_time && slot.end_time <= slots[i].end_time) ||
+              (slot.start_time <= slots[i].start_time && slot.end_time >= slots[i].end_time)) {
+            availability.value[dayIndex].slotError = 'Time slots cannot overlap';
+            return false;
+          }
+        }
+      }
+      
+      // Clear error if validation passes
+      availability.value[dayIndex].slotError = '';
+      return true;
+    };
+
+    const validateTimeSlotsForDay = (dayIndex) => {
+      const slots = availability.value[dayIndex].slots;
+      
+      if (slots.length === 0) {
+        availability.value[dayIndex].slotError = 'At least one time slot is required';
+        return false;
+      }
+      
+      // Validate all slots
+      let hasError = false;
+      slots.forEach((slot, index) => {
+        if (!validateTimeSlot(dayIndex, index)) {
+          hasError = true;
+        }
+      });
+      
+      if (!hasError) {
+        availability.value[dayIndex].slotError = '';
+      }
+      
+      return !hasError;
+    };
+
+    // Validate all availability before submission
+    const validateAvailability = () => {
+      let isValid = true;
+      
+      availability.value.forEach((day, dayIndex) => {
+        if (day.is_available) {
+          if (day.slots.length === 0) {
+            availability.value[dayIndex].slotError = 'At least one time slot is required';
+            isValid = false;
+          } else {
+            if (!validateTimeSlotsForDay(dayIndex)) {
+              isValid = false;
+            }
+          }
+        }
+      });
+      
+      return isValid;
     };
 
     // Image methods
@@ -419,7 +515,7 @@ export default {
       imagePreviews.value.splice(index, 1);
     };
 
-    // Prepare form data for submission - FIXED VERSION
+    // Prepare form data for submission
     const prepareFormData = () => {
       const formData = new FormData();
       
@@ -428,14 +524,12 @@ export default {
       formData.append('location_name', resource.value.location_name);
       formData.append('category_id', resource.value.category_id.toString());
       
-      // FIXED: Send department_id as empty string or ID, not null
       if (resource.value.department_id) {
         formData.append('department_id', resource.value.department_id.toString());
       } else {
         formData.append('department_id', '');
       }
       
-      // Handle base_price - allow large numbers
       if (resource.value.base_price === null || resource.value.base_price === undefined || resource.value.base_price === '') {
         formData.append('base_price', '0.00');
       } else {
@@ -443,23 +537,19 @@ export default {
         if (isNaN(priceValue)) {
           formData.append('base_price', '0.00');
         } else {
-          // Send as string, not limited to 2 decimals for large numbers
           formData.append('base_price', priceValue.toString());
         }
       }
       
       formData.append('status', resource.value.status);
       
-      // FIXED: Handle assigned_admin_id
       if (resource.value.assigned_admin_id) {
         formData.append('assigned_admin_id', resource.value.assigned_admin_id.toString());
       } else {
         formData.append('assigned_admin_id', '');
       }
       
-      // CRITICAL FIX: Description - send actual value from resource
       const descriptionValue = resource.value.description || '';
-      console.log('DEBUG - Description to send:', `"${descriptionValue}"`, 'Length:', descriptionValue.length);
       formData.append('description', descriptionValue);
       
       // Add images
@@ -467,7 +557,7 @@ export default {
         formData.append(`images[${index}]`, file);
       });
       
-      // Add equipment - only if there's actual equipment data
+      // Add equipment
       if (equipment.value.length > 0) {
         equipment.value.forEach((item, index) => {
           if (item.equipment_name && item.equipment_name.trim()) {
@@ -477,7 +567,7 @@ export default {
         });
       }
       
-      // Add availability - only available days with slots
+      // Add availability
       availability.value.forEach((day, dayIndex) => {
         if (day.is_available && day.slots.length > 0) {
           const validSlots = day.slots.filter(slot => 
@@ -497,19 +587,6 @@ export default {
         }
       });
       
-      // Debug: Log FormData contents
-      console.log('=== FORM DATA DEBUG ===');
-      console.log('Name:', resource.value.name);
-      console.log('Description:', `"${descriptionValue}"`);
-      console.log('Department ID:', resource.value.department_id);
-      console.log('Base price:', resource.value.base_price);
-      
-      // Log all FormData entries
-      for (let pair of formData.entries()) {
-        console.log(pair[0] + ': ' + pair[1]);
-      }
-      console.log('=== END DEBUG ===');
-      
       return formData;
     };
 
@@ -517,6 +594,13 @@ export default {
     const handleSave = async () => {
       errorMessage.value = '';
       successMessage.value = '';
+      
+      // Validate availability before submission
+      if (!validateAvailability()) {
+        errorMessage.value = 'Please fix time slot errors before saving.';
+        return;
+      }
+      
       isSubmitting.value = true;
       
       try {
@@ -527,8 +611,6 @@ export default {
           throw new Error('Authentication required. Please login again.');
         }
         
-        console.log('Saving resource...');
-        
         const response = await axios.post(`${API_BASE_URL}/resources`, formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
@@ -537,7 +619,6 @@ export default {
           },
         });
         
-        console.log('Success! Response:', response.data);
         successMessage.value = 'Resource created successfully!';
         
         setTimeout(() => {
@@ -546,21 +627,16 @@ export default {
         
       } catch (error) {
         console.error('Error creating resource:', error);
-        console.error('Error response data:', error.response?.data);
         
         if (error.response?.status === 401) {
           errorMessage.value = 'Authentication required. Please login again.';
         } else if (error.response?.data?.errors) {
           const errors = error.response.data.errors;
-          if (errors.description) {
-            errorMessage.value = `Description error: ${errors.description.join(', ')}`;
-          } else {
-            errorMessage.value = Object.values(errors).flat().join(', ');
-          }
+          errorMessage.value = Object.values(errors).flat().join(', ');
         } else if (error.response?.data?.message) {
           errorMessage.value = error.response.data.message;
         } else {
-          errorMessage.value = 'Failed to create resource. Please check console for details.';
+          errorMessage.value = 'Failed to create resource. Please try again.';
         }
       } finally {
         isSubmitting.value = false;
@@ -571,6 +647,13 @@ export default {
     const handleUpdate = async () => {
       errorMessage.value = '';
       successMessage.value = '';
+      
+      // Validate availability before submission
+      if (!validateAvailability()) {
+        errorMessage.value = 'Please fix time slot errors before updating.';
+        return;
+      }
+      
       isSubmitting.value = true;
       
       try {
@@ -582,11 +665,7 @@ export default {
           throw new Error('Authentication required. Please login again.');
         }
         
-        // For PUT method with FormData
         formData.append('_method', 'PUT');
-        
-        console.log('Updating resource ID:', idToUpdate);
-        console.log('FormData description value:', formData.get('description'));
         
         const response = await axios.post(`${API_BASE_URL}/resources/${idToUpdate}`, formData, {
           headers: {
@@ -596,7 +675,6 @@ export default {
           },
         });
         
-        console.log('Update Success! Response:', response.data);
         successMessage.value = 'Resource updated successfully!';
         
         setTimeout(() => {
@@ -605,18 +683,12 @@ export default {
         
       } catch (error) {
         console.error('Error updating resource:', error);
-        console.error('Error details:', error.response?.data);
-        console.error('Error status:', error.response?.status);
         
         if (error.response?.status === 401) {
           errorMessage.value = 'Authentication required. Please login again.';
         } else if (error.response?.data?.errors) {
           const errors = error.response.data.errors;
-          if (errors.description) {
-            errorMessage.value = `Description error: ${errors.description.join(', ')}`;
-          } else {
-            errorMessage.value = Object.values(errors).flat().join(', ');
-          }
+          errorMessage.value = Object.values(errors).flat().join(', ');
         } else if (error.response?.data?.message) {
           errorMessage.value = error.response.data.message;
         } else {
@@ -627,7 +699,7 @@ export default {
       }
     };
 
-    // Load resource for edit - FIXED VERSION
+    // Load resource for edit
     const loadResourceForEdit = async (resourceId) => {
       try {
         const token = getAuthToken();
@@ -635,8 +707,6 @@ export default {
           errorMessage.value = 'Authentication required. Please login again.';
           return;
         }
-        
-        console.log('Loading resource for edit:', resourceId);
         
         const response = await axios.get(`${API_BASE_URL}/resources/${resourceId}`, {
           headers: {
@@ -646,9 +716,8 @@ export default {
         });
         
         const resourceData = response.data;
-        console.log('Resource data loaded:', resourceData);
         
-        // Set basic resource data - FIXED: Make sure all fields are set
+        // Set basic resource data
         resource.value = {
           name: resourceData.name || '',
           location_name: resourceData.location_name || '',
@@ -658,12 +727,9 @@ export default {
             ? parseFloat(resourceData.base_price) 
             : null,
           assigned_admin_id: resourceData.assigned_admin_id ? resourceData.assigned_admin_id.toString() : '',
-          description: resourceData.description || '', // Load actual description
+          description: resourceData.description || '',
           status: resourceData.status || 'Active',
         };
-        
-        console.log('Description loaded from API:', `"${resourceData.description}"`);
-        console.log('Description in resource ref:', `"${resource.value.description}"`);
         
         // Set equipment
         if (resourceData.equipment && Array.isArray(resourceData.equipment)) {
@@ -679,13 +745,13 @@ export default {
         if (resourceData.availability && Array.isArray(resourceData.availability)) {
           // Reset availability array
           availability.value = [
-            { day_name: 'Monday', is_available: false, slots: [] },
-            { day_name: 'Tuesday', is_available: false, slots: [] },
-            { day_name: 'Wednesday', is_available: false, slots: [] },
-            { day_name: 'Thursday', is_available: false, slots: [] },
-            { day_name: 'Friday', is_available: false, slots: [] },
-            { day_name: 'Saturday', is_available: false, slots: [] },
-            { day_name: 'Sunday', is_available: false, slots: [] },
+            { day_name: 'Monday', is_available: false, slots: [], slotError: '' },
+            { day_name: 'Tuesday', is_available: false, slots: [], slotError: '' },
+            { day_name: 'Wednesday', is_available: false, slots: [], slotError: '' },
+            { day_name: 'Thursday', is_available: false, slots: [], slotError: '' },
+            { day_name: 'Friday', is_available: false, slots: [], slotError: '' },
+            { day_name: 'Saturday', is_available: false, slots: [], slotError: '' },
+            { day_name: 'Sunday', is_available: false, slots: [], slotError: '' },
           ];
           
           // Map saved availability to our array
@@ -718,7 +784,6 @@ export default {
       try {
         const token = getAuthToken();
         if (!token) {
-          console.log('No token found for fetching departments');
           return;
         }
         
@@ -742,7 +807,6 @@ export default {
       try {
         const token = getAuthToken();
         if (!token) {
-          console.log('No token found for fetching admins');
           return;
         }
         
@@ -800,7 +864,6 @@ export default {
       try {
         const token = getAuthToken();
         if (!token) {
-          console.log('No token found for fetching categories');
           return;
         }
         
@@ -821,8 +884,6 @@ export default {
 
     // Initialize
     onMounted(async () => {
-      console.log('AddResource component mounted, isEditMode:', isEditMode.value);
-      
       // Fetch all required data
       await Promise.all([
         fetchAdmins(), 
@@ -852,12 +913,14 @@ export default {
       categories,
       departments,
       isEditMode,
+      hasAvailabilityErrors,
       router,
       addEquipment,
       removeEquipment,
       addSlot,
       removeSlot,
       handleAvailabilityChange,
+      validateTimeSlot,
       handleFileUpload,
       removeImage,
       handleSave,
@@ -944,6 +1007,14 @@ export default {
 .availability-matrix .form-check-input {
   margin-top: 0.2rem;
   cursor: pointer;
+}
+
+.time-slots-container {
+  min-height: 60px;
+}
+
+.time-slots-container .row {
+  min-height: 38px;
 }
 
 .availability-matrix input[type="time"]:disabled {
