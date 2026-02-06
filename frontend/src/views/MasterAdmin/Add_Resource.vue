@@ -50,7 +50,7 @@
           <div class="col-md-6">
             <label for="resourceDepartment" class="form-label fw-bold">Department</label>
             <select class="form-select" id="resourceDepartment" v-model="resource.department_id">
-              <option :value="null">No Department</option>
+              <option value="">No Department</option>
               <option v-for="department in departments" :key="department.id" :value="department.id">
                 {{ department.name }}
               </option>
@@ -76,7 +76,7 @@
           <div class="col-md-6">
             <label for="assignee" class="form-label fw-bold">Assign Admin</label>
             <select class="form-select" id="assignee" v-model="resource.assigned_admin_id">
-              <option :value="null">No Assignee</option>
+              <option value="">No Assignee</option>
               <option v-for="admin in admins" :key="admin.id" :value="admin.id">
                 {{ admin.name }} ({{ admin.email }})
               </option>
@@ -258,7 +258,7 @@
             </div>
           </div>
           
-          <!-- Description - TRULY OPTIONAL FIELD -->
+          <!-- Description -->
           <div class="col-12">
             <label for="resourceDescription" class="form-label fw-bold">Description</label>
             <textarea 
@@ -268,6 +268,7 @@
               v-model="resource.description"
               placeholder="Optional: Provide a detailed description of the resource"
             ></textarea>
+            <div class="form-text text-muted">This field is completely optional. Leave empty if not needed.</div>
           </div>
         </div>
 
@@ -297,7 +298,7 @@
 </template>
 
 <script>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 import Navbar from '../../components/Navbar.vue';
@@ -314,15 +315,15 @@ export default {
     const route = useRoute();
     const API_BASE_URL = 'http://localhost:8000/api';
 
-    // Resource data
+    // Resource data - IMPORTANT: Make sure description is reactive
     const resource = ref({
       name: '',
       location_name: '',
       category_id: '',
-      department_id: null,
+      department_id: '',
       base_price: null,
-      assigned_admin_id: null,
-      description: '', // Completely optional - can be empty
+      assigned_admin_id: '',
+      description: 'Test Description', // Start with empty string
       status: 'Active',
     });
 
@@ -418,7 +419,7 @@ export default {
       imagePreviews.value.splice(index, 1);
     };
 
-    // Prepare form data for submission - Description is OPTIONAL
+    // Prepare form data for submission - FIXED VERSION
     const prepareFormData = () => {
       const formData = new FormData();
       
@@ -427,10 +428,14 @@ export default {
       formData.append('location_name', resource.value.location_name);
       formData.append('category_id', resource.value.category_id.toString());
       
-      // Add department_id if selected
-      formData.append('department_id',department.value.department_id.toString())
+      // FIXED: Send department_id as empty string or ID, not null
+      if (resource.value.department_id) {
+        formData.append('department_id', resource.value.department_id.toString());
+      } else {
+        formData.append('department_id', '');
+      }
       
-      // Handle base_price
+      // Handle base_price - allow large numbers
       if (resource.value.base_price === null || resource.value.base_price === undefined || resource.value.base_price === '') {
         formData.append('base_price', '0.00');
       } else {
@@ -438,34 +443,42 @@ export default {
         if (isNaN(priceValue)) {
           formData.append('base_price', '0.00');
         } else {
-          formData.append('base_price', priceValue.toFixed(2));
+          // Send as string, not limited to 2 decimals for large numbers
+          formData.append('base_price', priceValue.toString());
         }
       }
       
       formData.append('status', resource.value.status);
       
-      // Always send assigned_admin_id
-      formData.append('assigned_admin_id', resource.value.assigned_admin_id?.toString() || '');
+      // FIXED: Handle assigned_admin_id
+      if (resource.value.assigned_admin_id) {
+        formData.append('assigned_admin_id', resource.value.assigned_admin_id.toString());
+      } else {
+        formData.append('assigned_admin_id', '');
+      }
       
-      // CRITICAL FIX: Send description field - it's OPTIONAL, can be empty string
-      // Don't add any default text, just send what user entered (or empty string)
-      formData.append('description', resource.value.description || '');
+      // CRITICAL FIX: Description - send actual value from resource
+      const descriptionValue = resource.value.description || '';
+      console.log('DEBUG - Description to send:', `"${descriptionValue}"`, 'Length:', descriptionValue.length);
+      formData.append('description', descriptionValue);
       
       // Add images
       selectedFiles.value.forEach((file, index) => {
         formData.append(`images[${index}]`, file);
       });
       
-      // Add equipment - equipment fields are also optional
-      // Don't filter out empty ones, just send what user entered
-      equipment.value.forEach((item, index) => {
-        formData.append(`equipment[${index}][equipment_name]`, item.equipment_name || '');
-        formData.append(`equipment[${index}][quantity]`, item.quantity?.toString() || '1');
-      });
+      // Add equipment - only if there's actual equipment data
+      if (equipment.value.length > 0) {
+        equipment.value.forEach((item, index) => {
+          if (item.equipment_name && item.equipment_name.trim()) {
+            formData.append(`equipment[${index}][equipment_name]`, item.equipment_name);
+            formData.append(`equipment[${index}][quantity]`, item.quantity?.toString() || '1');
+          }
+        });
+      }
       
       // Add availability - only available days with slots
-      let availabilityIndex = 0;
-      availability.value.forEach((day) => {
+      availability.value.forEach((day, dayIndex) => {
         if (day.is_available && day.slots.length > 0) {
           const validSlots = day.slots.filter(slot => 
             slot.start_time && slot.end_time && 
@@ -473,23 +486,28 @@ export default {
           );
           
           if (validSlots.length > 0) {
-            formData.append(`availability[${availabilityIndex}][day_of_week]`, day.day_name);
-            formData.append(`availability[${availabilityIndex}][is_available]`, '1');
+            formData.append(`availability[${dayIndex}][day_of_week]`, day.day_name);
+            formData.append(`availability[${dayIndex}][is_available]`, '1');
             
             validSlots.forEach((slot, slotIndex) => {
-              formData.append(`availability[${availabilityIndex}][slots][${slotIndex}][start_time]`, slot.start_time);
-              formData.append(`availability[${availabilityIndex}][slots][${slotIndex}][end_time]`, slot.end_time);
+              formData.append(`availability[${dayIndex}][slots][${slotIndex}][start_time]`, slot.start_time);
+              formData.append(`availability[${dayIndex}][slots][${slotIndex}][end_time]`, slot.end_time);
             });
-            
-            availabilityIndex++;
           }
         }
       });
       
-      // Debug: Log what's being sent
+      // Debug: Log FormData contents
       console.log('=== FORM DATA DEBUG ===');
-      console.log('Description being sent:', `"${resource.value.description}"`);
-      console.log('Description length:', resource.value.description?.length || 0);
+      console.log('Name:', resource.value.name);
+      console.log('Description:', `"${descriptionValue}"`);
+      console.log('Department ID:', resource.value.department_id);
+      console.log('Base price:', resource.value.base_price);
+      
+      // Log all FormData entries
+      for (let pair of formData.entries()) {
+        console.log(pair[0] + ': ' + pair[1]);
+      }
       console.log('=== END DEBUG ===');
       
       return formData;
@@ -533,7 +551,6 @@ export default {
         if (error.response?.status === 401) {
           errorMessage.value = 'Authentication required. Please login again.';
         } else if (error.response?.data?.errors) {
-          // Check if error is about description field
           const errors = error.response.data.errors;
           if (errors.description) {
             errorMessage.value = `Description error: ${errors.description.join(', ')}`;
@@ -569,6 +586,7 @@ export default {
         formData.append('_method', 'PUT');
         
         console.log('Updating resource ID:', idToUpdate);
+        console.log('FormData description value:', formData.get('description'));
         
         const response = await axios.post(`${API_BASE_URL}/resources/${idToUpdate}`, formData, {
           headers: {
@@ -588,12 +606,17 @@ export default {
       } catch (error) {
         console.error('Error updating resource:', error);
         console.error('Error details:', error.response?.data);
+        console.error('Error status:', error.response?.status);
         
         if (error.response?.status === 401) {
           errorMessage.value = 'Authentication required. Please login again.';
         } else if (error.response?.data?.errors) {
           const errors = error.response.data.errors;
-          errorMessage.value = Object.values(errors).flat().join(', ');
+          if (errors.description) {
+            errorMessage.value = `Description error: ${errors.description.join(', ')}`;
+          } else {
+            errorMessage.value = Object.values(errors).flat().join(', ');
+          }
         } else if (error.response?.data?.message) {
           errorMessage.value = error.response.data.message;
         } else {
@@ -604,7 +627,7 @@ export default {
       }
     };
 
-    // Load resource for edit
+    // Load resource for edit - FIXED VERSION
     const loadResourceForEdit = async (resourceId) => {
       try {
         const token = getAuthToken();
@@ -623,22 +646,24 @@ export default {
         });
         
         const resourceData = response.data;
+        console.log('Resource data loaded:', resourceData);
         
-        // Set basic resource data
+        // Set basic resource data - FIXED: Make sure all fields are set
         resource.value = {
           name: resourceData.name || '',
           location_name: resourceData.location_name || '',
           category_id: resourceData.category_id || '',
-          department_id: resourceData.department_id || null,
+          department_id: resourceData.department_id ? resourceData.department_id.toString() : '',
           base_price: resourceData.base_price !== null && resourceData.base_price !== undefined 
             ? parseFloat(resourceData.base_price) 
             : null,
-          assigned_admin_id: resourceData.assigned_admin_id || null,
-          description: resourceData.description || '', // Load description, can be empty
+          assigned_admin_id: resourceData.assigned_admin_id ? resourceData.assigned_admin_id.toString() : '',
+          description: resourceData.description || '', // Load actual description
           status: resourceData.status || 'Active',
         };
         
-        console.log('Description loaded:', `"${resource.value.description}"`);
+        console.log('Description loaded from API:', `"${resourceData.description}"`);
+        console.log('Description in resource ref:', `"${resource.value.description}"`);
         
         // Set equipment
         if (resourceData.equipment && Array.isArray(resourceData.equipment)) {
