@@ -234,23 +234,39 @@ onMounted(async () => {
 .btn-dark-teal { background: #1e4449; color: white; }
 @media (max-width: 768px) { .section { margin-left: 0; } }
 @media print {
-  /* Hide the UI elements so only the data shows */
-  .no-print, 
-  .navbar, 
-  .master-admin-sidebar, 
-  .btn { 
-    display: none !important; 
+  /* 1. Target the sidebar container */
+  /* This covers common names for the sidebar component */
+  .master-admin-sidebar,
+  aside,
+  .sidebar-wrapper,
+  .sidebar {
+    display: none !important;
+    width: 0 !important;
+    position: absolute !important;
   }
 
-  /* Reset layout for A4 page */
-  .section {
-    margin: 0 !important;
+  /* 2. Remove the margin that makes room for the sidebar */
+  .section, 
+  main, 
+  .content-body {
+    margin-left: 0 !important;
     padding: 0 !important;
+    border: none !important;
   }
 
+  /* 3. Hide the navbar and other UI clutter */
+  .navbar,
+  .no-print,
+  button,
+  .global-filter-card {
+    display: none !important;
+  }
+
+  /* 4. Fix table width for A4 */
   .table-card {
-    border: none !important;
     box-shadow: none !important;
+    border: none !important;
+    width: 100% !important;
   }
 }
 </style>
