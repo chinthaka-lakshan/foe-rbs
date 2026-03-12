@@ -211,7 +211,6 @@ class BookingController
             // Update original booking record
             $booking->update([
                 'total_amount' => $totalAmount,
-                'status' => 'Confirmed',
                 'is_verified' => true,
                 'user_type' => $userType
             ]);
@@ -220,7 +219,7 @@ class BookingController
             Cache::forget($cacheKey);
 
             DB::commit();
-            return response()->json(['message' => 'Booking confirmed!', 'booking' => $booking], 201);
+            return response()->json(['message' => 'Booking success!', 'booking' => $booking], 201);
 
         } catch (Exception $e) {
             DB::rollBack();
