@@ -148,13 +148,23 @@ class BookingController
                     // Check time range
                     $requestStart = \Carbon\Carbon::parse($validated['start_time']);
                     $requestEnd = \Carbon\Carbon::parse($validated['end_time']);
-                    $availableStart = \Carbon\Carbon::parse($availability['start_time']);
-                    $availableEnd = \Carbon\Carbon::parse($availability['end_time']);
+
+                    $slot = $availability['slots'][0] ?? null;
+
+                    if (!$slot) {
+                        DB::rollBack();
+                        return response()->json([
+                            'message' => "No time slots defined for resource '{$resource['name']}' on {$dayOfWeek}"
+                        ], 422);
+                    }
+
+                    $availableStart = \Carbon\Carbon::parse($slot['start_time']);
+                    $availableEnd = \Carbon\Carbon::parse($slot['end_time']);
 
                     if ($requestStart->lt($availableStart) || $requestEnd->gt($availableEnd)) {
                         DB::rollBack();
                         return response()->json([
-                            'message' => "Resource '{$resource['name']}' is only available from {$availability['start_time']} to {$availability['end_time']} on {$dayOfWeek}"
+                            'message' => "Resource '{$resource['name']}' is only available from {$slot['start_time']} to {$slot['end_time']} on {$dayOfWeek}"
                         ], 422);
                     }
                     // Calculate price (Free for internal users)

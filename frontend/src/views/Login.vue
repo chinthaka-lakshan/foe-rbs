@@ -77,6 +77,10 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
+import { reportStore } from '../store/reportStore';
+import { resourceStore } from '../store/resourceStore';
+import { userStore } from '../store/userStore';
+import { systemStore } from '../store/systemSettings';
 
 const router = useRouter();
 const email = ref('');
@@ -105,15 +109,32 @@ const handleLogin = async () => {
         const data = response.data;
 
         if (data.token) {
+            // 1. Set authentication state
             localStorage.setItem('isAuthenticated', 'true');
             localStorage.setItem('authToken', data.token);
             localStorage.setItem('userName', data.user.name); 
             const role = data.roles && data.roles.length > 0 ? data.roles[0] : 'user';
             localStorage.setItem('userRole', role);
 
-            if (role === 'Master Admin') router.push('/master-admin/dashboard');
-            else if (role === 'Admin') router.push('/admin/dashboard');
-            else router.push('/user/dashboard');
+            // 2. TRIGGER BACKGROUND DATA SYNC
+            // We do NOT use 'await' here because we want the user to 
+            // redirect to the dashboard immediately while data loads in the background.
+            if (role === 'Master Admin') {
+                // Pre-fetch everything for the Master Admin reports and dashboard
+                systemStore.loadSettings(); 
+                userStore.fetchUsers();
+                resourceStore.fetchAll();
+                reportStore.fetchAllReports(); // This makes your reports instant!
+                
+                router.push('/master-admin/dashboard');
+            } 
+            else if (role === 'Admin') {
+                systemStore.loadSettings();
+                router.push('/admin/dashboard');
+            } 
+            else {
+                router.push('/user/dashboard');
+            }
         } else {
             loginError.value = data.message || 'Login failed.';
         }
