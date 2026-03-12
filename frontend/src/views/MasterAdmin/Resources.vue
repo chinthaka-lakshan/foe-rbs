@@ -447,36 +447,36 @@ const handleDeleteResource = async () => {
 
 // Navigation Handlers
 const navigateToDepartment = () => {
-    router.push('/department');
+    router.push('/master-admin/department');
 };
 
 const navigateToBooking_Item = () => {
-    router.push('/booking_item');
+    router.push('/master-admin/booking_item');
 };
 
 const navigateToCategories = () => {
-    router.push('/categories');
+    router.push('/master-admin/categories');
 };
 
 const navigateToTemplates = () => {
-    router.push('/templates');
+    router.push('/master-admin/templates');
 };
 
 const navigateToSingleResource = (id: number) => {
-    router.push(`/resource/${id}`);
+    router.push(`/master-admin/resource/${id}`);
 };
 
 const navigateToAdd_Custom = () => {
     showAddModal.value = false;
-    router.push('/add-resource'); 
+    router.push('/master-admin/add-resource'); 
 };
 
 const navigateToEditResource = (id: number) => {
-    router.push({ path: '/add-resource', query: { id: id, mode: 'edit' } });
+    router.push({ path: '/master-admin/add-resource', query: { id: id, mode: 'edit' } });
 };
 
 const handleReserveClick = (id: number) => {
-    router.push({ path: '/single-resource-booking', query: { resourceId: id } });
+    router.push({ path: '/master-admin/single-resource-booking', query: { resourceId: id } });
 };
 
 const openTemplateSelectionModal = () => {
@@ -486,7 +486,7 @@ const openTemplateSelectionModal = () => {
 
 const navigateToTemplateCategory = (categoryKey: string) => {
     showTemplateSelectionModal.value = false;
-    router.push({ path: '/use-template', query: { category: categoryKey } }); 
+    router.push({ path: '/master-admin/use-template', query: { category: categoryKey } }); 
 };
 
 // Delete Modal Handlers
