@@ -173,6 +173,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { Modal } from 'bootstrap'; 
+import { resourceStore } from '../../store/resourceStore';
 import Navbar from '../../components/Navbar.vue';
 import MasterAdminSidebar from '../../components/Sidebar/MasterAdminSidebar.vue';
 
@@ -194,9 +195,9 @@ interface ValidationErrors {
 
 // --- STATE ---
 
-const departments = ref<Department[]>([]); 
+const departments = computed(() => resourceStore.departments); 
 const searchTerm = ref('');
-const loading = ref(true);
+const loading = computed(() => resourceStore.isLoading);
 const saving = ref(false);
 const successMessage = ref('');
 const errorMessage = ref('');
@@ -248,45 +249,8 @@ const handleApiError = (data: any, status: number) => {
 };
 
 /**
- * GET: Fetches all departments from the backend.
+ * POST/PUT: Handles creating or updating a department.
  */
-const fetchDepartments = async () => {
-    loading.value = true;
-    errorMessage.value = '';
-    const token = getAuthToken();
-    if (!token) {
-        errorMessage.value = "Authentication token missing. Please log in.";
-        loading.value = false;
-        return;
-    }
-
-    try {
-        const response = await fetch(DEPARTMENTS_API_URL, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-            },
-        });
-        
-        const data = await response.json().catch(() => {
-            // Handle case where response body is empty or non-JSON
-            return response.status === 200 ? [] : null; 
-        });
-
-
-        if (response.ok) { 
-            departments.value = Array.isArray(data) ? data : []; 
-        } else {
-            handleApiError(data, response.status);
-        }
-    } catch (e) {
-        console.error('Network or connection error during fetch:', e);
-        errorMessage.value = 'Network error: Could not reach the API server to fetch departments.';
-    } finally {
-        loading.value = false;
-    }
-};
 
 /**
  * POST/PUT: Handles creating or updating a department.
@@ -345,7 +309,13 @@ const handleSave = async () => {
         if (response.ok) { // 200 OK or 201 CREATED
             successMessage.value = data.message || (isUpdate ? 'Department updated successfully!' : 'Department added successfully!');
             
-            await fetchDepartments(); // Re-fetch list to update the table
+            // Update store
+            if (isUpdate) {
+                resourceStore.updateDepartment(data.department || data);
+            } else {
+                resourceStore.addDepartment(data.department || data);
+            }
+            
             departmentModalInstance?.hide();
         } else {
             handleApiError(data, response.status);
@@ -406,7 +376,7 @@ const handleDelete = async () => {
 
         if (response.ok) { // 200 OK or 204 No Content
             successMessage.value = data.message || 'Department deleted successfully.';
-            await fetchDepartments();
+            resourceStore.removeDepartment(departmentId);
             deleteModalInstance?.hide();
             
             // Reset deletion state after successful delete
@@ -467,7 +437,6 @@ const handleCancelDeletion = () => {
 };
 
 // --- LIFECYCLE ---
-
 onMounted(() => {
     // Initialize Bootstrap Modals
     if (departmentModalRef.value) {
@@ -479,8 +448,10 @@ onMounted(() => {
         deleteModalRef.value.addEventListener('hidden.bs.modal', handleCancelDeletion);
     }
     
-    // Fetch initial data
-    fetchDepartments();
+    // Fetch initial data if not loaded
+    if (!resourceStore.isLoaded) {
+        resourceStore.fetchAll();
+    }
 });
 </script>
 

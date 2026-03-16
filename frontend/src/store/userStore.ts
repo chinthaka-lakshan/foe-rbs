@@ -7,9 +7,9 @@ export const userStore = reactive({
   isLoading: false,
   isLoaded: false,
 
-  async fetchUsers() {
+  async fetchUsers(force = false) {
     // Only fetch if not already loaded to prevent redundant API calls
-    if (this.isLoaded) return;
+    if (this.isLoaded && !force) return;
     
     this.isLoading = true;
     try {
