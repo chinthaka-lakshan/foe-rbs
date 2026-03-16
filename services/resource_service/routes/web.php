@@ -2,6 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 
+use Illuminate\Support\Facades\File;
+
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -16,3 +18,15 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     return view('welcome');
 });
+
+// Serve storage files directly via Laravel to bypass Docker/Apache symlink issues on Windows
+Route::get('/storage/{path}', function ($path) {
+    $fullPath = storage_path('app/public/' . $path);
+    
+    if (!File::exists($fullPath)) {
+        return response()->json(['error' => 'File not found', 'attempted_path' => $fullPath], 404);
+    }
+    
+    return response()->file($fullPath);
+})->where('path', '.*');
+

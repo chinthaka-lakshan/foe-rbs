@@ -515,7 +515,7 @@
               v-model="otpDigits[n-1]"
               @input="onOtpInput(n-1, $event)"
               @keydown="onOtpKeydown(n-1, $event)"
-              :ref="el => { if (el) otpInputs[n-1] = el }"
+              :ref="el => { if (el) otpInputs[n-1] = el as any }"
               :disabled="isVerifyingOTP"
             />
           </div>
@@ -775,7 +775,7 @@ const router = useRouter();
 
 // API Configuration
 const API_BASE_URL = 'http://localhost:8000/api';
-const STORAGE_URL_ROOT = 'http://localhost:8000/storage';
+const STORAGE_URL_ROOT = 'http://localhost:8000/api/resources/storage';
 
 // Get auth token
 const getAuthToken = () => {
@@ -1136,11 +1136,11 @@ const validateQuantity = (index: number) => {
 
 // Original Helper Functions
 const getImageUrl = (resource: Resource): string => {
-  if (resource.images && resource.images.length > 0) {
-    const filePath = resource.images[0].file_path;
-    return `${STORAGE_URL_ROOT}/${filePath}`;
-  }
-  return 'https://via.placeholder.com/400x300?text=No+Image';
+   if (resource && resource.images && resource.images.length > 0) {
+       const filePath = resource.images[0].file_path;
+       return filePath.startsWith('http') ? filePath : `${STORAGE_URL_ROOT}/${filePath}`;
+   }
+   return 'https://via.placeholder.com/600x400?text=No+Image';
 };
 
 const getStatusClass = (status: string): string => {

@@ -720,3 +720,20 @@ Route::get('/settings/logo/{filename}', function ($filename) {
         return response()->json(['message' => 'Gateway file error'], 500);
     }
 });
+
+// Resource image retrieval route
+Route::get('/resources/storage/{path}', function ($path) {
+    try {
+        // We fetch the file directly from the internal service's storage path
+        $response = Http::get("http://resource_service/storage/{$path}");
+        
+        if ($response->successful()) {
+            return response($response->body(), 200)
+                ->header('Content-Type', $response->header('Content-Type'));
+        }
+        
+        return response()->json(['message' => 'Image not found'], 404);
+    } catch (Exception $e) {
+        return response()->json(['message' => 'Gateway file error'], 500);
+    }
+})->where('path', '.*');
