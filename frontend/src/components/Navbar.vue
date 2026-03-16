@@ -1,5 +1,5 @@
 <template>
-  <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+  <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm fixed-top">
     <div class="container-fluid px-4">
       <a class="navbar-brand fw-bold" href="#">
         <span class="brand-text">University Resources</span>
@@ -23,15 +23,14 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import axios from 'axios'; // 🛑 REQUIRED: Import Axios for API calls
+import axios from 'axios';
 
 const router = useRouter();
 const userName = ref(localStorage.getItem('userName') || 'User');
-const isLoggingOut = ref(false); // State for button loading/disabling
+const isLoggingOut = ref(false);
 
 const API_LOGOUT_URL = 'http://localhost:8000/api/logout';
 
-// Helper to reliably get the token
 const getAuthToken = (): string | null => {
     return localStorage.getItem('authToken') || 
            localStorage.getItem('auth_token') || 
@@ -42,12 +41,11 @@ const handleLogout = async () => {
     const token = getAuthToken();
     isLoggingOut.value = true;
 
-    // 1. Send request to the API Gateway to invalidate the token
     if (token) {
         try {
             await axios.post(
                 API_LOGOUT_URL,
-                {}, // Empty body for POST request
+                {},
                 {
                     headers: {
                         'Authorization': `Bearer ${token}`,
@@ -55,17 +53,12 @@ const handleLogout = async () => {
                     }
                 }
             );
-            // If the request succeeds (200, 204), the token is revoked.
             console.log('Server-side logout successful.');
-
         } catch (error: any) {
-            // Log the error, but proceed with local logout anyway.
-            // If the server is unreachable (401, 503 timeout), we must still clear the local token.
             console.error('Logout API call failed:', error.response?.data || error.message);
         }
     }
 
-    // 2. Clear local storage and redirect (Always run this step)
     localStorage.clear();
     router.push('/login');
     isLoggingOut.value = false;
@@ -73,10 +66,84 @@ const handleLogout = async () => {
 </script>
 
 <style scoped>
-/* ... (existing styles) ... */
-/* Add disabled styling for the button if needed */
+/* Add padding to body to prevent content from hiding under fixed navbar */
+:global(body) {
+  padding-top: 80px; /* Add space for fixed navbar */
+}
+
+/* Navbar fix කිරීමේ styles */
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1030;
+  height: 70px; /* Fixed height for navbar */
+  background-color: white !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,.1) !important;
+}
+
+/* Container styles */
+.container-fluid {
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+/* Brand text styles */
+.brand-text {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #333;
+}
+
+/* Username styles */
+.text-muted {
+  color: #6c757d !important;
+  font-size: 0.95rem;
+}
+
+/* Logout button styles */
 .btn-outline-danger:disabled {
-    cursor: not-allowed;
-    opacity: 0.7;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.btn-outline-danger {
+  transition: all 0.2s ease;
+}
+
+/* Responsive styles for mobile devices */
+@media (max-width: 768px) {
+  :global(body) {
+    padding-top: 60px; /* Smaller padding for mobile */
+  }
+  
+  .navbar {
+    height: 60px; /* Smaller height for mobile */
+  }
+  
+  .brand-text {
+    font-size: 1rem; /* Smaller font for mobile */
+  }
+  
+  .text-muted {
+    font-size: 0.85rem; /* Smaller username font for mobile */
+  }
+  
+  .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+  }
+}
+
+/* Optional: Add animation for navbar */
+.navbar {
+  transition: all 0.3s ease;
+}
+
+/* Optional: Add shadow effect when scrolling (if you want to enhance) */
+.navbar.scrolled {
+  box-shadow: 0 4px 10px rgba(0,0,0,.15) !important;
 }
 </style>
