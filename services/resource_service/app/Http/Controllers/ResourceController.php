@@ -172,6 +172,7 @@ class ResourceController extends Controller
         return $request->validate([
             'name' => ($isUpdate ? 'sometimes' : 'required') . '|string|max:255',
             'location_name' => ($isUpdate ? 'sometimes' : 'required') . '|string',
+            'department' => 'nullable|string',
             'category_id' => ($isUpdate ? 'sometimes' : 'required') . '|exists:categories,id',
             'base_price' => ($isUpdate ? 'sometimes' : 'required') . '|numeric|min:0',
             'status' => ($isUpdate ? 'sometimes' : 'required') . '|in:Active,Inactive,Maintenance',
