@@ -29,7 +29,7 @@ class ResourceImage extends Model
     public function getImageUrlAttribute()
     {
         if ($this->file_path) {
-            return 'http://localhost:8000/storage/' . $this->file_path;
+            return 'http://localhost:8000/api/resources/storage/' . $this->file_path;
         }
         return null;
     }
