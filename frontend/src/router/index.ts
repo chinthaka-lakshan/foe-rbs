@@ -20,6 +20,7 @@ import Admin_Dashboard from '../views/Admin/Admin_Dashboard.vue';
 import Department from '../views/MasterAdmin/Department.vue';
 
 
+
 const routes: Array<RouteRecordRaw> = [
   {
     path: '/',
@@ -52,131 +53,106 @@ const routes: Array<RouteRecordRaw> = [
     name: 'forgot-password',
     component: ForgotPassword
   },
+ 
   {
-    path:'/',
-    redirect:'/categories'
-  },
-  {
-    path:'/categories',
-    name:'categories',
-    component:Categories
+    path:'/master-admin/categories',
+    name:'master-admin-categories',
+    component:Categories,
+    meta: {requiresAuth: true, role: 'Master Admin'}
   },
 
   {
-    path: '/',
-    redirect: 'booking_item'
-  },
-  {
-   path: '/booking_item',
-   name: 'booking-item',
-   component:Booking_Item
-  },
-
-   {
-    path: '/',
-    redirect: 'department'
-  },
-  {
-   path: '/department',
-   name: 'department',
-   component:Department
-  },
-  {
-    path:'/',
-    redirect:'/templates'
-  },
-  {
-    path:'/templates',
-    name:'templates',
-    component:Templates
+   path: '/master-admin/booking_item',
+   name: 'master-admin-booking-item',
+   component:Booking_Item,
+   meta: {requiresAuth: true, role: 'Master Admin'}
   },
 
   {
-    path:'/',
-    redirect: '/master-admin/resource'
+   path: '/master-admin/department',
+   name: 'master-admin-department',
+   component:Department,
+   meta: {requiresAuth: true, role: 'Master Admin'}
   },
+ 
+  {
+    path:'/master-admin/templates',
+    name:'master-admin-templates',
+    component:Templates,
+    meta: {requiresAuth: true, role: 'Master Admin'}
+  },
+
+ 
   {
     path: '/master-admin/resource',
     name: 'master-admin-resource',
-    component:Resources
+    component:Resources,
+    meta: {requiresAuth: true, role: 'Master Admin'}
+  },
+
+
+  {
+    path:'/master-admin/add-resource',
+    name:'master-admin-add-resource',
+    component:Add_Resource,
+    meta: {requiresAuth: true, role: 'Master Admin'}
   },
 
   {
-    path:'/',
-    redirect:'/add-resource'
-  },
-
-  {
-    path:'/add-resource',
-    name:'add-resource',
-    component:Add_Resource
-  },
-
-  {
-    path:'/resource/:id',
-    name:'Single-Resource',
+    path:'/master-admin/resource/:id',
+    name:'master-admin-Single-Resource',
     component:Single_Resource
   },
 
   {
-    path:'/single-resource-booking',
-    name:'single-resource-booking',
+    path:'/master-admin/single-resource-booking',
+    name:'master-admin-single-resource-booking',
     component:Single_Resource_Booking
   },
 
   {
-    path:'/',
-    redirect:'/use-template'
-  },
-  {
-    path:'/use-template',
-    name:'use-template',
-    component:Use_Template
+    path:'/master-admin/use-template',
+    name:'master-admin-use-template',
+    component:Use_Template,
+    meta: {requiresAuth: true, role: 'Master Admin'}
   },
 
-  {
-    path:'/',
-    redirect: '/master-admin/booking'
-  },
+  
   {
     path: '/master-admin/booking',
     name: 'master-admin-booking',
-    component:Booking
+    component:Booking,
+    meta: {requiresAuth: true, role: 'Master Admin'}
   },
 
-  {
-    path:'/',
-    redirect: '/master-admin/users'
-  },
+  
   {
     path: '/master-admin/users',
     name: 'master-admin-users',
-    component:Users
+    component:Users,
+    meta: {requiresAuth: true, role: 'Master Admin'}
   },
 
-  {
-    path:'/',
-    redirect: '/master-admin/reports'
-  },
-  {
-    path: '/master-admin/reports',
-    name: 'master-admin-reports',
-    component:Reports
-  },
-  {
-    path:'/',
-    redirect:'/master-admin/setting'
-  },
+ 
+ 
+ 
   {
     path:'/master-admin/setting',
     name:'master-admin-setting',
-    component:Setting
+    component:Setting,
+    meta: {requiresAuth: true, role: 'Master Admin'}
   },
   {
     path: '/master-admin/dashboard',
     name: 'master-admin-dashboard',
     component: Master_Admin_Dashboard,
     meta: { requiresAuth: true, role: 'Master Admin' }
+  },
+   {
+    path: '/master-admin/reports',
+    name: 'master-admin-reports',
+    component:Reports,
+    meta: {requiresAuth: true, role: 'Master Admin'}
   },
 
   {
