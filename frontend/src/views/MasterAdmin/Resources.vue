@@ -263,7 +263,7 @@ const router = useRouter();
 
 // API Configuration
 const API_BASE_URL = 'http://localhost:8000/api';
-const STORAGE_URL_ROOT = 'http://localhost:8000/storage';
+const STORAGE_URL_ROOT = 'http://localhost:8000/api/resources/storage';
 
 // Get auth token
 const getAuthToken = () => {
@@ -340,8 +340,8 @@ const getImageUrl = (resource: Resource): string => {
     if (resource.images && resource.images.length > 0) {
         const filePath = resource.images[0].file_path;
         
-        // This is the correct, host-accessible URL format
-        return `${STORAGE_URL_ROOT}/${filePath}`; 
+        // This is the correct, host-accessible URL format already returned by the API Model (ResourceImage)
+        return filePath.startsWith('http') ? filePath : `${STORAGE_URL_ROOT}/${filePath}`;
     }
     
     return 'https://via.placeholder.com/300x180?text=No+Image';

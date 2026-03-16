@@ -164,7 +164,7 @@ const router = useRouter();
 
 // API Configuration
 const API_BASE_URL = 'http://localhost:8000/api';
-const STORAGE_URL_ROOT = 'http://localhost:8000/storage';
+const STORAGE_URL_ROOT = 'http://localhost:8000/api/resources/storage';
 
 // Interfaces updated to match new data structure
 interface ResourceImage {
@@ -226,7 +226,8 @@ const getAuthToken = (): string | null => {
 // Helper Functions
 const getImageUrl = (resource: Resource): string => {
     if (resource.images && resource.images.length > 0) {
-        return `${STORAGE_URL_ROOT}/${resource.images[0].file_path}`; 
+        const filePath = resource.images[0].file_path;
+        return filePath.startsWith('http') ? filePath : `${STORAGE_URL_ROOT}/${filePath}`;
     }
     return 'https://via.placeholder.com/600x400?text=No+Image';
 };
