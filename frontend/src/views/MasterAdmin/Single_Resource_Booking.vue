@@ -769,6 +769,7 @@ import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 import Navbar from '../../components/Navbar.vue';
 import MasterAdminSidebar from '../../components/Sidebar/MasterAdminSidebar.vue';
+import { bookingStore } from '../../store/bookingStore';
 
 const route = useRoute();
 const router = useRouter();
@@ -906,7 +907,13 @@ interface BookingDetail {
 
 // State
 const resource = ref<Resource | null>(null);
-const bookings = ref<Booking[]>([]);
+const bookings = computed(() => {
+  if (!resource.value) return [];
+  return bookingStore.bookings.filter(b => 
+    (b.resource_id === resource.value?.id) || 
+    (b.resources && b.resources.some((r: any) => r.id === resource.value?.id))
+  );
+});
 const selectedBooking = ref<Booking | null>(null);
 const isLoading = ref(true);
 const isLoadingBookings = ref(false);
@@ -1244,11 +1251,10 @@ const loadResourceDetails = async () => {
     }
     
     if (resourceData) {
-      resource.value = resourceData;
-      
-      if (!resource.value.availability) {
-        resource.value.availability = [];
+      if (!resourceData.availability) {
+        resourceData.availability = [];
       }
+      resource.value = resourceData;
       
       // Load bookings for this resource
       await loadBookings();
@@ -1292,68 +1298,12 @@ const loadBookings = async () => {
   isLoadingBookings.value = true;
   
   try {
-    const token = getAuthToken();
-    const resourceId = resource.value.id;
-    
-    const response = await axios.get(`${API_BASE_URL}/bookings/resource/${resourceId}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/json',
-      }
-    });
-    
-    console.log('Bookings API Response:', response.data);
-    
-    if (response.data) {
-      if (Array.isArray(response.data)) {
-        bookings.value = response.data;
-      } else if (response.data.bookings) {
-        bookings.value = response.data.bookings;
-      } else if (response.data.data) {
-        bookings.value = response.data.data;
-      } else {
-        bookings.value = [];
-      }
-    } else {
-      bookings.value = [];
+    if (resource.value) {
+      await bookingStore.fetchByResource(resource.value.id);
     }
-    
-    console.log(`Loaded ${bookings.value.length} bookings for resource ${resourceId}`);
-    
+    console.log(`Loaded bookings for resource ${resource.value.id} into store`);
   } catch (error: any) {
     console.error('Error loading bookings:', error);
-    
-    try {
-      const token = getAuthToken();
-      const resourceId = resource.value.id;
-      
-      const alternativeResponse = await axios.get(`${API_BASE_URL}/bookings?resource_id=${resourceId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json',
-        }
-      });
-      
-      console.log('Alternative bookings API Response:', alternativeResponse.data);
-      
-      if (alternativeResponse.data) {
-        if (Array.isArray(alternativeResponse.data)) {
-          bookings.value = alternativeResponse.data;
-        } else if (alternativeResponse.data.bookings) {
-          bookings.value = alternativeResponse.data.bookings;
-        } else if (alternativeResponse.data.data) {
-          bookings.value = alternativeResponse.data.data;
-        } else {
-          bookings.value = [];
-        }
-      }
-      
-      console.log(`Loaded ${bookings.value.length} bookings via alternative endpoint`);
-      
-    } catch (altError: any) {
-      console.log('Alternative endpoint also failed, showing empty list');
-      bookings.value = [];
-    }
   } finally {
     isLoadingBookings.value = false;
   }
@@ -1413,9 +1363,11 @@ const createBooking = async () => {
     if (response.data.booking) {
       pendingBookingId.value = response.data.booking.id;
       pendingBookingReference.value = response.data.booking.booking_reference;
+      bookingStore.updateBookingLocally(response.data.booking);
     } else if (response.data.id) {
       pendingBookingId.value = response.data.id;
       pendingBookingReference.value = response.data.booking_reference;
+      bookingStore.updateBookingLocally(response.data);
     }
     
     return response.data;
@@ -1724,11 +1676,8 @@ const confirmBooking = async (booking: Booking) => {
       }
     });
     
-    // Update the booking in the list
-    const index = bookings.value.findIndex(b => b.id === booking.id);
-    if (index !== -1) {
-      bookings.value[index] = response.data.booking || response.data;
-    }
+    // Update store state
+    bookingStore.updateBookingLocally(response.data.booking || response.data);
     
     // Update selected booking if it's the same
     if (selectedBooking.value && selectedBooking.value.id === booking.id) {
@@ -1756,11 +1705,8 @@ const cancelBooking = async (booking: Booking) => {
       }
     });
     
-    // Update the booking in the list
-    const index = bookings.value.findIndex(b => b.id === booking.id);
-    if (index !== -1) {
-      bookings.value[index] = response.data.booking || response.data;
-    }
+    // Update store state
+    bookingStore.updateBookingLocally(response.data.booking || response.data);
     
     // Update selected booking if it's the same
     if (selectedBooking.value && selectedBooking.value.id === booking.id) {

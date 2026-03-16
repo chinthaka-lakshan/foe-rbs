@@ -343,7 +343,7 @@ interface ValidationErrors {
 // --- STATE ---
 const searchQuery = ref('');
 const selectedRole = ref('');
-const isLoading = ref(true);
+const isLoading = computed(() => userStore.isLoading);
 const isSaving = ref(false);
 const isDeleting = ref(false);
 const isStatusUpdating = ref(false);
@@ -352,7 +352,8 @@ const errorMessage = ref('');
 const modalErrorMessage = ref('');
 const validationErrors = ref<ValidationErrors>({});
 
-const users = ref<User[]>([]);
+// Remove redundant local users ref
+// const users = ref<User[]>([]);
 
 // Delete modal state (same as category page)
 const userToDelete = ref<User | null>(null);
@@ -454,7 +455,7 @@ const toggleUserStatus = async (user: User) => {
       errorMessage.value = `Error: Failed to process request (Status: ${response.status}).`;
       isStatusUpdating.value = false;
       // Revert the toggle if API call fails
-      await fetchUsers();
+      await userStore.fetchUsers(true);
       return;
     }
 
@@ -463,12 +464,12 @@ const toggleUserStatus = async (user: User) => {
     } else {
       handleApiError(data, response.status);
       // Revert the toggle if API call fails
-      await fetchUsers();
+      await userStore.fetchUsers(true);
     }
   } catch (e) {
     errorMessage.value = 'Network error: Could not connect to the API Gateway.';
     // Revert the toggle if network error
-    await fetchUsers();
+    await userStore.fetchUsers(true);
   } finally {
     isStatusUpdating.value = false;
   }
@@ -592,7 +593,7 @@ const handleRoleUpdate = async () => {
     if (response.ok) {
       successMessage.value = `Role for ${userToEdit.value.name} updated to ${selectedNewRole.value} successfully!`;
       roleModalInstance?.hide();
-      await fetchUsers();
+      await userStore.fetchUsers(true);
     } else {
       roleErrorMessage.value = data.message || `Update failed (Status: ${response.status}).`;
     }
@@ -663,58 +664,12 @@ const handleStore = async () => {
 };
 
 // --- FETCH USERS ---
+// Redundant fetchUsers removed in favor of userStore.fetchUsers
+/*
 const fetchUsers = async () => {
-  isLoading.value = true;
-  errorMessage.value = '';
-  successMessage.value = '';
-  const token = getAuthToken();
-
-  if (!token) {
-    errorMessage.value = "Authentication token missing. Cannot fetch users.";
-    isLoading.value = false;
-    return;
-  }
-
-  try {
-    const response = await fetch(USERS_API_URL, {
-      method: 'GET',
-      headers: { 
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json' 
-      }
-    });
-
-    const responseText = await response.text();
-    let data = null;
-
-    try {
-      data = JSON.parse(responseText);
-    } catch (e) {
-      handleApiError(null, response.status); 
-      return; 
-    }
-
-    if (response.ok && Array.isArray(data)) {
-      users.value = data.map(user => {
-        const roleName = user.roles?.[0]?.name || 'User';
-        return {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          status: user.status,
-          roles: user.roles || [],
-          primaryRole: roleName
-        } as User;
-      });
-    } else {
-      handleApiError(data, response.status);
-    }
-  } catch (e) {
-    errorMessage.value = 'Network error: Could not connect to the API Gateway.';
-  } finally {
-    isLoading.value = false;
-  }
+...
 };
+*/
 
 // --- LIFECYCLE HOOK ---
 onMounted(async () => {
@@ -733,15 +688,8 @@ onMounted(async () => {
     deleteModalRef.value.addEventListener('hidden.bs.modal', handleCancelDeletion);
   }
 
-  // 2. Global Store Logic: Only fetch if we don't have the data yet
-  if (!userStore.isLoaded) {
-    // This triggers the API call only once per session
-    await userStore.fetchUsers();
-  } 
-  
-  // 3. Stop the local loading spinner
-  // Whether we just fetched or already had data, we are done loading now
-  isLoading.value = false;
+  // 2. Global Store Logic: Trigger fetch if needed
+  await userStore.fetchUsers();
 });
 </script>
 

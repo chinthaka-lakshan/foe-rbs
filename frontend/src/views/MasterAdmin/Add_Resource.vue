@@ -311,6 +311,8 @@
 import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
+import { resourceStore } from '../../store/resourceStore';
+import { userStore } from '../../store/userStore';
 import Navbar from '../../components/Navbar.vue';
 import MasterAdminSidebar from '../../components/Sidebar/MasterAdminSidebar.vue';
 
@@ -351,15 +353,17 @@ export default {
     // Equipment data
     const equipment = ref([]);
 
+    // Store integration
+    const admins = computed(() => userStore.users.filter(u => u.primaryRole.toLowerCase().includes('admin')));
+    const categories = computed(() => resourceStore.categories);
+    const departments = computed(() => resourceStore.departments);
+    
     // Other state
     const selectedFiles = ref([]);
     const imagePreviews = ref([]);
     const isSubmitting = ref(false);
     const errorMessage = ref('');
     const successMessage = ref('');
-    const admins = ref([]);
-    const categories = ref([]);
-    const departments = ref([]);
 
     const isEditMode = computed(() => route.query.mode === 'edit' && !!route.query.id);
     
@@ -621,6 +625,11 @@ export default {
         
         successMessage.value = 'Resource created successfully!';
         
+        // Update store
+        if (response.data.resource || response.data) {
+          resourceStore.addResource(response.data.resource || response.data);
+        }
+        
         setTimeout(() => {
           router.push('/master-admin/resource');
         }, 2000);
@@ -676,6 +685,11 @@ export default {
         });
         
         successMessage.value = 'Resource updated successfully!';
+        
+        // Update store
+        if (response.data.resource || response.data) {
+          resourceStore.updateResource(response.data.resource || response.data);
+        }
         
         setTimeout(() => {
           router.push('/master-admin/resource');
@@ -850,53 +864,24 @@ export default {
             // Continue to next endpoint
           }
         }
-        
-        admins.value = [];
-        
       } catch (error) {
         console.error('Error fetching admins:', error);
         admins.value = [];
       }
     };
 
-    // Fetch categories
-    const fetchCategories = async () => {
-      try {
-        const token = getAuthToken();
-        if (!token) {
-          return;
-        }
-        
-        const response = await axios.get(`${API_BASE_URL}/categories`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          }
-        });
-        
-        categories.value = response.data || [];
-        
-      } catch (error) {
-        console.error('Error fetching categories:', error);
-        categories.value = [];
-      }
-    };
-
     // Initialize
     onMounted(async () => {
-      // Fetch all required data
-      await Promise.all([
-        fetchAdmins(), 
-        fetchCategories(), 
-        fetchDepartments()
-      ]);
+      // Load dependencies from stores if not loaded
+      if (!resourceStore.isLoaded) {
+        resourceStore.fetchAll();
+      }
+      if (!userStore.isLoaded) {
+        userStore.fetchUsers();
+      }
       
       if (isEditMode.value) {
-        const idToEdit = route.query.id;
-        await loadResourceForEdit(idToEdit);
-      } else {
-        // Add one empty equipment field by default for new resource
-        addEquipment();
+        await loadResourceForEdit(route.query.id);
       }
     });
 
@@ -914,7 +899,6 @@ export default {
       departments,
       isEditMode,
       hasAvailabilityErrors,
-      router,
       addEquipment,
       removeEquipment,
       addSlot,
@@ -924,7 +908,8 @@ export default {
       handleFileUpload,
       removeImage,
       handleSave,
-      handleUpdate
+      handleUpdate,
+      router
     };
   }
 };
