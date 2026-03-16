@@ -12,6 +12,7 @@ class Resource extends Model
     protected $fillable = [
         'name',
         'location_name',
+        'department',
         'description',
         'base_price',
         'category_id',

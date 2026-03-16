@@ -101,7 +101,7 @@ class BookingController
                 'start_time'       => $validated['start_time'],
                 'end_time'         => $validated['end_time'],
                 'total_amount'     => 0,
-                'status'           => 'Pending',
+                'status'           => 'Pending_for_Verification',
                 'is_verified'      => false,
                 'notes'            => $validated['notes'] ?? null
             ]);
@@ -210,6 +210,7 @@ class BookingController
 
             // Update original booking record
             $booking->update([
+                'status' => 'Pending',
                 'total_amount' => $totalAmount,
                 'is_verified' => true,
                 'user_type' => $userType
