@@ -432,6 +432,7 @@ import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 import Navbar from '../../components/Navbar.vue';
 import MasterAdminSidebar from '../../components/Sidebar/MasterAdminSidebar.vue';
+import { bookingStore } from '../../store/bookingStore';
 
 const route = useRoute();
 const router = useRouter();
@@ -441,8 +442,15 @@ const API_BASE_URL = 'http://localhost:8000/api';
 const STORAGE_URL = 'http://localhost:8000/storage';
 
 // State
-const resource = ref(null);
-const bookings = ref([]);
+const resource = ref<Resource | null>(null);
+const bookings = computed(() => {
+  if (!resource.value) return [];
+  return bookingStore.bookings.filter(b => 
+    (b.resource_id === resource.value?.id) || 
+    (b.resources && b.resources.some((r: any) => r.id === resource.value?.id))
+  );
+});
+const selectedBooking = ref<Booking | null>(null);
 const isLoading = ref(true);
 const isLoadingBookings = ref(false);
 const errorMessage = ref('');
@@ -626,9 +634,24 @@ const loadResourceDetails = async () => {
     
     resource.value = response.data.resource || response.data.data || response.data;
     
-    // Get user
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    userId.value = user.id || 1;
+    if (resourceData) {
+      if (!resourceData.availability) {
+        resourceData.availability = [];
+      }
+      resource.value = resourceData;
+      
+      // Load bookings for this resource
+      await loadBookings();
+      // Load available equipment
+      await loadAvailableEquipment();
+    } else {
+      errorMessage.value = 'Resource data not found in response';
+    }
+
+    bookingForm.value.date = minDate.value;
+
+  } catch (error: any) {
+    console.error('Error loading resource:', error);
     
     await Promise.all([
       loadBookings(),
@@ -652,22 +675,11 @@ const loadBookings = async () => {
   isLoadingBookings.value = true;
   
   try {
-    const token = getAuthToken();
-    const headers = { 'Accept': 'application/json' };
-    
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+    if (resource.value) {
+      await bookingStore.fetchByResource(resource.value.id);
     }
-    
-    const response = await axios.get(
-      `${API_BASE_URL}/bookings/resource/${resource.value.id}`,
-      { headers }
-    );
-    
-    bookings.value = Array.isArray(response.data) ? response.data : 
-                     response.data.data || [];
-    
-  } catch (error) {
+    console.log(`Loaded bookings for resource ${resource.value.id} into store`);
+  } catch (error: any) {
     console.error('Error loading bookings:', error);
   } finally {
     isLoadingBookings.value = false;
@@ -679,8 +691,56 @@ const loadEquipment = async () => {
     const token = getAuthToken();
     const headers = { 'Accept': 'application/json' };
     
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+    const userId = currentUser.id || 0;
+    
+    // Prepare booking data with equipment
+    const bookingPayload: any = {
+      user_id: userId,
+      user_email: bookingForm.value.email,
+      booking_date: bookingForm.value.date,
+      start_time: bookingForm.value.startTime,
+      end_time: bookingForm.value.endTime,
+      notes: bookingForm.value.purpose || '',
+      resources: [
+        {
+          resource_id: resource.value.id
+        }
+      ],
+      booking_items: [] // This will hold equipment items
+    };
+    
+    // Add equipment items if any selected
+    if (selectedEquipment.value.length > 0) {
+      selectedEquipment.value.forEach(item => {
+        bookingPayload.booking_items.push({
+          item_id: item.id,
+          item_type: 'equipment',
+          quantity: item.quantity
+        });
+      });
+    }
+    
+    console.log('Creating booking with payload:', bookingPayload);
+    
+    const response = await axios.post(`${API_BASE_URL}/bookings`, bookingPayload, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    console.log('Booking created response:', response.data);
+    
+    if (response.data.booking) {
+      pendingBookingId.value = response.data.booking.id;
+      pendingBookingReference.value = response.data.booking.booking_reference;
+      bookingStore.updateBookingLocally(response.data.booking);
+    } else if (response.data.id) {
+      pendingBookingId.value = response.data.id;
+      pendingBookingReference.value = response.data.booking_reference;
+      bookingStore.updateBookingLocally(response.data);
     }
     
     const response = await axios.get(`${API_BASE_URL}/booking-items`, { headers });
@@ -924,11 +984,32 @@ const selectTimeSlot = (index) => {
   form.value.end_time = formatTime(slot.end_time);
 };
 
-// Equipment Functions
-const searchEquipment = () => {
-  if (!equipmentSearch.value) {
-    filteredEquipment.value = [];
-    return;
+const confirmBooking = async (booking: Booking) => {
+  if (!confirm('Are you sure you want to confirm this booking?')) return;
+  
+  try {
+    const token = getAuthToken();
+    
+    const response = await axios.put(`${API_BASE_URL}/bookings/${booking.id}/confirm`, {}, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json'
+      }
+    });
+    
+    // Update store state
+    bookingStore.updateBookingLocally(response.data.booking || response.data);
+    
+    // Update selected booking if it's the same
+    if (selectedBooking.value && selectedBooking.value.id === booking.id) {
+      selectedBooking.value = response.data.booking || response.data;
+    }
+    
+    alert('Booking confirmed successfully!');
+    
+  } catch (error: any) {
+    console.error('Error confirming booking:', error);
+    alert(error.response?.data?.message || 'Failed to confirm booking');
   }
   
   const search = equipmentSearch.value.toLowerCase();
@@ -941,27 +1022,29 @@ const searchEquipment = () => {
 const addEquipment = (item) => {
   const existing = selectedEquipment.value.find(i => i.id === item.id);
   
-  if (existing) {
-    if (existing.quantity < item.available_quantity) {
-      existing.quantity++;
+  try {
+    const token = getAuthToken();
+    
+    const response = await axios.put(`${API_BASE_URL}/bookings/${booking.id}/cancel`, {}, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json'
+      }
+    });
+    
+    // Update store state
+    bookingStore.updateBookingLocally(response.data.booking || response.data);
+    
+    // Update selected booking if it's the same
+    if (selectedBooking.value && selectedBooking.value.id === booking.id) {
+      selectedBooking.value = response.data.booking || response.data;
     }
-  } else {
-    selectedEquipment.value.push({ ...item, quantity: 1 });
-  }
-  
-  equipmentSearch.value = '';
-  filteredEquipment.value = [];
-  showEquipmentDropdown.value = false;
-};
-
-const removeEquipment = (index) => {
-  selectedEquipment.value.splice(index, 1);
-};
-
-const increaseQuantity = (index) => {
-  const item = selectedEquipment.value[index];
-  if (item.quantity < item.available_quantity) {
-    item.quantity++;
+    
+    alert('Booking cancelled successfully!');
+    
+  } catch (error: any) {
+    console.error('Error cancelling booking:', error);
+    alert(error.response?.data?.message || 'Failed to cancel booking');
   }
 };
 

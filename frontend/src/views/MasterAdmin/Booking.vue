@@ -290,6 +290,7 @@ import { useRouter } from 'vue-router';
 import axios from 'axios';
 import Navbar from '../../components/Navbar.vue';
 import MasterAdminSidebar from '../../components/Sidebar/MasterAdminSidebar.vue';
+import { bookingStore } from '../../store/bookingStore';
 
 const router = useRouter();
 
@@ -304,10 +305,10 @@ const getAuthToken = () => {
 };
 
 // State
-const isLoading = ref(true);
+const isLoading = computed(() => bookingStore.isLoading && !bookingStore.isLoaded);
 const isRefreshing = ref(false);
 const errorMessage = ref('');
-const bookings = ref<any[]>([]);
+const bookings = computed(() => bookingStore.bookings);
 
 // Track which bookings have had action taken (Confirm/Reject clicked)
 const actionedBookings = ref<Set<number>>(new Set());
@@ -372,69 +373,22 @@ const showError = (message: string) => {
 
 // --- API Functions ---
 const loadBookings = async () => {
-  if (isLoading.value) {
-    isLoading.value = true;
-  } else {
-    isRefreshing.value = true;
-  }
-  
+  isRefreshing.value = true;
   errorMessage.value = '';
   
   try {
-    const token = getAuthToken();
+    await bookingStore.fetchAll(true); // Force refresh toggle
     
-    const response = await axios.get(`${API_BASE_URL}/bookings`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/json',
-      }
+    // Process local state flags if needed
+    bookings.value.forEach(booking => {
+      booking.actionTaken = actionedBookings.value.has(booking.id);
+      booking.resource = booking.resource || booking.item || booking.details?.[0] || null;
     });
-    
-    // Handle different response structures
-    let bookingsData = [];
-    
-    if (response.data && Array.isArray(response.data)) {
-      bookingsData = response.data;
-    } else if (response.data && response.data.data && Array.isArray(response.data.data)) {
-      bookingsData = response.data.data;
-    } else if (response.data && response.data.bookings && Array.isArray(response.data.bookings)) {
-      bookingsData = response.data.bookings;
-    } else {
-      bookingsData = [];
-    }
-    
-    // Process bookings and ensure resource data is properly handled
-    bookings.value = bookingsData.map(booking => ({
-      ...booking,
-      // Mark booking as actionTaken if it was previously actioned
-      actionTaken: actionedBookings.value.has(booking.id),
-      // Ensure resource data is accessible
-      resource: booking.resource || booking.item || booking.details?.[0] || null
-    }));
-    
-    console.log('Bookings loaded:', bookings.value);
     
   } catch (error: any) {
     console.error('Error loading bookings:', error);
-    
-    if (error.response) {
-      if (error.response.status === 401) {
-        errorMessage.value = 'Authentication required. Please login again.';
-        setTimeout(() => router.push('/login'), 2000);
-      } else if (error.response.status === 404) {
-        errorMessage.value = 'Bookings endpoint not found.';
-      } else if (error.response.status === 500) {
-        errorMessage.value = 'Server error. Please try again later.';
-      } else {
-        errorMessage.value = `Failed to load bookings: ${error.response.data?.message || 'Unknown error'}`;
-      }
-    } else if (error.request) {
-      errorMessage.value = 'No response from server. Please check your connection.';
-    } else {
-      errorMessage.value = `Request error: ${error.message}`;
-    }
+    errorMessage.value = 'Failed to load bookings. Please try again.';
   } finally {
-    isLoading.value = false;
     isRefreshing.value = false;
   }
 };
@@ -446,24 +400,20 @@ const deleteBooking = async (bookingId: number) => {
     const token = getAuthToken();
     
     // Use DELETE endpoint for permanent deletion
-    const response = await axios.delete(`${API_BASE_URL}/bookings/${bookingId}`, {
+    await axios.delete(`${API_BASE_URL}/bookings/${bookingId}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Accept': 'application/json',
       }
     });
     
-    // Remove from local state
-    const index = bookings.value.findIndex(b => b.id === bookingId);
-    if (index !== -1) {
-      bookings.value.splice(index, 1);
-    }
+    // Remove from local state and store
+    bookingStore.removeBookingLocally(bookingId);
     
     // Also remove from actioned bookings set
     actionedBookings.value.delete(bookingId);
     
     showSuccess('Booking deleted successfully!');
-    return response.data;
     
   } catch (error: any) {
     console.error('Error deleting booking:', error);
@@ -493,7 +443,7 @@ const confirmBooking = async (bookingId: number) => {
   try {
     const token = getAuthToken();
     
-    const response = await axios.patch(`${API_BASE_URL}/bookings/${bookingId}/status`, {
+    await axios.patch(`${API_BASE_URL}/bookings/${bookingId}/status`, {
       status: 'Confirmed'
     }, {
       headers: {
@@ -505,11 +455,14 @@ const confirmBooking = async (bookingId: number) => {
     // Mark this booking as actioned
     actionedBookings.value.add(bookingId);
     
-    // Update local state - hide confirm/reject buttons, show only preview/delete
-    const index = bookings.value.findIndex(b => b.id === bookingId);
-    if (index !== -1) {
-      bookings.value[index].status = 'Confirmed';
-      bookings.value[index].actionTaken = true;
+    // Update store state
+    const booking = bookings.value.find(b => b.id === bookingId);
+    if (booking) {
+      bookingStore.updateBookingLocally({
+        ...booking,
+        status: 'Confirmed',
+        actionTaken: true
+      });
     }
     
     showSuccess('Booking confirmed successfully!');
@@ -525,7 +478,7 @@ const rejectBooking = async (bookingId: number) => {
   try {
     const token = getAuthToken();
     
-    const response = await axios.patch(`${API_BASE_URL}/bookings/${bookingId}/status`, {
+    await axios.patch(`${API_BASE_URL}/bookings/${bookingId}/status`, {
       status: 'Cancelled'
     }, {
       headers: {
@@ -537,11 +490,14 @@ const rejectBooking = async (bookingId: number) => {
     // Mark this booking as actioned
     actionedBookings.value.add(bookingId);
     
-    // Update local state - hide confirm/reject buttons, show only preview/delete
-    const index = bookings.value.findIndex(b => b.id === bookingId);
-    if (index !== -1) {
-      bookings.value[index].status = 'Cancelled';
-      bookings.value[index].actionTaken = true;
+    // Update store state
+    const booking = bookings.value.find(b => b.id === bookingId);
+    if (booking) {
+      bookingStore.updateBookingLocally({
+        ...booking,
+        status: 'Cancelled',
+        actionTaken: true
+      });
     }
     
     showSuccess('Booking rejected successfully!');
@@ -666,7 +622,6 @@ const parseDate = (dateString: string) => {
 const updateDateRange = (dateString: string) => {
   const clickedDateNum = parseDate(dateString);
   const startNum = startDate.value ? parseDate(startDate.value) : 0;
-  const endNum = endDate.value ? parseDate(endDate.value) : Infinity;
 
   if (!startDate.value || clickedDateNum < startNum || (startDate.value && endDate.value)) {
     startDate.value = dateString;
@@ -751,8 +706,14 @@ const daysInMonth = computed(() => {
 });
 
 // --- Initialize ---
-onMounted(() => {
-  loadBookings();
+onMounted(async () => {
+  if (!bookingStore.isLoaded) {
+    await bookingStore.fetchAll();
+  }
+  // Setup local flags for currently loaded bookings
+  bookings.value.forEach(booking => {
+    booking.resource = booking.resource || booking.item || booking.details?.[0] || null;
+  });
 });
 </script>
 
