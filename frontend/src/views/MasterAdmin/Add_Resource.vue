@@ -46,7 +46,7 @@
             </select>
           </div>
 
-          <!-- Department -->
+          <!-- Department - FIXED: Now working correctly -->
           <div class="col-md-6">
             <label for="resourceDepartment" class="form-label fw-bold">Department</label>
             <select class="form-select" id="resourceDepartment" v-model="resource.department_id">
@@ -158,7 +158,7 @@
                       </div>
                     </div>
                     
-                    <!-- Add Slot Button - Only show if day is available -->
+                    <!-- Add Slot Button -->
                     <button 
                       type="button" 
                       class="btn btn-sm btn-outline-secondary mt-1"
@@ -308,7 +308,7 @@
 </template>
 
 <script>
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 import { resourceStore } from '../../store/resourceStore';
@@ -332,14 +332,14 @@ export default {
       name: '',
       location_name: '',
       category_id: '',
-      department_id: '',
+      department_id: '', // අපි මේක dropdown එකට use කරනවා
       base_price: null,
       assigned_admin_id: '',
       description: '',
       status: 'Active',
     });
 
-    // Availability data - Updated with slotError property
+    // Availability data
     const availability = ref([
       { day_name: 'Monday', is_available: false, slots: [], slotError: '' },
       { day_name: 'Tuesday', is_available: false, slots: [], slotError: '' },
@@ -354,7 +354,7 @@ export default {
     const equipment = ref([]);
 
     // Store integration
-    const admins = computed(() => userStore.users.filter(u => u.primaryRole.toLowerCase().includes('admin')));
+    const admins = computed(() => userStore.users.filter(u => u.primaryRole && u.primaryRole.toLowerCase().includes('admin')));
     const categories = computed(() => resourceStore.categories);
     const departments = computed(() => resourceStore.departments);
     
@@ -393,26 +393,23 @@ export default {
       equipment.value.splice(index, 1);
     };
 
-    // Availability methods - FIXED
+    // Availability methods
     const addSlot = (dayIndex) => {
       availability.value[dayIndex].slots.push({
         start_time: '',
         end_time: ''
       });
-      // Clear any previous error when adding a new slot
       availability.value[dayIndex].slotError = '';
     };
 
     const removeSlot = (dayIndex, slotIndex) => {
       availability.value[dayIndex].slots.splice(slotIndex, 1);
-      // Validate remaining slots
       validateTimeSlotsForDay(dayIndex);
     };
 
     const handleAvailabilityChange = (dayIndex) => {
       const day = availability.value[dayIndex];
       if (day.is_available && day.slots.length === 0) {
-        // Add one empty slot when enabling a day
         addSlot(dayIndex);
       } else if (!day.is_available) {
         day.slots = [];
@@ -447,7 +444,6 @@ export default {
         }
       }
       
-      // Clear error if validation passes
       availability.value[dayIndex].slotError = '';
       return true;
     };
@@ -460,7 +456,6 @@ export default {
         return false;
       }
       
-      // Validate all slots
       let hasError = false;
       slots.forEach((slot, index) => {
         if (!validateTimeSlot(dayIndex, index)) {
@@ -519,7 +514,7 @@ export default {
       imagePreviews.value.splice(index, 1);
     };
 
-    // Prepare form data for submission
+    // Prepare form data for submission - FIXED: Send department name, not ID
     const prepareFormData = () => {
       const formData = new FormData();
       
@@ -528,12 +523,15 @@ export default {
       formData.append('location_name', resource.value.location_name);
       formData.append('category_id', resource.value.category_id.toString());
       
-      if (resource.value.department_id) {
-        formData.append('department_id', resource.value.department_id.toString());
+      // FIXED: Get department name from selected ID and send as string (not department_id)
+      if (resource.value.department_id && departments.value.length > 0) {
+        const selectedDept = departments.value.find(d => d.id == resource.value.department_id);
+        formData.append('department', selectedDept ? selectedDept.name : '');
       } else {
-        formData.append('department_id', '');
+        formData.append('department', '');
       }
       
+      // Handle base price
       if (resource.value.base_price === null || resource.value.base_price === undefined || resource.value.base_price === '') {
         formData.append('base_price', '0.00');
       } else {
@@ -599,7 +597,6 @@ export default {
       errorMessage.value = '';
       successMessage.value = '';
       
-      // Validate availability before submission
       if (!validateAvailability()) {
         errorMessage.value = 'Please fix time slot errors before saving.';
         return;
@@ -657,7 +654,6 @@ export default {
       errorMessage.value = '';
       successMessage.value = '';
       
-      // Validate availability before submission
       if (!validateAvailability()) {
         errorMessage.value = 'Please fix time slot errors before updating.';
         return;
@@ -713,7 +709,7 @@ export default {
       }
     };
 
-    // Load resource for edit
+    // Load resource for edit - FIXED: Handle department correctly
     const loadResourceForEdit = async (resourceId) => {
       try {
         const token = getAuthToken();
@@ -731,12 +727,23 @@ export default {
         
         const resourceData = response.data;
         
+        // FIXED: Find department ID from department name for dropdown selection
+        let departmentId = '';
+        if (resourceData.department && departments.value.length > 0) {
+          const matchedDept = departments.value.find(d => 
+            d.name.toLowerCase() === resourceData.department.toLowerCase()
+          );
+          if (matchedDept) {
+            departmentId = matchedDept.id;
+          }
+        }
+        
         // Set basic resource data
         resource.value = {
           name: resourceData.name || '',
           location_name: resourceData.location_name || '',
           category_id: resourceData.category_id || '',
-          department_id: resourceData.department_id ? resourceData.department_id.toString() : '',
+          department_id: departmentId, // Store the ID for dropdown selection
           base_price: resourceData.base_price !== null && resourceData.base_price !== undefined 
             ? parseFloat(resourceData.base_price) 
             : null,
@@ -793,13 +800,11 @@ export default {
       }
     };
 
-    // Fetch departments from API
+    // Fetch departments from API (fallback if store doesn't have them)
     const fetchDepartments = async () => {
       try {
         const token = getAuthToken();
-        if (!token) {
-          return;
-        }
+        if (!token) return;
         
         const response = await axios.get(`${API_BASE_URL}/departments`, {
           headers: {
@@ -808,65 +813,13 @@ export default {
           }
         });
         
-        departments.value = response.data || [];
+        // Update store if needed
+        if (response.data && Array.isArray(response.data)) {
+          resourceStore.setDepartments(response.data);
+        }
         
       } catch (error) {
         console.error('Error fetching departments:', error);
-        departments.value = [];
-      }
-    };
-
-    // Fetch admins
-    const fetchAdmins = async () => {
-      try {
-        const token = getAuthToken();
-        if (!token) {
-          return;
-        }
-        
-        const endpoints = [
-          `${API_BASE_URL}/users/admins`,
-          `${API_BASE_URL}/admins`,
-          `${API_BASE_URL}/users`,
-          `${API_BASE_URL}/users?role=admin`
-        ];
-        
-        for (const endpoint of endpoints) {
-          try {
-            const response = await axios.get(endpoint, {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/json',
-              }
-            });
-            
-            if (response.data) {
-              let adminsData = [];
-              
-              if (Array.isArray(response.data)) {
-                adminsData = response.data;
-              } else if (response.data.users && Array.isArray(response.data.users)) {
-                adminsData = response.data.users;
-              } else if (response.data.admins && Array.isArray(response.data.admins)) {
-                adminsData = response.data.admins;
-              } else if (response.data.data && Array.isArray(response.data.data)) {
-                adminsData = response.data.data;
-              }
-              
-              if (endpoint.includes('role=admin')) {
-                adminsData = adminsData.filter(user => user.role === 'admin');
-              }
-              
-              admins.value = adminsData;
-              return;
-            }
-          } catch (err) {
-            // Continue to next endpoint
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching admins:', error);
-        admins.value = [];
       }
     };
 
@@ -874,14 +827,23 @@ export default {
     onMounted(async () => {
       // Load dependencies from stores if not loaded
       if (!resourceStore.isLoaded) {
-        resourceStore.fetchAll();
+        await resourceStore.fetchAll();
+      } else {
+        // If store has departments, use them, otherwise fetch
+        if (!resourceStore.departments || resourceStore.departments.length === 0) {
+          await fetchDepartments();
+        }
       }
+      
       if (!userStore.isLoaded) {
-        userStore.fetchUsers();
+        await userStore.fetchUsers();
       }
       
       if (isEditMode.value) {
         await loadResourceForEdit(route.query.id);
+      } else {
+        // Add one empty equipment field by default for new resource
+        addEquipment();
       }
     });
 

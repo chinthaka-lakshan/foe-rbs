@@ -69,14 +69,40 @@
                     <h6 class="text-muted mb-0">Category</h6>
                     <p class="fw-bold">{{ resource.category?.name || 'Unknown' }}</p>
                 </div>
+                
+                <!-- Department Details Section -->
+                <div class="detail-item mb-3" v-if="resource.department">
+                    <h6 class="text-muted mb-0">Department</h6>
+                    <div class="d-flex align-items-center">
+                        <p class="fw-bold mb-0 me-2">{{ resource.department.name }}</p>
+                        <span v-if="resource.department.code" class="badge bg-light text-dark border">
+                            {{ resource.department.code }}
+                        </span>
+                    </div>
+                    <small v-if="resource.department.description" class="text-muted d-block mt-1">
+                        {{ resource.department.description }}
+                    </small>
+                </div>
+                <div class="detail-item mb-3" v-else>
+                    <h6 class="text-muted mb-0">Department</h6>
+                    <p class="fw-bold text-muted">No Department Assigned</p>
+                </div>
+
                 <div class="detail-item">
                     <h6 class="text-muted mb-0">Assigned Person</h6>
+                    <!-- FIXED: Admin name display -->
                     <div v-if="assignedAdminName">
                         <p class="fw-bold">{{ assignedAdminName }}</p>
                     </div>
+                    <div v-else-if="isLoadingAdmin">
+                        <p class="fw-bold text-muted">
+                            <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                            Loading admin...
+                        </p>
+                    </div>
                     <div v-else-if="resource.assigned_admin_id">
-                        <p class="fw-bold text-muted">Loading admin name...</p>
-                        <small class="text-muted">Admin ID: {{ resource.assigned_admin_id }}</small>
+                        <!-- Don't show admin ID, just show loading or error -->
+                        <p class="fw-bold text-muted">Unable to load admin name</p>
                     </div>
                     <div v-else>
                         <p class="fw-bold text-muted">Unassigned</p>
@@ -84,7 +110,7 @@
                 </div>
             </div>
 
-            <!-- UPDATED: Weekly Availability Section -->
+            <!-- Weekly Availability Section -->
             <div class="schedule-details mb-4 pb-3 border-bottom">
                 <h6 class="text-muted fw-bold mb-3">Weekly Availability</h6>
                 
@@ -92,7 +118,6 @@
                     No schedule defined.
                 </div>
                 
-                <!-- Day-by-day availability display -->
                 <div v-else class="availability-list">
                   <div v-for="day in sortedAvailability" :key="day.day_name" class="day-availability mb-3">
                     <div class="d-flex justify-content-between align-items-center mb-2">
@@ -102,7 +127,6 @@
                       </span>
                     </div>
                     
-                    <!-- Time slots for the day -->
                     <div v-if="day.is_available && day.slots && day.slots.length > 0">
                       <div class="time-slots-container ms-2">
                         <div v-for="(slot, index) in day.slots" :key="index" class="time-slot mb-2">
@@ -164,9 +188,16 @@ const router = useRouter();
 
 // API Configuration
 const API_BASE_URL = 'http://localhost:8000/api';
-const STORAGE_URL_ROOT = 'http://localhost:8000/api/resources/storage';
+const STORAGE_URL_ROOT = 'http://localhost:8000/storage';
 
-// Interfaces updated to match new data structure
+// Interfaces
+interface Department {
+    id: number;
+    name: string;
+    code?: string;
+    description?: string;
+}
+
 interface ResourceImage {
     id: number;
     file_path: string;
@@ -189,7 +220,7 @@ interface ResourceAvailability {
     day_name: string;
     day_of_week: number;
     is_available: boolean;
-    slots: TimeSlot[]; // Changed from start_time/end_time to slots array
+    slots: TimeSlot[];
 }
 
 interface ResourceCategory {
@@ -203,6 +234,8 @@ interface Resource {
     location_name: string;
     category_id: number;
     category: ResourceCategory;
+    department_id?: number | null;
+    department?: Department | null;
     base_price: number | null;
     assigned_admin_id: number | null;
     description: string | null;
@@ -217,6 +250,7 @@ const resource = ref<Resource | null>(null);
 const isLoading = ref(false);
 const errorMessage = ref('');
 const assignedAdminName = ref<string>('');
+const isLoadingAdmin = ref(false); // New state for admin loading
 
 // Helper to get auth token
 const getAuthToken = (): string | null => {
@@ -226,19 +260,17 @@ const getAuthToken = (): string | null => {
 // Helper Functions
 const getImageUrl = (resource: Resource): string => {
     if (resource.images && resource.images.length > 0) {
-        const filePath = resource.images[0].file_path;
-        return filePath.startsWith('http') ? filePath : `${STORAGE_URL_ROOT}/${filePath}`;
+        return `${STORAGE_URL_ROOT}/${resource.images[0].file_path}`; 
     }
     return 'https://via.placeholder.com/600x400?text=No+Image';
 };
 
 const formatTime = (time: string | null): string => {
     if (!time) return '00:00';
-    // Handle both formats: "14:30:00" and "14:30"
     return time.includes(':') ? time.substring(0, 5) : '00:00';
 };
 
-// Sort availability by day of week (Monday to Sunday)
+// Sort availability by day of week
 const sortedAvailability = computed(() => {
   if (!resource.value || !resource.value.availability) return [];
   
@@ -249,18 +281,59 @@ const sortedAvailability = computed(() => {
   });
 });
 
-// Fetch admin details
+// FIXED: Fetch admin details - now only returns name, no ID
 const fetchAdminDetails = async (adminId: number) => {
-    if (!adminId) return;
+    if (!adminId) {
+        assignedAdminName.value = '';
+        return;
+    }
+    
+    isLoadingAdmin.value = true;
     
     try {
         const token = getAuthToken();
         if (!token) {
             console.warn('No auth token found for admin fetch');
+            assignedAdminName.value = '';
             return;
         }
 
-        // Try users endpoint first
+        // First try: Get user by ID directly (most efficient)
+        try {
+            const response = await axios.get(`${API_BASE_URL}/users/${adminId}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json',
+                }
+            });
+            
+            // Try different response structures
+            const userData = response.data.user || response.data;
+            
+            // Extract name in various possible formats
+            if (userData.name) {
+                assignedAdminName.value = userData.name;
+            } else if (userData.first_name && userData.last_name) {
+                assignedAdminName.value = `${userData.first_name} ${userData.last_name}`;
+            } else if (userData.first_name) {
+                assignedAdminName.value = userData.first_name;
+            } else if (userData.username) {
+                assignedAdminName.value = userData.username;
+            } else if (userData.email) {
+                // Use email as last resort, but remove domain part if possible
+                assignedAdminName.value = userData.email.split('@')[0];
+            } else {
+                // If no name found, don't set any value
+                assignedAdminName.value = '';
+            }
+            
+            return; // Success, exit function
+            
+        } catch (userError) {
+            console.log('Direct user fetch failed, trying users list...');
+        }
+
+        // Second try: Get all users and find by ID
         try {
             const response = await axios.get(`${API_BASE_URL}/users`, {
                 headers: {
@@ -269,7 +342,16 @@ const fetchAdminDetails = async (adminId: number) => {
                 }
             });
             
-            const users = response.data.users || response.data || [];
+            // Handle different response formats
+            let users = [];
+            if (response.data.users && Array.isArray(response.data.users)) {
+                users = response.data.users;
+            } else if (Array.isArray(response.data)) {
+                users = response.data;
+            } else if (response.data.data && Array.isArray(response.data.data)) {
+                users = response.data.data;
+            }
+            
             const adminUser = users.find((user: any) => user.id === adminId);
             
             if (adminUser) {
@@ -277,20 +359,20 @@ const fetchAdminDetails = async (adminId: number) => {
                     assignedAdminName.value = adminUser.name;
                 } else if (adminUser.first_name && adminUser.last_name) {
                     assignedAdminName.value = `${adminUser.first_name} ${adminUser.last_name}`;
+                } else if (adminUser.first_name) {
+                    assignedAdminName.value = adminUser.first_name;
                 } else if (adminUser.username) {
                     assignedAdminName.value = adminUser.username;
-                } else if (adminUser.email) {
-                    assignedAdminName.value = adminUser.email;
                 } else {
-                    assignedAdminName.value = `Admin ID: ${adminId}`;
+                    assignedAdminName.value = ''; // Don't show ID
                 }
                 return;
             }
         } catch (usersError) {
-            console.log('Users endpoint not available, trying admins...');
+            console.log('Users list fetch failed, trying admins endpoint...');
         }
 
-        // Try admins endpoint
+        // Third try: Try admins endpoint
         try {
             const response = await axios.get(`${API_BASE_URL}/admins/${adminId}`, {
                 headers: {
@@ -305,28 +387,32 @@ const fetchAdminDetails = async (adminId: number) => {
                 assignedAdminName.value = adminData.name;
             } else if (adminData.first_name && adminData.last_name) {
                 assignedAdminName.value = `${adminData.first_name} ${adminData.last_name}`;
+            } else if (adminData.first_name) {
+                assignedAdminName.value = adminData.first_name;
             } else if (adminData.username) {
                 assignedAdminName.value = adminData.username;
             } else {
-                assignedAdminName.value = `Admin ID: ${adminId}`;
+                assignedAdminName.value = ''; // Don't show ID
             }
+            
         } catch (adminsError) {
-            console.error('Both endpoints failed');
-            assignedAdminName.value = `Admin ID: ${adminId}`;
+            console.error('All admin fetch attempts failed');
+            assignedAdminName.value = ''; // Don't show anything on error
         }
         
     } catch (error: any) {
-        console.error('Error fetching admin details:', error);
-        assignedAdminName.value = `Admin ID: ${adminId}`;
+        console.error('Error in admin fetch process:', error);
+        assignedAdminName.value = ''; // Don't show ID on error
+    } finally {
+        isLoadingAdmin.value = false;
     }
 };
 
-// Process availability data - handle both old and new formats
+// Process availability data
 const processAvailabilityData = (availabilityData: any[]) => {
   if (!availabilityData || !Array.isArray(availabilityData)) return [];
   
   return availabilityData.map(day => {
-    // If slots array exists, use it
     if (day.slots && Array.isArray(day.slots)) {
       return {
         ...day,
@@ -337,7 +423,6 @@ const processAvailabilityData = (availabilityData: any[]) => {
       };
     }
     
-    // Otherwise, create a slots array from old format
     const slots = [];
     if (day.start_time && day.end_time) {
       slots.push({
@@ -353,11 +438,34 @@ const processAvailabilityData = (availabilityData: any[]) => {
   });
 };
 
-// API Calls
+// Fetch department details
+const fetchDepartmentDetails = async (departmentId: number) => {
+    if (!departmentId || !resource.value) return;
+    
+    try {
+        const token = getAuthToken();
+        if (!token) return;
+
+        const response = await axios.get(`${API_BASE_URL}/departments/${departmentId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json',
+            }
+        });
+        
+        if (resource.value) {
+            resource.value.department = response.data.department || response.data;
+        }
+    } catch (error) {
+        console.error('Error fetching department details:', error);
+    }
+};
+
+// Main API Call - fetchResourceDetails
 const fetchResourceDetails = async (id: number) => {
     isLoading.value = true;
     errorMessage.value = '';
-    assignedAdminName.value = '';
+    assignedAdminName.value = ''; // Clear previous admin name
     
     try {
         const token = getAuthToken();
@@ -376,7 +484,7 @@ const fetchResourceDetails = async (id: number) => {
         
         let fetchedResource = response.data.resource || response.data;
         
-        // Process availability data to ensure consistent format
+        // Process availability data
         if (fetchedResource.availability) {
           fetchedResource.availability = processAvailabilityData(fetchedResource.availability);
         }
@@ -394,12 +502,14 @@ const fetchResourceDetails = async (id: number) => {
 
         resource.value = fetchedResource as Resource;
 
-        // Debug log to check availability data structure
-        console.log('Resource availability data:', fetchedResource.availability);
-
-        // Fetch admin name if admin ID exists
+        // Fetch admin name if admin ID exists - ONLY if there's an admin assigned
         if (fetchedResource.assigned_admin_id) {
             await fetchAdminDetails(fetchedResource.assigned_admin_id);
+        }
+
+        // If department_id exists but department object is not fully loaded
+        if (fetchedResource.department_id && !fetchedResource.department) {
+            await fetchDepartmentDetails(fetchedResource.department_id);
         }
 
     } catch (error: any) {
@@ -431,7 +541,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* Your existing styles */
+/* Your existing styles - no changes needed here */
 .text-dark-teal {
     color: #1e4449;
     font-weight: 600;
@@ -473,7 +583,6 @@ onMounted(() => {
     margin-bottom: 0;
 }
 
-/* NEW: Availability specific styles */
 .availability-list {
   max-height: 300px;
   overflow-y: auto;
@@ -523,7 +632,6 @@ onMounted(() => {
   color: #212529;
 }
 
-/* Existing styles */
 .bg-success {
     background-color: #4BB66D !important;
 }
@@ -555,7 +663,6 @@ onMounted(() => {
     border-color: #fcc300;
 }
 
-/* Scrollbar styling for availability list */
 .availability-list::-webkit-scrollbar {
   width: 6px;
 }

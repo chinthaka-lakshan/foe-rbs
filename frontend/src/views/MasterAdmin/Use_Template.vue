@@ -1,336 +1,1549 @@
 <template>
-  <navbar/>
-  <master-admin-sidebar/>
-  <div class="section">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-      <h2 class="section-title mb-0">Select a Template for <span class="text-dark-teal">{{ categoryTitle }}</span></h2>
-      <button class="btn btn-outline-secondary btn-sm" @click="router.back()">
-        <i class="bi bi-arrow-left me-1"></i>Back to Categories
-      </button>
-    </div>
-
-    <div v-if="templates.length === 0" class="alert alert-warning text-center">
-        No templates available for **{{ categoryTitle }}** yet.
-    </div>
-
-    <div class="row g-4">
-      <div v-for="template in templates" :key="template.id" class="col-sm-6 col-md-4 col-lg-3">
-        <div class="template-card" @click="selectTemplate(template)">
-          <div class="card-body">
-            <div class="template-icon mb-3">
-              <i :class="template.icon"></i>
-            </div>
-            <h5 class="card-title">{{ template.name }}</h5>
-            <p class="card-text small text-muted">{{ template.description }}</p>
-            <span class="badge bg-dark-teal mt-2">Use Template</span>
+  <Navbar />
+  <MasterAdminSidebar />
+  <div class="use-template-page">
+    <!-- Step 1: Template Selection View -->
+    <div v-if="currentView === 'selection'" class="selection-view">
+      <!-- Header -->
+      <div class="header-section">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <h1 class="page-title">
+              <i class="bi bi-grid-3x3-gap-fill me-2 text-dark-teal"></i>
+              Resource Templates
+            </h1>
+            <p class="text-muted mb-0">Select a template to create a new resource</p>
           </div>
         </div>
+      </div>
+
+      <!-- Category Filter -->
+      <div class="category-filter mb-4">
+        <div class="btn-group" role="group">
+          <button 
+            v-for="category in categories" 
+            :key="category.id"
+            class="btn"
+            :class="selectedCategoryId === category.id ? 'btn-dark-teal' : 'btn-outline-dark-teal'"
+            @click="filterByCategory(category.id)"
+          >
+            <i :class="getCategoryIcon(category.name)" class="me-2"></i>
+            {{ category.name }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Search -->
+      <div class="search-section mb-4">
+        <div class="search-box">
+          <div class="input-group">
+            <span class="input-group-text bg-white">
+              <i class="bi bi-search"></i>
+            </span>
+            <input 
+              type="text" 
+              class="form-control" 
+              placeholder="Search templates..."
+              v-model="searchQuery"
+            >
+          </div>
+        </div>
+      </div>
+
+      <!-- Loading State -->
+      <div v-if="isLoading" class="text-center py-5">
+        <div class="spinner-border text-dark-teal" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-3">Loading templates...</p>
+      </div>
+
+      <!-- Error State -->
+      <div v-else-if="errorMessage" class="error-state text-center">
+        <i class="bi bi-exclamation-triangle-fill text-danger" style="font-size: 3rem;"></i>
+        <p class="text-danger mt-3">{{ errorMessage }}</p>
+        <button class="btn btn-primary mt-3" @click="fetchTemplates">
+          <i class="bi bi-arrow-repeat me-2"></i>Try Again
+        </button>
+      </div>
+
+      <!-- Templates Grid -->
+      <div v-else-if="filteredTemplates.length > 0" class="templates-grid">
+        <div class="row g-4">
+          <div 
+            v-for="template in filteredTemplates" 
+            :key="template.id" 
+            class="col-xl-3 col-lg-4 col-md-6"
+          >
+            <div class="template-card" @click="selectTemplate(template)">
+              <div class="status-badge" :class="template.status.toLowerCase()">
+                {{ template.status }}
+              </div>
+
+              <div class="template-icon-wrapper">
+                <div class="template-icon" :class="getCategoryColorClass(template.category_id)">
+                  <i :class="getTemplateIcon(template.template_name)"></i>
+                </div>
+              </div>
+
+              <div class="template-content">
+                <h3 class="template-title">{{ template.template_name }}</h3>
+                <p class="template-description">{{ template.description || 'No description' }}</p>
+                
+                <div class="template-meta">
+                  <span class="badge bg-light text-dark">
+                    <i class="bi bi-list-check me-1"></i>
+                    {{ template.fields?.length || 0 }} Fields
+                  </span>
+                </div>
+
+                <button class="use-template-btn">
+                  <i class="bi bi-plus-circle me-2"></i>
+                  Use This Template
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- No Templates -->
+      <div v-else class="empty-state text-center py-5">
+        <i class="bi bi-file-earmark-x text-muted" style="font-size: 4rem;"></i>
+        <h4 class="mt-3">No Templates Found</h4>
+        <p class="text-muted">No templates available in this category.</p>
+      </div>
+    </div>
+
+    <!-- Step 2: Resource Creation Form -->
+    <div v-else-if="currentView === 'form'" class="form-view">
+      <div class="form-container">
+        <!-- Form Header -->
+        <div class="form-header">
+          <button class="btn btn-link back-btn" @click="goBackToSelection">
+            <i class="bi bi-arrow-left"></i>
+            Back to Templates
+          </button>
+          <h2 class="form-title">
+            <i :class="getTemplateIcon(selectedTemplate?.template_name || '')" class="me-2"></i>
+            Create Resource from: {{ selectedTemplate?.template_name }}
+          </h2>
+        </div>
+
+        <!-- Success Message -->
+        <div v-if="successMessage" class="alert alert-success alert-dismissible fade show" role="alert">
+          <i class="bi bi-check-circle-fill me-2"></i>
+          {{ successMessage }}
+          <button type="button" class="btn-close" @click="successMessage = ''"></button>
+        </div>
+
+        <!-- Error Message -->
+        <div v-if="formError" class="alert alert-danger alert-dismissible fade show" role="alert">
+          <i class="bi bi-exclamation-triangle-fill me-2"></i>
+          {{ formError }}
+          <button type="button" class="btn-close" @click="formError = ''"></button>
+        </div>
+
+        <!-- Resource Form -->
+        <form @submit.prevent="submitResource" class="resource-form">
+          <!-- Basic Resource Information -->
+          <div class="form-section">
+            <h4 class="section-title">
+              <i class="bi bi-info-circle me-2"></i>
+              Basic Information
+            </h4>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">
+                  Resource Name <span class="text-danger">*</span>
+                </label>
+                <input 
+                  type="text" 
+                  class="form-control" 
+                  v-model="resourceForm.name"
+                  :class="{ 'is-invalid': validationErrors.name }"
+                  required
+                >
+                <div class="invalid-feedback" v-if="validationErrors.name">
+                  {{ validationErrors.name }}
+                </div>
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">Category</label>
+                <input 
+                  type="text" 
+                  class="form-control" 
+                  :value="getCategoryName(selectedTemplate?.category_id || 0)"
+                  readonly
+                  disabled
+                >
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">
+                  Location Name <span class="text-danger">*</span>
+                </label>
+                <input 
+                  type="text" 
+                  class="form-control" 
+                  v-model="resourceForm.location_name"
+                  :class="{ 'is-invalid': validationErrors.location_name }"
+                  required
+                >
+                <div class="invalid-feedback" v-if="validationErrors.location_name">
+                  {{ validationErrors.location_name }}
+                </div>
+              </div>
+
+              <!-- Department -->
+              <div class="col-md-6">
+                <label class="form-label">Department</label>
+                <select class="form-select" v-model="resourceForm.department_id">
+                  <option value="">No Department</option>
+                  <option v-for="dept in departments" :key="dept.id" :value="dept.id">
+                    {{ dept.name }}
+                  </option>
+                </select>
+              </div>
+
+              <!-- Base Price -->
+              <div class="col-md-6">
+                <label class="form-label">Base Price (Rs.) <span class="text-danger">*</span></label>
+                <input 
+                  type="number" 
+                  class="form-control" 
+                  v-model.number="resourceForm.base_price"
+                  min="0"
+                  step="0.01"
+                  required
+                >
+              </div>
+
+              <!-- Assigned Admin - FIXED: Using the same pattern as Add Resource page -->
+              <div class="col-md-6">
+                <label class="form-label">Assign Admin</label>
+                <select class="form-select" v-model="resourceForm.assigned_admin_id">
+                  <option value="">No Assignee</option>
+                  <option v-for="admin in admins" :key="admin.id" :value="admin.id">
+                    {{ admin.name }} ({{ admin.email }})
+                  </option>
+                </select>
+              </div>
+
+              <!-- Status -->
+              <div class="col-md-6">
+                <label class="form-label">Status <span class="text-danger">*</span></label>
+                <select class="form-select" v-model="resourceForm.status" required>
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                  <option value="Maintenance">Maintenance</option>
+                </select>
+              </div>
+
+              <div class="col-12">
+                <label class="form-label">Description</label>
+                <textarea 
+                  class="form-control" 
+                  rows="2"
+                  v-model="resourceForm.description"
+                ></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- Template Fields Section -->
+          <div v-if="templateFields.length > 0" class="form-section">
+            <h4 class="section-title">
+              <i class="bi bi-list-task me-2"></i>
+              Template Fields
+              <small class="text-muted ms-2">({{ selectedTemplate?.template_name }})</small>
+            </h4>
+
+            <div class="row g-3">
+              <div 
+                v-for="(field, index) in templateFields" 
+                :key="field.id || index" 
+                class="col-md-6"
+              >
+                <label class="form-label">
+                  {{ field.field_name }}
+                  <span v-if="field.is_required === 1" class="text-danger">*</span>
+                </label>
+
+                <!-- Text Input -->
+                <input
+                  v-if="field.field_type === 'text'"
+                  type="text"
+                  class="form-control"
+                  v-model="fieldValues[field.field_name]"
+                  :required="field.is_required === 1"
+                  :placeholder="'Enter ' + field.field_name.toLowerCase()"
+                >
+
+                <!-- Number Input -->
+                <input
+                  v-else-if="field.field_type === 'number'"
+                  type="number"
+                  class="form-control"
+                  v-model="fieldValues[field.field_name]"
+                  :required="field.is_required === 1"
+                  :placeholder="'Enter ' + field.field_name.toLowerCase()"
+                >
+
+                <!-- Textarea -->
+                <textarea
+                  v-else-if="field.field_type === 'textarea'"
+                  class="form-control"
+                  rows="2"
+                  v-model="fieldValues[field.field_name]"
+                  :required="field.is_required === 1"
+                  :placeholder="'Enter ' + field.field_name.toLowerCase()"
+                ></textarea>
+
+                <!-- Checkbox -->
+                <div v-else-if="field.field_type === 'checkbox'" class="form-check mt-2">
+                  <input
+                    type="checkbox"
+                    class="form-check-input"
+                    :id="'field-' + index"
+                    v-model="fieldValues[field.field_name]"
+                  >
+                  <label class="form-check-label" :for="'field-' + index">Yes</label>
+                </div>
+
+                <!-- Dropdown -->
+                <select
+                  v-else-if="field.field_type === 'dropdown'"
+                  class="form-select"
+                  v-model="fieldValues[field.field_name]"
+                  :required="field.is_required === 1"
+                >
+                  <option value="" disabled>Select option</option>
+                  <option 
+                    v-for="option in getDropdownOptions(field)" 
+                    :key="option" 
+                    :value="option"
+                  >
+                    {{ option }}
+                  </option>
+                </select>
+
+                <!-- Image Upload -->
+                <input
+                  v-else-if="field.field_type === 'image'"
+                  type="file"
+                  class="form-control"
+                  accept="image/*"
+                  @change="handleImageUpload($event, field.field_name)"
+                  :required="field.is_required === 1"
+                >
+
+                <!-- Date -->
+                <input
+                  v-else-if="field.field_type === 'date'"
+                  type="date"
+                  class="form-control"
+                  v-model="fieldValues[field.field_name]"
+                  :required="field.is_required === 1"
+                >
+
+                <!-- Time -->
+                <input
+                  v-else-if="field.field_type === 'time'"
+                  type="time"
+                  class="form-control"
+                  v-model="fieldValues[field.field_name]"
+                  :required="field.is_required === 1"
+                >
+
+                <!-- Default -->
+                <input
+                  v-else
+                  type="text"
+                  class="form-control"
+                  v-model="fieldValues[field.field_name]"
+                  :required="field.is_required === 1"
+                >
+
+                <small class="text-danger" v-if="validationErrors[field.field_name]">
+                  {{ validationErrors[field.field_name] }}
+                </small>
+              </div>
+            </div>
+          </div>
+
+          <!-- Availability & Time Slots Section -->
+          <div class="form-section">
+            <h4 class="section-title">
+              <i class="bi bi-calendar-week me-2"></i>
+              Availability & Time Slots
+              <small class="text-muted ms-2">(Set available days and time slots)</small>
+            </h4>
+
+            <div class="availability-matrix border p-3 rounded bg-light">
+              <div class="row fw-bold text-muted mb-2 border-bottom pb-2 mx-0 small">
+                <div class="col-2">Day</div>
+                <div class="col-2 text-center">Available</div>
+                <div class="col-5">Time Slots</div>
+                <div class="col-3">Actions</div>
+              </div>
+
+              <div 
+                v-for="(day, dayIndex) in availability" 
+                :key="day.day_name"
+                class="row align-items-center mb-3 mx-0 border-bottom pb-3"
+              >
+                <div class="col-2 fw-medium">{{ day.day_name }}</div>
+                
+                <div class="col-2 text-center">
+                  <div class="form-check form-switch d-inline-block">
+                    <input 
+                      class="form-check-input" 
+                      type="checkbox" 
+                      v-model="day.is_available"
+                      @change="handleAvailabilityChange(dayIndex)"
+                    >
+                  </div>
+                </div>
+
+                <div class="col-5">
+                  <!-- Time Slots -->
+                  <div v-if="day.is_available" class="time-slots-container">
+                    <div v-for="(slot, slotIndex) in day.slots" :key="slotIndex" class="row g-2 mb-2 align-items-center">
+                      <div class="col-5">
+                        <input 
+                          type="time" 
+                          class="form-control form-control-sm" 
+                          v-model="slot.start_time"
+                          required
+                          @change="validateTimeSlot(dayIndex, slotIndex)"
+                        >
+                      </div>
+                      <div class="col-5">
+                        <input 
+                          type="time" 
+                          class="form-control form-control-sm" 
+                          v-model="slot.end_time"
+                          required
+                          @change="validateTimeSlot(dayIndex, slotIndex)"
+                        >
+                      </div>
+                      <div class="col-2">
+                        <button 
+                          v-if="day.slots.length > 1"
+                          type="button" 
+                          class="btn btn-sm btn-outline-danger"
+                          @click="removeSlot(dayIndex, slotIndex)"
+                          title="Remove this time slot"
+                        >
+                          <i class="bi bi-x"></i>
+                        </button>
+                        <span v-else class="text-muted small">Required</span>
+                      </div>
+                    </div>
+                    
+                    <!-- Add Slot Button -->
+                    <button 
+                      type="button" 
+                      class="btn btn-sm btn-outline-secondary mt-1"
+                      @click="addSlot(dayIndex)"
+                    >
+                      <i class="bi bi-plus-circle me-1"></i> Add Time Slot
+                    </button>
+                    
+                    <!-- Validation message -->
+                    <div v-if="day.slotError" class="text-danger small mt-1">
+                      {{ day.slotError }}
+                    </div>
+                  </div>
+                  
+                  <div v-else class="text-muted small mt-1">
+                    <em>Enable day to add time slots</em>
+                  </div>
+                </div>
+
+                <div class="col-3">
+                  <span v-if="day.is_available && day.slots.length > 0" class="badge bg-info">
+                    {{ day.slots.length }} slot(s)
+                  </span>
+                  <span v-else-if="day.is_available && day.slots.length === 0" class="badge bg-warning">
+                    No slots
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Availability validation summary -->
+            <div v-if="hasAvailabilityErrors" class="text-danger small mt-2">
+              <i class="bi bi-exclamation-triangle-fill me-1"></i>
+              Please fix time slot errors before saving.
+            </div>
+          </div>
+
+          <!-- Images Section -->
+          <div class="form-section">
+            <h4 class="section-title">
+              <i class="bi bi-images me-2"></i>
+              Resource Images
+            </h4>
+            
+            <input 
+              type="file" 
+              class="form-control" 
+              @change="handleFileUpload" 
+              accept="image/*"
+              multiple
+            >
+            
+            <!-- Image Previews -->
+            <div v-if="imagePreviews.length > 0" class="mt-3">
+              <h6>Selected Images:</h6>
+              <div class="d-flex flex-wrap gap-2">
+                <div v-for="(preview, idx) in imagePreviews" :key="idx" class="position-relative">
+                  <img :src="preview" alt="Preview" class="img-thumbnail" style="max-height: 100px; max-width: 100px;">
+                  <button 
+                    type="button" 
+                    class="btn btn-sm btn-danger position-absolute top-0 end-0" 
+                    style="padding: 2px 6px;"
+                    @click="removeImage(idx)"
+                  >
+                    <i class="bi bi-x"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Form Actions -->
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary" @click="goBackToSelection">
+              Cancel
+            </button>
+            <button type="submit" class="btn btn-success" :disabled="isSubmitting || hasAvailabilityErrors">
+              <span v-if="isSubmitting" class="spinner-border spinner-border-sm me-2"></span>
+              <i v-else class="bi bi-save me-2"></i>
+              {{ isSubmitting ? 'Creating...' : 'Create Resource' }}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   </div>
 </template>
 
-<script setup lang="ts">
-import { ref, computed } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
-// Assuming these paths are correct
-import Navbar from '../../components/Navbar.vue'; 
+<script setup>
+import { ref, computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
+import axios from 'axios';
+import Navbar from '../../components/Navbar.vue';
 import MasterAdminSidebar from '../../components/Sidebar/MasterAdminSidebar.vue';
 
-// Define the structure for a template
-interface Template {
-    id: number;
-    name: string;
-    categoryKey: string;
-    description: string;
-    icon: string;
-    fields: Record<string, any>; 
-}
-
-const route = useRoute();
+// Router
 const router = useRouter();
 
-const templateCategoryKey = computed<string>(() => route.query.category as string || '');
-const categoryTitle = computed(() => {
-    switch (templateCategoryKey.value) {
-        case 'academic': return 'Academic Space';
-        case 'it': return 'IT Space';
-        case 'medical': return 'Medical & Health';
-        case 'sports': return 'Sports & Recreational';
-        case 'cultural': return 'Cultural Space';
-        default: return 'Unknown Category';
-    }
+// View State
+const currentView = ref('selection');
+const selectedTemplate = ref(null);
+
+// Data State
+const templates = ref([]);
+const categories = ref([]);
+const departments = ref([]);
+const admins = ref([]);
+const isLoading = ref(false);
+const isSubmitting = ref(false);
+const errorMessage = ref('');
+const successMessage = ref('');
+const formError = ref('');
+const searchQuery = ref('');
+const selectedCategoryId = ref(null);
+const validationErrors = ref({});
+
+// Form State
+const resourceForm = ref({
+  name: '',
+  location_name: '',
+  department_id: '',
+  base_price: null,
+  assigned_admin_id: '',
+  description: '',
+  status: 'Active'
 });
 
-// --- Template Data based on your uploaded UI designs ---
-const ALL_TEMPLATES: Template[] = [
-    // --- Academic Templates ---
-    { 
-        id: 101, 
-        name: 'Lecture Hall Template', 
-        categoryKey: 'academic',
-        description: 'Large space for lectures and seminars.', 
-        icon: 'bi bi-easel',
-        fields: {
-            // Fields derived from 'academic.png'
-            resourceName: '', locationName: '', capacity: null,
-            equipment: ['Smart Board', 'Microphone', 'AC', 'Projector', 'Sound']
-        }
-    },
-    { 
-        id: 102, 
-        name: 'Study Room Template', 
-        categoryKey: 'academic',
-        description: 'Small room suitable for group study sessions.', 
-        icon: 'bi bi-person-workspace',
-        fields: {
-            resourceName: '', locationName: '', capacity: null,
-            equipment: ['Smart Board', 'AC', 'Projector']
-        }
-    },
-    { 
-        id: 103, 
-        name: 'Seminar Room Template', 
-        categoryKey: 'academic',
-        description: 'Mid-sized room for presentations.', 
-        icon: 'bi bi-chat-dots',
-        fields: {
-            resourceName: '', locationName: '', capacity: null,
-            equipment: ['Smart Board', 'Microphone', 'AC', 'Projector', 'Sound']
-        }
-    },
-    { 
-        id: 104, 
-        name: 'Lab Space Template', 
-        categoryKey: 'academic',
-        description: 'Specialized room for practical work.', 
-        icon: 'bi bi-flask',
-        fields: {
-            resourceName: '', locationName: '', capacity: null,
-            equipment: ['AC']
-        }
-    },
+// Availability data with time slots
+const availability = ref([
+  { day_name: 'Monday', is_available: false, slots: [], slotError: '' },
+  { day_name: 'Tuesday', is_available: false, slots: [], slotError: '' },
+  { day_name: 'Wednesday', is_available: false, slots: [], slotError: '' },
+  { day_name: 'Thursday', is_available: false, slots: [], slotError: '' },
+  { day_name: 'Friday', is_available: false, slots: [], slotError: '' },
+  { day_name: 'Saturday', is_available: false, slots: [], slotError: '' },
+  { day_name: 'Sunday', is_available: false, slots: [], slotError: '' },
+]);
 
-    // --- IT Templates ---
-    { 
-        id: 201, 
-        name: 'Computer Lab Template', 
-        categoryKey: 'it',
-        description: 'Room equipped with multiple workstations.', 
-        icon: 'bi bi-pc-display',
-        fields: {
-            // Fields derived from 'it.png'
-            resourceName: '', locationName: '', seatsCount: null,
-            equipment: ['Smart Board', 'AC', 'Microphone', 'Sound', 'Projector']
-        }
-    },
-    { 
-        id: 202, 
-        name: 'Data Center Template', 
-        categoryKey: 'it',
-        description: 'Climate-controlled room for hardware.', 
-        icon: 'bi bi-server',
-        fields: {
-            resourceName: '', locationName: '', seatsCount: null,
-            equipment: ['AC']
-        }
-    },
-    { 
-        id: 203, 
-        name: 'IT Workshop Template', 
-        categoryKey: 'it',
-        description: 'Hands-on hardware and network training space.', 
-        icon: 'bi bi-tools',
-        fields: {
-            resourceName: '', locationName: '', seatsCount: null,
-            equipment: ['Smart Board', 'Projector']
-        }
-    },
-    { 
-        id: 204, 
-        name: 'AV Editing Suite', 
-        categoryKey: 'it',
-        description: 'Specialized room for media editing.', 
-        icon: 'bi bi-film',
-        fields: {
-            resourceName: '', locationName: '', seatsCount: null,
-            equipment: ['Sound', 'AC']
-        }
-    },
+// Template field values
+const fieldValues = ref({});
 
-    // --- Medical Templates ---
-    { 
-        id: 301, 
-        name: 'Procedure Room', 
-        categoryKey: 'medical',
-        description: 'General medical examination and procedure room.', 
-        icon: 'bi bi-clipboard-pulse',
-        fields: {
-            // Fields derived from 'medical.png'
-            resourceName: '', locationName: '', capacity: null, medicalType: '',
-            equipment: ['X Ray Machine', 'Scan', 'ECG Machine', 'Theater']
-        }
-    },
-    { 
-        id: 302, 
-        name: 'Radiology Suite', 
-        categoryKey: 'medical',
-        description: 'Specialized area for imaging.', 
-        icon: 'bi bi-x-diamond',
-        fields: {
-            resourceName: '', locationName: '', capacity: null, medicalType: '',
-            equipment: ['X Ray Machine', 'Scan']
-        }
-    },
-    { 
-        id: 303, 
-        name: 'Operating Theater', 
-        categoryKey: 'medical',
-        description: 'Room for surgical operations.', 
-        icon: 'bi bi-heart-pulse',
-        fields: {
-            resourceName: '', locationName: '', capacity: null, medicalType: '',
-            equipment: ['Theater']
-        }
-    },
-    { 
-        id: 304, 
-        name: 'Consultation Room', 
-        categoryKey: 'medical',
-        description: 'Room for patient consultation.', 
-        icon: 'bi bi-person-lines-fill',
-        fields: {
-            resourceName: '', locationName: '', capacity: null, medicalType: 'General',
-            equipment: []
-        }
-    },
+// Image handling
+const selectedFiles = ref([]);
+const imagePreviews = ref([]);
 
-    // --- Sports Templates ---
-    { 
-        id: 401, 
-        name: 'Indoor Court', 
-        categoryKey: 'sports',
-        description: 'Multipurpose sports court for indoor games.', 
-        icon: 'bi bi-dribbble',
-        fields: {
-            // Fields derived from 'sports.png'
-            resourceName: '', locationName: '', capacitySize: null, equipment: '',
-            accessories: ['Flash Light', 'Microphone', 'Sound', 'Seats']
-        }
-    },
-    { 
-        id: 402, 
-        name: 'Fitness Gym', 
-        categoryKey: 'sports',
-        description: 'Area dedicated to fitness equipment.', 
-        icon: 'bi bi-heart-fill',
-        fields: {
-            resourceName: '', locationName: '', capacitySize: null, equipment: '',
-            accessories: ['AC', 'Sound']
-        }
-    },
-    { 
-        id: 403, 
-        name: 'Swimming Pool', 
-        categoryKey: 'sports',
-        description: 'Aquatic area for swimming and water sports.', 
-        icon: 'bi bi-water',
-        fields: {
-            resourceName: '', locationName: '', capacitySize: null, equipment: 'Pool Equipment',
-            accessories: ['Flash Light', 'Seats']
-        }
-    },
-    { 
-        id: 404, 
-        name: 'Outdoor Field', 
-        categoryKey: 'sports',
-        description: 'Large area for outdoor team sports.', 
-        icon: 'bi bi-flag',
-        fields: {
-            resourceName: '', locationName: '', capacitySize: null, equipment: 'Goal Posts, Nets',
-            accessories: ['Flash Light', 'Seats']
-        }
-    },
-];
+// API Base URL
+const API_BASE_URL = 'http://localhost:8000/api';
 
-// Computed property to filter templates based on the URL query parameter
-const templates = computed<Template[]>(() => {
-    return ALL_TEMPLATES.filter(t => t.categoryKey === templateCategoryKey.value);
+// Computed Properties
+const filteredTemplates = computed(() => {
+  let filtered = templates.value.filter(t => t.status === 'Active');
+  
+  if (selectedCategoryId.value) {
+    filtered = filtered.filter(t => t.category_id === selectedCategoryId.value);
+  }
+  
+  if (searchQuery.value.trim()) {
+    const query = searchQuery.value.toLowerCase().trim();
+    filtered = filtered.filter(t => 
+      t.template_name.toLowerCase().includes(query) ||
+      (t.description && t.description.toLowerCase().includes(query))
+    );
+  }
+  
+  return filtered;
 });
 
-// Function to handle the template selection
-const selectTemplate = (template: Template) => {
-    // Navigate to the final resource creation page, passing the template ID for pre-filling the form.
-    router.push({ 
-        path: '/add-resource', 
-        query: { templateId: template.id, category: template.categoryKey } 
-    });
+const templateFields = computed(() => {
+  if (!selectedTemplate.value) return [];
+  return selectedTemplate.value.fields.sort((a, b) => a.order_index - b.order_index);
+});
+
+const hasAvailabilityErrors = computed(() => {
+  return availability.value.some(day => 
+    day.is_available && day.slotError
+  );
+});
+
+// Helper Functions
+const getAuthToken = () => {
+  return localStorage.getItem('authToken') || 
+         localStorage.getItem('token') || 
+         localStorage.getItem('access_token');
 };
+
+// Fetch Data
+const fetchCategories = async () => {
+  try {
+    const token = getAuthToken();
+    if (!token) return;
+
+    const response = await axios.get(`${API_BASE_URL}/categories`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    categories.value = response.data || [];
+    if (categories.value.length > 0 && selectedCategoryId.value === null) {
+      selectedCategoryId.value = categories.value[0].id;
+    }
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+  }
+};
+
+const fetchDepartments = async () => {
+  try {
+    const token = getAuthToken();
+    if (!token) return;
+
+    const response = await axios.get(`${API_BASE_URL}/departments`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    departments.value = response.data || [];
+  } catch (error) {
+    console.error('Error fetching departments:', error);
+  }
+};
+
+// FIXED: Admin fetch function with multiple endpoints (same as Add Resource page)
+const fetchAdmins = async () => {
+  try {
+    const token = getAuthToken();
+    if (!token) return;
+
+    // Multiple endpoints to try (same as Add Resource page)
+    const endpoints = [
+      `${API_BASE_URL}/users/admins`,
+      `${API_BASE_URL}/admins`,
+      `${API_BASE_URL}/users`,
+      `${API_BASE_URL}/users?role=admin`
+    ];
+    
+    for (const endpoint of endpoints) {
+      try {
+        const response = await axios.get(endpoint, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+          }
+        });
+        
+        if (response.data) {
+          let adminsData = [];
+          
+          if (Array.isArray(response.data)) {
+            adminsData = response.data;
+          } else if (response.data.users && Array.isArray(response.data.users)) {
+            adminsData = response.data.users;
+          } else if (response.data.admins && Array.isArray(response.data.admins)) {
+            adminsData = response.data.admins;
+          } else if (response.data.data && Array.isArray(response.data.data)) {
+            adminsData = response.data.data;
+          }
+          
+          // Filter for admin role if endpoint includes role=admin
+          if (endpoint.includes('role=admin')) {
+            adminsData = adminsData.filter(user => user.role === 'admin');
+          }
+          
+          admins.value = adminsData;
+          console.log('Admins loaded successfully:', adminsData.length);
+          return; // Exit if successful
+        }
+      } catch (err) {
+        console.log(`Endpoint ${endpoint} failed, trying next...`);
+        // Continue to next endpoint
+      }
+    }
+    
+    // If all endpoints fail, set empty array
+    admins.value = [];
+    console.warn('All admin endpoints failed');
+    
+  } catch (error) {
+    console.error('Error fetching admins:', error);
+    admins.value = [];
+  }
+};
+
+const fetchTemplates = async () => {
+  isLoading.value = true;
+  errorMessage.value = '';
+
+  try {
+    const token = getAuthToken();
+    if (!token) {
+      errorMessage.value = 'Authentication required. Please login again.';
+      return;
+    }
+
+    const response = await axios.get(`${API_BASE_URL}/resource-templates`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    templates.value = response.data || [];
+    
+    // Fetch all required data in parallel
+    await Promise.all([
+      fetchCategories(),
+      fetchDepartments(),
+      fetchAdmins()
+    ]);
+
+  } catch (error) {
+    console.error('Fetch templates error:', error);
+    errorMessage.value = error.response?.data?.message || 'Failed to load templates.';
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+// Template Selection
+const selectTemplate = (template) => {
+  selectedTemplate.value = template;
+  
+  // Reset form
+  resourceForm.value = {
+    name: '',
+    location_name: '',
+    department_id: '',
+    base_price: null,
+    assigned_admin_id: '',
+    description: '',
+    status: 'Active'
+  };
+  
+  // Reset availability
+  availability.value = [
+    { day_name: 'Monday', is_available: false, slots: [], slotError: '' },
+    { day_name: 'Tuesday', is_available: false, slots: [], slotError: '' },
+    { day_name: 'Wednesday', is_available: false, slots: [], slotError: '' },
+    { day_name: 'Thursday', is_available: false, slots: [], slotError: '' },
+    { day_name: 'Friday', is_available: false, slots: [], slotError: '' },
+    { day_name: 'Saturday', is_available: false, slots: [], slotError: '' },
+    { day_name: 'Sunday', is_available: false, slots: [], slotError: '' },
+  ];
+  
+  // Initialize field values
+  fieldValues.value = {};
+  template.fields.forEach(field => {
+    if (field.field_type === 'checkbox') {
+      fieldValues.value[field.field_name] = false;
+    } else if (field.field_type === 'dropdown') {
+      fieldValues.value[field.field_name] = '';
+    } else {
+      fieldValues.value[field.field_name] = '';
+    }
+  });
+  
+  // Reset other states
+  selectedFiles.value = [];
+  imagePreviews.value = [];
+  validationErrors.value = {};
+  formError.value = '';
+  successMessage.value = '';
+  
+  currentView.value = 'form';
+};
+
+const goBackToSelection = () => {
+  currentView.value = 'selection';
+  selectedTemplate.value = null;
+};
+
+// Availability Methods
+const addSlot = (dayIndex) => {
+  availability.value[dayIndex].slots.push({
+    start_time: '',
+    end_time: ''
+  });
+  availability.value[dayIndex].slotError = '';
+};
+
+const removeSlot = (dayIndex, slotIndex) => {
+  availability.value[dayIndex].slots.splice(slotIndex, 1);
+  validateTimeSlotsForDay(dayIndex);
+};
+
+const handleAvailabilityChange = (dayIndex) => {
+  const day = availability.value[dayIndex];
+  if (day.is_available && day.slots.length === 0) {
+    addSlot(dayIndex);
+  } else if (!day.is_available) {
+    day.slots = [];
+    day.slotError = '';
+  }
+};
+
+const validateTimeSlot = (dayIndex, slotIndex) => {
+  const slot = availability.value[dayIndex].slots[slotIndex];
+  
+  if (!slot.start_time || !slot.end_time) {
+    availability.value[dayIndex].slotError = 'Both start and end time are required';
+    return false;
+  }
+  
+  if (slot.start_time >= slot.end_time) {
+    availability.value[dayIndex].slotError = 'End time must be after start time';
+    return false;
+  }
+  
+  // Check for overlapping slots
+  const slots = availability.value[dayIndex].slots;
+  for (let i = 0; i < slots.length; i++) {
+    if (i !== slotIndex && slots[i].start_time && slots[i].end_time) {
+      if ((slot.start_time >= slots[i].start_time && slot.start_time < slots[i].end_time) ||
+          (slot.end_time > slots[i].start_time && slot.end_time <= slots[i].end_time) ||
+          (slot.start_time <= slots[i].start_time && slot.end_time >= slots[i].end_time)) {
+        availability.value[dayIndex].slotError = 'Time slots cannot overlap';
+        return false;
+      }
+    }
+  }
+  
+  availability.value[dayIndex].slotError = '';
+  return true;
+};
+
+const validateTimeSlotsForDay = (dayIndex) => {
+  const slots = availability.value[dayIndex].slots;
+  
+  if (slots.length === 0) {
+    availability.value[dayIndex].slotError = 'At least one time slot is required';
+    return false;
+  }
+  
+  let hasError = false;
+  slots.forEach((slot, index) => {
+    if (!validateTimeSlot(dayIndex, index)) {
+      hasError = true;
+    }
+  });
+  
+  if (!hasError) {
+    availability.value[dayIndex].slotError = '';
+  }
+  
+  return !hasError;
+};
+
+const validateAvailability = () => {
+  let isValid = true;
+  
+  availability.value.forEach((day, dayIndex) => {
+    if (day.is_available) {
+      if (day.slots.length === 0) {
+        availability.value[dayIndex].slotError = 'At least one time slot is required';
+        isValid = false;
+      } else {
+        if (!validateTimeSlotsForDay(dayIndex)) {
+          isValid = false;
+        }
+      }
+    }
+  });
+  
+  return isValid;
+};
+
+// Get dropdown options from metadata
+const getDropdownOptions = (field) => {
+  if (field.metadata) {
+    try {
+      const meta = typeof field.metadata === 'string' ? JSON.parse(field.metadata) : field.metadata;
+      return meta.options || [];
+    } catch (e) {
+      console.error('Error parsing metadata:', e);
+      return [];
+    }
+  }
+  return [];
+};
+
+// Image handling
+const handleFileUpload = (event) => {
+  const files = Array.from(event.target.files);
+  selectedFiles.value = [...selectedFiles.value, ...files];
+  
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      imagePreviews.value.push(e.target.result);
+    };
+    reader.readAsDataURL(file);
+  });
+};
+
+const removeImage = (index) => {
+  selectedFiles.value.splice(index, 1);
+  imagePreviews.value.splice(index, 1);
+};
+
+const handleImageUpload = (event, fieldName) => {
+  if (event.target.files && event.target.files[0]) {
+    fieldValues.value[fieldName] = event.target.files[0];
+  }
+};
+
+// Prepare form data
+const prepareFormData = () => {
+  const formData = new FormData();
+  
+  // Basic resource data
+  formData.append('name', resourceForm.value.name);
+  formData.append('location_name', resourceForm.value.location_name);
+  formData.append('category_id', selectedTemplate.value.category_id.toString());
+  
+  if (resourceForm.value.department_id) {
+    formData.append('department_id', resourceForm.value.department_id.toString());
+  } else {
+    formData.append('department_id', '');
+  }
+  
+  // Base price
+  if (resourceForm.value.base_price === null || resourceForm.value.base_price === '') {
+    formData.append('base_price', '0.00');
+  } else {
+    const priceValue = parseFloat(resourceForm.value.base_price);
+    formData.append('base_price', isNaN(priceValue) ? '0.00' : priceValue.toString());
+  }
+  
+  formData.append('status', resourceForm.value.status);
+  
+  if (resourceForm.value.assigned_admin_id) {
+    formData.append('assigned_admin_id', resourceForm.value.assigned_admin_id.toString());
+  }
+  
+  formData.append('description', resourceForm.value.description || '');
+  
+  // Add template ID
+  formData.append('template_id', selectedTemplate.value.id.toString());
+  
+  // Add images
+  selectedFiles.value.forEach((file, index) => {
+    formData.append(`images[${index}]`, file);
+  });
+  
+  // Add template fields
+  for (const [key, value] of Object.entries(fieldValues.value)) {
+    if (value instanceof File) {
+      formData.append(`field_${key}`, value, value.name);
+    } else if (value !== null && value !== undefined) {
+      formData.append(`field_${key}`, String(value));
+    }
+  }
+  
+  // Add availability with time slots
+  availability.value.forEach((day, dayIndex) => {
+    if (day.is_available && day.slots.length > 0) {
+      const validSlots = day.slots.filter(slot => 
+        slot.start_time && slot.end_time
+      );
+      
+      if (validSlots.length > 0) {
+        formData.append(`availability[${dayIndex}][day_of_week]`, day.day_name);
+        formData.append(`availability[${dayIndex}][is_available]`, '1');
+        
+        validSlots.forEach((slot, slotIndex) => {
+          formData.append(`availability[${dayIndex}][slots][${slotIndex}][start_time]`, slot.start_time);
+          formData.append(`availability[${dayIndex}][slots][${slotIndex}][end_time]`, slot.end_time);
+        });
+      }
+    }
+  });
+  
+  return formData;
+};
+
+// Submit Resource
+const submitResource = async () => {
+  formError.value = '';
+  successMessage.value = '';
+  validationErrors.value = {};
+
+  // Validate required fields
+  if (!resourceForm.value.name) {
+    formError.value = 'Resource name is required.';
+    return;
+  }
+
+  if (!resourceForm.value.location_name) {
+    formError.value = 'Location name is required.';
+    return;
+  }
+
+  // Validate template required fields
+  for (const field of templateFields.value) {
+    if (field.is_required === 1) {
+      const value = fieldValues.value[field.field_name];
+      if (value === undefined || value === null || value === '' || value === false) {
+        formError.value = `"${field.field_name}" is required.`;
+        return;
+      }
+    }
+  }
+
+  // Validate availability
+  if (!validateAvailability()) {
+    formError.value = 'Please fix time slot errors before saving.';
+    return;
+  }
+
+  isSubmitting.value = true;
+
+  try {
+    const token = getAuthToken();
+    if (!token) {
+      formError.value = 'Authentication required. Please login again.';
+      return;
+    }
+
+    const formData = prepareFormData();
+
+    const response = await axios.post(`${API_BASE_URL}/resources`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    successMessage.value = 'Resource created successfully!';
+    
+    // Auto navigate to resources page after 2 seconds
+    setTimeout(() => {
+      router.push('/master-admin/resource');
+    }, 2000);
+
+  } catch (error) {
+    console.error('Submit resource error:', error);
+    
+    if (error.response?.status === 422 && error.response.data.errors) {
+      validationErrors.value = error.response.data.errors;
+      formError.value = 'Please check the form for errors.';
+    } else {
+      formError.value = error.response?.data?.message || 'Failed to create resource.';
+    }
+  } finally {
+    isSubmitting.value = false;
+  }
+};
+
+// Filter and UI Helpers
+const filterByCategory = (categoryId) => {
+  selectedCategoryId.value = categoryId;
+};
+
+const getCategoryName = (categoryId) => {
+  const category = categories.value.find(c => c.id === categoryId);
+  return category ? category.name : 'Uncategorized';
+};
+
+const getCategoryIcon = (categoryName) => {
+  const name = categoryName.toLowerCase();
+  if (name.includes('academic')) return 'bi bi-book';
+  if (name.includes('it')) return 'bi bi-laptop';
+  if (name.includes('medical')) return 'bi bi-hospital';
+  if (name.includes('sport')) return 'bi bi-trophy';
+  if (name.includes('cultural')) return 'bi bi-palette';
+  return 'bi bi-folder';
+};
+
+const getCategoryColorClass = (categoryId) => {
+  const colors = {
+    1: 'academic-color',
+    2: 'it-color',
+    3: 'medical-color',
+    4: 'sports-color',
+    5: 'cultural-color'
+  };
+  return colors[categoryId] || 'default-color';
+};
+
+const getTemplateIcon = (templateName) => {
+  const name = templateName.toLowerCase();
+  if (name.includes('lecture') || name.includes('seminar')) return 'bi bi-easel';
+  if (name.includes('study')) return 'bi bi-person-workspace';
+  if (name.includes('lab')) return name.includes('computer') ? 'bi bi-pc-display' : 'bi bi-flask';
+  if (name.includes('data')) return 'bi bi-server';
+  if (name.includes('workshop')) return 'bi bi-tools';
+  if (name.includes('editing')) return 'bi bi-film';
+  if (name.includes('procedure')) return 'bi bi-clipboard-pulse';
+  if (name.includes('radiology')) return 'bi bi-x-diamond';
+  if (name.includes('operating')) return 'bi bi-heart-pulse';
+  if (name.includes('court') || name.includes('field')) return 'bi bi-dribbble';
+  if (name.includes('gym')) return 'bi bi-heart-fill';
+  if (name.includes('pool')) return 'bi bi-water';
+  return 'bi bi-file-text';
+};
+
+// Initialize
+onMounted(() => {
+  fetchTemplates();
+});
 </script>
 
 <style scoped>
-/* --- General Layout & Responsiveness --- */
-.text-dark-teal {
-    color: #1e4449;
-    font-weight: 600;
-}
-.section {
-    animation: fadeIn 0.3s ease;
-    margin-left: 260px;
-    padding: 20px;
-}
-@media (max-width: 768px) {
-    .section {
-        margin-left: 80px;
-    }
-}
-.btn-outline-secondary {
-    --bs-btn-color: #6c757d;
-    --bs-btn-border-color: #6c757d;
-    --bs-btn-hover-color: #ffffff;
-    --bs-btn-hover-bg: #6c757d;
-    --bs-btn-hover-border-color: #6c757d;
+/* Main Layout */
+.use-template-page {
+  margin-left: 260px;
+  padding: 30px;
+  background: #f8f9fa;
+  min-height: 100vh;
+  animation: fadeIn 0.3s ease;
 }
 
-/* --- Template Card Styling --- */
-.template-card {
-    background: #f8f9fa; 
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
+@media (max-width: 768px) {
+  .use-template-page {
+    margin-left: 80px;
     padding: 20px;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.2s ease-in-out;
-    min-height: 200px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Header */
+.header-section {
+  margin-bottom: 30px;
+}
+
+.page-title {
+  font-size: 2rem;
+  font-weight: 600;
+  color: #1e4449;
+  margin-bottom: 0.5rem;
+}
+
+.text-dark-teal {
+  color: #1e4449;
+}
+
+/* Category Filter */
+.category-filter {
+  background: white;
+  padding: 15px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.btn-group {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.btn-group .btn {
+  border-radius: 8px !important;
+  padding: 8px 20px;
+  font-weight: 500;
+}
+
+.btn-dark-teal {
+  background-color: #1e4449;
+  color: white;
+  border: 1px solid #1e4449;
+}
+
+.btn-dark-teal:hover {
+  background-color: #153237;
+  color: white;
+}
+
+.btn-outline-dark-teal {
+  color: #1e4449;
+  border: 1px solid #1e4449;
+  background: transparent;
+}
+
+.btn-outline-dark-teal:hover {
+  background-color: #1e4449;
+  color: white;
+}
+
+/* Search Section */
+.search-section {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* Template Card */
+.template-card {
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  position: relative;
+  cursor: pointer;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .template-card:hover {
-    background: #e9ecef; 
-    border-color: #fcc300; 
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+  transform: translateY(-5px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+}
+
+.status-badge {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  z-index: 1;
+}
+
+.status-badge.active {
+  background: #d4edda;
+  color: #155724;
+}
+
+.status-badge.inactive {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.template-icon-wrapper {
+  padding: 30px 20px 20px;
+  display: flex;
+  justify-content: center;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
 }
 
 .template-icon {
-    font-size: 2.5rem;
-    color: #1e4449; 
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.5rem;
+  color: white;
+}
+
+.academic-color { background: #4B6E8C; }
+.it-color { background: #2C3E50; }
+.medical-color { background: #C44545; }
+.sports-color { background: #27AE60; }
+.cultural-color { background: #F39C12; }
+.default-color { background: #95A5A6; }
+
+.template-content {
+  padding: 20px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.template-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 10px;
+}
+
+.template-description {
+  color: #7f8c8d;
+  font-size: 0.9rem;
+  margin-bottom: 15px;
+  flex: 1;
+}
+
+.use-template-btn {
+  width: 100%;
+  padding: 10px;
+  background: #1e4449;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  margin-top: 15px;
+  transition: all 0.3s;
+}
+
+.use-template-btn:hover {
+  background: #153237;
+}
+
+/* Form View */
+.form-view {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.form-container {
+  background: white;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.form-header {
+  padding: 20px 30px;
+  background: linear-gradient(135deg, #1e4449 0%, #153237 100%);
+  color: white;
+}
+
+.back-btn {
+  color: white !important;
+  text-decoration: none;
+  padding: 0;
+  margin-bottom: 15px;
+}
+
+.back-btn:hover {
+  color: #fcc300 !important;
+}
+
+.form-title {
+  font-size: 1.5rem;
+  margin: 0;
+}
+
+/* Form Sections */
+.form-section {
+  padding: 30px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.form-section:last-child {
+  border-bottom: none;
+}
+
+.section-title {
+  color: #1e4449;
+  font-size: 1.25rem;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #fcc300;
+}
+
+/* Availability Matrix */
+.availability-matrix {
+  background-color: #fafafa !important;
+}
+
+.availability-matrix .form-check-input {
+  margin-top: 0.2rem;
+  cursor: pointer;
+}
+
+.availability-matrix input[type="time"]:disabled {
+  background-color: #e9ecef;
+  opacity: 0.8;
+}
+
+.time-slots-container {
+  min-height: 60px;
+}
+
+.time-slots-container .row {
+  min-height: 38px;
+}
+
+/* Form Actions */
+.form-actions {
+  padding: 30px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 15px;
+  background: #f8f9fa;
+}
+
+.btn-success {
+  background-color: #4BB66D;
+  border-color: #4BB66D;
+  padding: 10px 30px;
+}
+
+.btn-success:hover {
+  background-color: #3f975b;
+  border-color: #3f975b;
+}
+
+.btn-success:disabled {
+  background-color: #6c757d;
+  border-color: #6c757d;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  padding: 10px 30px;
+}
+
+/* Loading States */
+.spinner-border.text-dark-teal {
+  color: #1e4449 !important;
+  width: 3rem;
+  height: 3rem;
+}
+
+.spinner-border-sm {
+  width: 1rem;
+  height: 1rem;
+  border-width: 0.15em;
+}
+
+/* Badges */
+.badge {
+  font-size: 0.75rem;
+  padding: 0.35em 0.65em;
+}
+
+.badge.bg-info {
+  background-color: #0dcaf0 !important;
+}
+
+.badge.bg-warning {
+  background-color: #ffc107 !important;
+  color: #212529;
+}
+
+/* Form Check */
+.form-check-input:checked {
+  background-color: #4BB66D;
+  border-color: #4BB66D;
+}
+
+.form-check-input:focus {
+  border-color: #4BB66D;
+  box-shadow: 0 0 0 0.25rem rgba(75, 182, 109, 0.25);
+}
+
+/* Image Preview */
+.img-thumbnail {
+  object-fit: cover;
+  max-width: 100%;
+}
+
+.btn-outline-danger {
+  --bs-btn-color: #dc3545;
+  --bs-btn-border-color: #dc3545;
+  --bs-btn-hover-bg: #dc3545;
+  --bs-btn-hover-color: white;
+}
+
+/* Alerts */
+.alert {
+  border-radius: 0.375rem;
+  margin: 20px 30px 0;
+}
+
+.alert-success {
+  background-color: #d1e7dd;
+  border-color: #badbcc;
+  color: #0f5132;
+}
+
+.alert-danger {
+  background-color: #f8d7da;
+  border-color: #f5c2c7;
+  color: #842029;
+}
+
+/* Validation */
+.text-danger {
+  color: #dc3545 !important;
+}
+
+.is-invalid {
+  border-color: #dc3545 !important;
+}
+
+.invalid-feedback {
+  display: block;
+  font-size: 0.875rem;
+  color: #dc3545;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .form-section {
+    padding: 20px;
+  }
+  
+  .form-actions {
+    flex-direction: column;
+  }
+  
+  .form-actions button {
+    width: 100%;
+  }
+  
+  .availability-matrix .row {
+    flex-direction: column;
+    align-items: flex-start !important;
+  }
+  
+  .availability-matrix .col-2,
+  .availability-matrix .col-5,
+  .availability-matrix .col-3 {
+    width: 100%;
     margin-bottom: 10px;
-}
-
-.template-card .card-title {
-    font-weight: 600;
-    color: #1e4449;
-    font-size: 1.15rem;
-}
-
-.template-card .badge {
-    background-color: #fcc300 !important;
-    color: #1e4449;
-    font-weight: 700;
-    padding: 0.5em 1em;
+  }
 }
 </style>
