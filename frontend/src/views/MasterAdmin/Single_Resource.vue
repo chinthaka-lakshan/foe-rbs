@@ -416,7 +416,7 @@ const fetchResourceDetails = async (id: number) => {
 };
 
 const handleReserveClick = (id: number) => {
-    router.push({ path: '/single-resource-booking', query: { resourceId: id } });
+    router.push({ path: '/master-admin/single-resource-booking', query: { resourceId: id } });
 };
 
 onMounted(() => {

@@ -22,7 +22,7 @@
           @click="navigateToCategories"
         >
           <i class="bi bi-list-ul me-1"></i>Categories
-        </button>
+        </button> 
         <button
           class="btn btn-outline-dark-teal btn-sm"
           @click="navigateToTemplates"
