@@ -7,7 +7,7 @@
     <div class="alert alert-info mb-3" v-if="!isLoading">
       <div class="d-flex justify-content-between align-items-center">
         <span><strong>Debug:</strong> API URL: {{ API_BASE_URL }}</span>
-        <button class="btn btn-sm btn-outline-primary" @click="testAPIConnection">
+        <button class="btn btn-sm btn-outline-primary" @click="testAPIConnection" type="button">
           Test API Connection
         </button>
       </div>
@@ -24,7 +24,7 @@
     <!-- Error State -->
     <div v-else-if="errorMessage" class="alert alert-danger" role="alert">
       <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ errorMessage }}
-      <button class="btn btn-sm btn-outline-danger ms-3" @click="loadResourceDetails">
+      <button class="btn btn-sm btn-outline-danger ms-3" @click="loadResourceDetails" type="button">
         <i class="bi bi-arrow-clockwise me-1"></i>Retry
       </button>
     </div>
@@ -104,6 +104,7 @@
                 class="btn btn-sm btn-outline-primary"
                 @click="loadBookings"
                 :disabled="isLoadingBookings"
+                type="button"
               >
                 <i class="bi bi-arrow-clockwise" :class="{ 'fa-spin': isLoadingBookings }"></i>
                 Refresh
@@ -127,7 +128,8 @@
                   <thead class="table-light">
                     <tr>
                       <th>No</th>
-                      <th>Booking Date</th>
+                      <th>Booking Ref</th>
+                      <th>Date</th>
                       <th>Time Slot</th>
                       <th>Booked By</th>
                       <th>Amount</th>
@@ -137,10 +139,11 @@
                   <tbody>
                     <tr v-for="(booking, index) in bookings" :key="booking.id">
                       <td>{{ index + 1 }}</td>
+                      <td><small>{{ booking.booking_reference }}</small></td>
                       <td>{{ formatDate(booking.booking_date) }}</td>
                       <td>{{ formatTime(booking.start_time) }} - {{ formatTime(booking.end_time) }}</td>
                       <td>{{ booking.user_email }}</td>
-                      <td>Rs. {{ booking.total_amount }}</td>
+                      <td>Rs. {{ Number(booking.total_amount).toFixed(2) }}</td>
                       <td>
                         <span class="badge" :class="getBookingStatusClass(booking.status)">
                           {{ booking.status }}
@@ -172,8 +175,12 @@
                     id="user_email"
                     class="form-control"
                     v-model="form.user_email"
+                    placeholder="your@email.com"
                     required
                   >
+                  <small class="text-muted" v-if="isUniversityEmail">
+                    <i class="bi bi-mortarboard"></i> University email detected (Internal rates apply)
+                  </small>
                 </div>
 
                 <!-- Date Selection -->
@@ -201,36 +208,40 @@
                       class="btn time-slot-btn"
                       :class="{
                         'btn-outline-success': selectedSlotIndex !== index,
-                        'btn-success': selectedSlotIndex === index
+                        'btn-success': selectedSlotIndex === index,
+                        'disabled': !isSlotAvailable(slot)
                       }"
                       @click="selectTimeSlot(index)"
+                      :disabled="!isSlotAvailable(slot)"
                     >
                       <div>
                         <span>{{ formatTime(slot.start_time) }} - {{ formatTime(slot.end_time) }}</span>
                         <small class="d-block">{{ calculateSlotDuration(slot) }} hrs</small>
+                        <small v-if="!isSlotAvailable(slot)" class="text-danger">Booked</small>
                       </div>
                     </button>
                   </div>
                 </div>
                 
                 <div v-else-if="selectedDayInfo && !selectedDayInfo.is_available" class="alert alert-warning">
-                  Resource unavailable on this day
+                  <i class="bi bi-exclamation-triangle"></i> Resource unavailable on this day
                 </div>
                 
                 <div v-else-if="selectedDayInfo && selectedDayInfo.slots.length === 0" class="alert alert-warning">
-                  No time slots configured
+                  <i class="bi bi-exclamation-triangle"></i> No time slots configured for this day
                 </div>
                 
                 <div v-else class="alert alert-info">
-                  Please select a date
+                  <i class="bi bi-info-circle"></i> Please select a date
                 </div>
 
                 <!-- Cost Display -->
                 <div v-if="calculatedCost > 0" class="mb-3 p-2 bg-light rounded">
                   <div class="d-flex justify-content-between">
                     <span>Resource Cost:</span>
-                    <span class="fw-bold">Rs. {{ calculatedCost }}</span>
+                    <span class="fw-bold">Rs. {{ calculatedCost.toFixed(2) }}</span>
                   </div>
+                  <small class="text-muted" v-if="isUniversityEmail">Internal rate: Free</small>
                 </div>
 
                 <!-- Equipment Section -->
@@ -285,12 +296,12 @@
                           <input type="number" class="form-control text-center" v-model.number="item.quantity" min="1" :max="item.available_quantity" @change="validateQuantity(index)">
                           <button type="button" class="btn btn-outline-secondary" @click="increaseQuantity(index)">+</button>
                         </div>
-                        <span class="ms-auto fw-bold text-success">Rs. {{ calculateEquipmentCost(item) }}</span>
+                        <span class="ms-auto fw-bold text-success">Rs. {{ calculateEquipmentCost(item).toFixed(2) }}</span>
                       </div>
                     </div>
                     
                     <div class="mt-2 text-end">
-                      <strong>Equipment Total: Rs. {{ equipmentTotalCost }}</strong>
+                      <strong>Equipment Total: Rs. {{ equipmentTotalCost.toFixed(2) }}</strong>
                     </div>
                   </div>
                 </div>
@@ -303,22 +314,23 @@
                     class="form-control"
                     rows="2"
                     v-model="form.notes"
+                    placeholder="Any special requests?"
                   ></textarea>
                 </div>
 
                 <!-- Total Cost -->
                 <div class="cost-summary mb-3">
                   <div class="d-flex justify-content-between mb-2">
-                    <span>Resource:</span>
-                    <span>Rs. {{ calculatedCost || 0 }}</span>
+                    <span>Resource Cost:</span>
+                    <span>Rs. {{ (calculatedCost || 0).toFixed(2) }}</span>
                   </div>
                   <div class="d-flex justify-content-between mb-2">
-                    <span>Equipment:</span>
-                    <span>Rs. {{ equipmentTotalCost }}</span>
+                    <span>Equipment Cost:</span>
+                    <span>Rs. {{ equipmentTotalCost.toFixed(2) }}</span>
                   </div>
                   <div class="d-flex justify-content-between fw-bold fs-5 border-top pt-2">
                     <span>Total:</span>
-                    <span class="text-success">Rs. {{ totalCost }}</span>
+                    <span class="text-success">Rs. {{ totalCost.toFixed(2) }}</span>
                   </div>
                 </div>
 
@@ -356,7 +368,7 @@
             <strong>{{ form.user_email }}</strong>
           </p>
           <div v-if="debugOTP" class="alert alert-warning py-1 small">
-            Debug OTP: <strong>{{ debugOTP }}</strong>
+            <i class="bi bi-bug"></i> Debug OTP: <strong>{{ debugOTP }}</strong>
           </div>
         </div>
         
@@ -373,10 +385,11 @@
               @input="onOtpInput(n-1, $event)"
               @keydown="onOtpKeydown(n-1, $event)"
               :ref="el => otpRefs[n-1] = el"
+              :disabled="isVerifying"
             />
           </div>
           <div v-if="otpError" class="text-danger text-center mt-2 small">
-            {{ otpError }}
+            <i class="bi bi-exclamation-triangle"></i> {{ otpError }}
           </div>
         </div>
         
@@ -384,13 +397,17 @@
         <div class="text-center">
           <small class="text-muted">OTP expires in: {{ formatTimer(otpTimer) }}</small><br>
           <button type="button" class="btn btn-link btn-sm" @click="resendOTP" :disabled="isResending">
+            <span v-if="isResending" class="spinner-border spinner-border-sm me-1"></span>
+            <i v-else class="bi bi-arrow-clockwise me-1"></i>
             {{ isResending ? 'Sending...' : 'Resend OTP' }}
           </button>
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" @click="closeOTPModal">Cancel</button>
+        <button type="button" class="btn btn-secondary" @click="closeOTPModal" :disabled="isVerifying">Cancel</button>
         <button type="button" class="btn btn-success" @click="verifyOTP" :disabled="!isOtpComplete || isVerifying">
+          <span v-if="isVerifying" class="spinner-border spinner-border-sm me-2"></span>
+          <i v-else class="bi bi-check-circle me-2"></i>
           {{ isVerifying ? 'Verifying...' : 'Verify & Complete' }}
         </button>
       </div>
@@ -402,6 +419,7 @@
     <div class="modal-content">
       <div class="modal-header bg-success text-white">
         <h5 class="modal-title">Booking Confirmed!</h5>
+        <button type="button" class="btn-close btn-close-white" @click="closeSuccessModal"></button>
       </div>
       <div class="modal-body text-center">
         <i class="bi bi-check-circle" style="font-size: 4rem; color: #4BB66D;"></i>
@@ -411,28 +429,32 @@
           <p class="mb-1"><strong>Resource:</strong> {{ resource?.name }}</p>
           <p class="mb-1"><strong>Date:</strong> {{ formatDate(form.booking_date) }}</p>
           <p class="mb-1"><strong>Time:</strong> {{ form.start_time }} - {{ form.end_time }}</p>
-          <p class="mb-0"><strong>Total:</strong> Rs. {{ totalCost }}</p>
+          <p class="mb-1"><strong>Total:</strong> Rs. {{ totalCost.toFixed(2) }}</p>
+          <p class="mb-0"><small class="text-muted">Reference: {{ bookingReference }}</small></p>
         </div>
         
         <p class="text-muted small mt-3">
-          Confirmation sent to {{ form.user_email }}
+          <i class="bi bi-envelope-check"></i> Confirmation sent to {{ form.user_email }}
         </p>
       </div>
       <div class="modal-footer justify-content-center">
-        <button type="button" class="btn btn-success" @click="goToBookings">View My Bookings</button>
-        <button type="button" class="btn btn-outline-success" @click="closeSuccessModal">Book Another</button>
+        <button type="button" class="btn btn-success" @click="goToBookings">
+          <i class="bi bi-list-check me-2"></i>View My Bookings
+        </button>
+        <button type="button" class="btn btn-outline-success" @click="closeSuccessModal">
+          <i class="bi bi-calendar-plus me-2"></i>Book Another
+        </button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue';
+import { ref, computed, onMounted, nextTick, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 import Navbar from '../../components/Navbar.vue';
 import MasterAdminSidebar from '../../components/Sidebar/MasterAdminSidebar.vue';
-import { bookingStore } from '../../store/bookingStore';
 
 const route = useRoute();
 const router = useRouter();
@@ -441,16 +463,42 @@ const router = useRouter();
 const API_BASE_URL = 'http://localhost:8000/api';
 const STORAGE_URL = 'http://localhost:8000/storage';
 
-// State
-const resource = ref<Resource | null>(null);
-const bookings = computed(() => {
-  if (!resource.value) return [];
-  return bookingStore.bookings.filter(b => 
-    (b.resource_id === resource.value?.id) || 
-    (b.resources && b.resources.some((r: any) => r.id === resource.value?.id))
-  );
+// Configure axios
+axios.defaults.baseURL = API_BASE_URL;
+axios.defaults.headers.common['Accept'] = 'application/json';
+axios.defaults.headers.common['Content-Type'] = 'application/json';
+axios.defaults.withCredentials = false;
+
+// Request interceptor for debugging
+axios.interceptors.request.use(request => {
+  console.log('🚀 Request:', {
+    url: request.url,
+    method: request.method,
+    headers: request.headers,
+    data: request.data
+  });
+  return request;
 });
-const selectedBooking = ref<Booking | null>(null);
+
+// Response interceptor
+axios.interceptors.response.use(
+  response => {
+    console.log('✅ Response:', response.status, response.data);
+    return response;
+  },
+  error => {
+    console.error('❌ Error:', {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    });
+    return Promise.reject(error);
+  }
+);
+
+// State
+const resource = ref(null);
+const bookings = ref([]);
 const isLoading = ref(true);
 const isLoadingBookings = ref(false);
 const errorMessage = ref('');
@@ -475,6 +523,7 @@ const showEquipmentDropdown = ref(false);
 // Time Slots
 const selectedDayInfo = ref(null);
 const selectedSlotIndex = ref(-1);
+const existingBookingsForDate = ref([]);
 
 // OTP
 const showOTPModal = ref(false);
@@ -488,14 +537,19 @@ const isResending = ref(false);
 const otpTimer = ref(300);
 const timerInterval = ref(null);
 const pendingBookingId = ref(null);
+const bookingReference = ref('');
 const debugOTP = ref('');
 
 // User
-const userId = ref(1); // Default user ID
+const userId = ref(1);
 
 // Computed
 const minDate = computed(() => {
   return new Date().toISOString().split('T')[0];
+});
+
+const isUniversityEmail = computed(() => {
+  return form.value.user_email?.toLowerCase().endsWith('@sjp.ac.lk');
 });
 
 const calculatedCost = computed(() => {
@@ -505,15 +559,21 @@ const calculatedCost = computed(() => {
   const end = new Date(`2000-01-01T${form.value.end_time}`);
   const hours = (end - start) / (1000 * 60 * 60);
   
-  return Math.round(hours * resource.value.base_price);
+  // Internal users get free resources
+  if (isUniversityEmail.value) return 0;
+  
+  return hours * resource.value.base_price;
 });
 
 const calculateEquipmentCost = (item) => {
   const hours = calculateHours();
+  // Internal users get free equipment
+  if (isUniversityEmail.value) return 0;
   return item.price_per_hour * item.quantity * hours;
 };
 
 const equipmentTotalCost = computed(() => {
+  if (isUniversityEmail.value) return 0;
   const hours = calculateHours();
   return selectedEquipment.value.reduce((sum, item) => 
     sum + (item.price_per_hour * item.quantity * hours), 0
@@ -533,6 +593,7 @@ const calculateHours = () => {
 
 const isFormValid = computed(() => {
   return form.value.user_email && 
+         /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.value.user_email) &&
          form.value.booking_date && 
          form.value.start_time && 
          form.value.end_time &&
@@ -600,12 +661,10 @@ const getAuthToken = () => {
 // Test API Connection
 const testAPIConnection = async () => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/health`, {
-      headers: { 'Accept': 'application/json' }
-    });
-    alert('API Connection successful! ' + JSON.stringify(response.data));
+    const response = await axios.get('/health');
+    alert('✅ API Connection successful!\n' + JSON.stringify(response.data, null, 2));
   } catch (error) {
-    alert('API Connection failed: ' + error.message);
+    alert('❌ API Connection failed: ' + error.message);
   }
 };
 
@@ -619,39 +678,19 @@ const loadResourceDetails = async () => {
   }
 
   isLoading.value = true;
+  errorMessage.value = '';
   
   try {
     const token = getAuthToken();
-    const headers = { 
-      'Accept': 'application/json'
-    };
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
     
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-    
-    const response = await axios.get(`${API_BASE_URL}/resources/${id}`, { headers });
+    const response = await axios.get(`/resources/${id}`, { headers });
     
     resource.value = response.data.resource || response.data.data || response.data;
     
-    if (resourceData) {
-      if (!resourceData.availability) {
-        resourceData.availability = [];
-      }
-      resource.value = resourceData;
-      
-      // Load bookings for this resource
-      await loadBookings();
-      // Load available equipment
-      await loadAvailableEquipment();
-    } else {
-      errorMessage.value = 'Resource data not found in response';
-    }
-
-    bookingForm.value.date = minDate.value;
-
-  } catch (error: any) {
-    console.error('Error loading resource:', error);
+    // Get user from localStorage
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    userId.value = user.id || 1;
     
     await Promise.all([
       loadBookings(),
@@ -659,7 +698,7 @@ const loadResourceDetails = async () => {
     ]);
     
     form.value.booking_date = minDate.value;
-    await updateDayInfo();
+    await onDateChange();
     
   } catch (error) {
     console.error('Error loading resource:', error);
@@ -675,11 +714,15 @@ const loadBookings = async () => {
   isLoadingBookings.value = true;
   
   try {
-    if (resource.value) {
-      await bookingStore.fetchByResource(resource.value.id);
-    }
-    console.log(`Loaded bookings for resource ${resource.value.id} into store`);
-  } catch (error: any) {
+    const token = getAuthToken();
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+    
+    const response = await axios.get(`/bookings/resource/${resource.value.id}`, { headers });
+    
+    bookings.value = Array.isArray(response.data) ? response.data : 
+                     response.data.data || [];
+    
+  } catch (error) {
     console.error('Error loading bookings:', error);
   } finally {
     isLoadingBookings.value = false;
@@ -689,61 +732,9 @@ const loadBookings = async () => {
 const loadEquipment = async () => {
   try {
     const token = getAuthToken();
-    const headers = { 'Accept': 'application/json' };
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
     
-    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-    const userId = currentUser.id || 0;
-    
-    // Prepare booking data with equipment
-    const bookingPayload: any = {
-      user_id: userId,
-      user_email: bookingForm.value.email,
-      booking_date: bookingForm.value.date,
-      start_time: bookingForm.value.startTime,
-      end_time: bookingForm.value.endTime,
-      notes: bookingForm.value.purpose || '',
-      resources: [
-        {
-          resource_id: resource.value.id
-        }
-      ],
-      booking_items: [] // This will hold equipment items
-    };
-    
-    // Add equipment items if any selected
-    if (selectedEquipment.value.length > 0) {
-      selectedEquipment.value.forEach(item => {
-        bookingPayload.booking_items.push({
-          item_id: item.id,
-          item_type: 'equipment',
-          quantity: item.quantity
-        });
-      });
-    }
-    
-    console.log('Creating booking with payload:', bookingPayload);
-    
-    const response = await axios.post(`${API_BASE_URL}/bookings`, bookingPayload, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    console.log('Booking created response:', response.data);
-    
-    if (response.data.booking) {
-      pendingBookingId.value = response.data.booking.id;
-      pendingBookingReference.value = response.data.booking.booking_reference;
-      bookingStore.updateBookingLocally(response.data.booking);
-    } else if (response.data.id) {
-      pendingBookingId.value = response.data.id;
-      pendingBookingReference.value = response.data.booking_reference;
-      bookingStore.updateBookingLocally(response.data);
-    }
-    
-    const response = await axios.get(`${API_BASE_URL}/booking-items`, { headers });
+    const response = await axios.get('/booking-items', { headers });
     
     const items = Array.isArray(response.data) ? response.data : 
                   response.data.data || [];
@@ -754,23 +745,161 @@ const loadEquipment = async () => {
   }
 };
 
-// FIXED: Submit Booking Function
+const loadBookingsForDate = async (date) => {
+  if (!resource.value) return;
+  
+  try {
+    const token = getAuthToken();
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+    
+    const response = await axios.get(`/bookings/resource/${resource.value.id}`, { 
+      headers,
+      params: { date }
+    });
+    
+    existingBookingsForDate.value = Array.isArray(response.data) ? 
+      response.data.filter(b => b.status !== 'Cancelled' && b.status !== 'Completed') : [];
+    
+  } catch (error) {
+    console.error('Error loading bookings for date:', error);
+    existingBookingsForDate.value = [];
+  }
+};
+
+// Time Slot Functions
+const onDateChange = async () => {
+  selectedSlotIndex.value = -1;
+  form.value.start_time = '';
+  form.value.end_time = '';
+  
+  if (!form.value.booking_date || !resource.value) {
+    selectedDayInfo.value = null;
+    return;
+  }
+  
+  const dayName = new Date(form.value.booking_date).toLocaleDateString('en-US', { weekday: 'long' });
+  const dayInfo = resource.value.availability?.find(d => d.day_name === dayName);
+  
+  selectedDayInfo.value = dayInfo || {
+    day_name: dayName,
+    is_available: false,
+    slots: []
+  };
+  
+  await loadBookingsForDate(form.value.booking_date);
+};
+
+const isSlotAvailable = (slot) => {
+  if (!existingBookingsForDate.value.length) return true;
+  
+  const slotStart = slot.start_time.substring(0, 5);
+  const slotEnd = slot.end_time.substring(0, 5);
+  
+  return !existingBookingsForDate.value.some(booking => {
+    const bookingStart = booking.start_time.substring(0, 5);
+    const bookingEnd = booking.end_time.substring(0, 5);
+    return (slotStart < bookingEnd && slotEnd > bookingStart);
+  });
+};
+
+const selectTimeSlot = (index) => {
+  const slot = selectedDayInfo.value.slots[index];
+  
+  if (!isSlotAvailable(slot)) {
+    validationErrors.value = ['This time slot is already booked'];
+    return;
+  }
+  
+  selectedSlotIndex.value = index;
+  form.value.start_time = formatTime(slot.start_time);
+  form.value.end_time = formatTime(slot.end_time);
+};
+
+// Equipment Functions
+const searchEquipment = () => {
+  if (!equipmentSearch.value) {
+    filteredEquipment.value = [];
+    return;
+  }
+  
+  const search = equipmentSearch.value.toLowerCase();
+  filteredEquipment.value = availableEquipment.value.filter(item =>
+    item.name.toLowerCase().includes(search) ||
+    item.description?.toLowerCase().includes(search)
+  );
+};
+
+const addEquipment = (item) => {
+  const existing = selectedEquipment.value.find(i => i.id === item.id);
+  
+  if (existing) {
+    if (existing.quantity < item.available_quantity) {
+      existing.quantity++;
+    } else {
+      alert(`Maximum available quantity is ${item.available_quantity}`);
+    }
+  } else {
+    selectedEquipment.value.push({ ...item, quantity: 1 });
+  }
+  
+  equipmentSearch.value = '';
+  filteredEquipment.value = [];
+  showEquipmentDropdown.value = false;
+};
+
+const removeEquipment = (index) => {
+  selectedEquipment.value.splice(index, 1);
+};
+
+const increaseQuantity = (index) => {
+  const item = selectedEquipment.value[index];
+  if (item.quantity < item.available_quantity) {
+    item.quantity++;
+  }
+};
+
+const decreaseQuantity = (index) => {
+  const item = selectedEquipment.value[index];
+  if (item.quantity > 1) {
+    item.quantity--;
+  }
+};
+
+const validateQuantity = (index) => {
+  const item = selectedEquipment.value[index];
+  if (item.quantity < 1) item.quantity = 1;
+  if (item.quantity > item.available_quantity) {
+    item.quantity = item.available_quantity;
+    alert(`Maximum available quantity is ${item.available_quantity}`);
+  }
+};
+
+// Submit Booking
 const submitBooking = async () => {
   validationErrors.value = [];
   
   // Validation
   if (!form.value.user_email?.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
-    validationErrors.value = ['Valid email required'];
+    validationErrors.value = ['Please enter a valid email address'];
     return;
   }
   
   if (!form.value.booking_date) {
-    validationErrors.value = ['Date required'];
+    validationErrors.value = ['Please select a date'];
+    return;
+  }
+  
+  const selectedDate = new Date(form.value.booking_date);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  if (selectedDate < today) {
+    validationErrors.value = ['Cannot book for past dates'];
     return;
   }
   
   if (!form.value.start_time || !form.value.end_time) {
-    validationErrors.value = ['Time slot required'];
+    validationErrors.value = ['Please select a time slot'];
     return;
   }
   
@@ -780,14 +909,23 @@ const submitBooking = async () => {
   }
   
   if (!selectedDayInfo.value?.is_available) {
-    validationErrors.value = ['Resource unavailable on this day'];
+    validationErrors.value = ['Resource is not available on this day'];
     return;
+  }
+  
+  // Check if selected slot is available
+  if (selectedSlotIndex.value !== -1) {
+    const selectedSlot = selectedDayInfo.value.slots[selectedSlotIndex.value];
+    if (!isSlotAvailable(selectedSlot)) {
+      validationErrors.value = ['This time slot is already booked'];
+      return;
+    }
   }
   
   // Check equipment quantities
   for (const item of selectedEquipment.value) {
     if (item.quantity > item.available_quantity) {
-      validationErrors.value = [`${item.name} exceeds available quantity`];
+      validationErrors.value = [`${item.name} exceeds available quantity (max ${item.available_quantity})`];
       return;
     }
   }
@@ -795,7 +933,7 @@ const submitBooking = async () => {
   isSubmitting.value = true;
   
   try {
-    // Prepare payload - EXACT format backend expects
+    // Prepare payload
     const payload = {
       user_id: userId.value,
       user_email: form.value.user_email,
@@ -813,26 +951,18 @@ const submitBooking = async () => {
       }));
     }
     
-    console.log('Sending payload:', payload);
+    console.log('📦 Sending payload:', payload);
     
     const token = getAuthToken();
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
     
-    // Headers
-    const headers = {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json'
-    };
+    const response = await axios.post('/bookings', payload, { headers });
     
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
+    console.log('✅ Booking response:', response.data);
     
-    const response = await axios.post(`${API_BASE_URL}/bookings`, payload, { headers });
-    
-    console.log('Booking response:', response.data);
-    
-    // Store booking ID
-    pendingBookingId.value = response.data.booking_id || response.data.id;
+    // Store booking details
+    pendingBookingId.value = response.data.booking_id;
+    bookingReference.value = response.data.booking_reference;
     
     if (response.data.otp_code_for_testing) {
       debugOTP.value = response.data.otp_code_for_testing;
@@ -843,21 +973,19 @@ const submitBooking = async () => {
     startTimer();
     
   } catch (error) {
-    console.error('Booking error:', error);
+    console.error('❌ Booking error:', error);
     
     if (error.response) {
-      console.error('Error status:', error.response.status);
-      console.error('Error data:', error.response.data);
+      const message = error.response.data?.message || 'Booking failed';
+      const errors = error.response.data?.errors;
       
-      if (error.response.status === 404) {
-        validationErrors.value = ['API endpoint not found. Check if the server is running and routes are correct.'];
-      } else if (error.response.status === 500) {
-        validationErrors.value = ['Server error. Check Laravel logs for details.'];
+      if (errors) {
+        validationErrors.value = Object.values(errors).flat();
       } else {
-        validationErrors.value = [error.response.data?.message || 'Booking failed'];
+        validationErrors.value = [message];
       }
     } else if (error.request) {
-      validationErrors.value = ['No response from server. Check if the server is running.'];
+      validationErrors.value = ['No response from server. Please check your connection.'];
     } else {
       validationErrors.value = [error.message];
     }
@@ -866,44 +994,43 @@ const submitBooking = async () => {
   }
 };
 
+// Verify OTP
 const verifyOTP = async () => {
   const code = otp.value.join('');
   
   if (code.length !== 6) {
-    otpError.value = 'Enter 6-digit OTP';
+    otpError.value = 'Please enter 6-digit OTP';
     return;
   }
   
   isVerifying.value = true;
+  otpError.value = '';
   
   try {
     const token = getAuthToken();
-    
-    const headers = {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json'
-    };
-    
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
     
     const response = await axios.post(
-      `${API_BASE_URL}/bookings/${pendingBookingId.value}/verify-otp`,
+      `/bookings/${pendingBookingId.value}/verify-otp`,
       { otp_code: code },
       { headers }
     );
     
-    console.log('Verify response:', response.data);
+    console.log('✅ Verify response:', response.data);
     
-    // Success
     closeOTPModal();
     showSuccessModal.value = true;
     await loadBookings();
     
   } catch (error) {
-    console.error('Verify error:', error);
-    otpError.value = error.response?.data?.message || 'Invalid OTP';
+    console.error('❌ Verify error:', error);
+    
+    if (error.response) {
+      otpError.value = error.response.data?.message || 'Invalid OTP';
+    } else {
+      otpError.value = 'Failed to verify OTP';
+    }
+    
     otp.value = Array(6).fill('');
     nextTick(() => otpRefs.value[0]?.focus());
   } finally {
@@ -911,30 +1038,27 @@ const verifyOTP = async () => {
   }
 };
 
+// Resend OTP
 const resendOTP = async () => {
-  if (!pendingBookingId.value) return;
+  if (!pendingBookingId.value) {
+    otpError.value = 'No pending booking found';
+    return;
+  }
   
   isResending.value = true;
+  otpError.value = '';
   
   try {
     const token = getAuthToken();
-    
-    const headers = {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json'
-    };
-    
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
     
     const response = await axios.post(
-      `${API_BASE_URL}/bookings/${pendingBookingId.value}/resend-otp`,
+      `/bookings/${pendingBookingId.value}/resend-otp`,
       {},
       { headers }
     );
     
-    console.log('Resend response:', response.data);
+    console.log('✅ Resend response:', response.data);
     
     resetTimer();
     otp.value = Array(6).fill('');
@@ -943,127 +1067,18 @@ const resendOTP = async () => {
       debugOTP.value = response.data.otp_code_for_testing;
     }
     
+    otpError.value = 'New OTP sent successfully!';
     nextTick(() => otpRefs.value[0]?.focus());
     
   } catch (error) {
-    console.error('Resend error:', error);
-    otpError.value = 'Failed to resend OTP';
+    console.error('❌ Resend error:', error);
+    otpError.value = error.response?.data?.message || 'Failed to resend OTP';
   } finally {
     isResending.value = false;
   }
 };
 
-// Time Slot Functions
-const onDateChange = async () => {
-  selectedSlotIndex.value = -1;
-  form.value.start_time = '';
-  form.value.end_time = '';
-  await updateDayInfo();
-};
-
-const updateDayInfo = async () => {
-  if (!form.value.booking_date || !resource.value) {
-    selectedDayInfo.value = null;
-    return;
-  }
-  
-  const dayName = new Date(form.value.booking_date).toLocaleDateString('en-US', { weekday: 'long' });
-  const dayInfo = resource.value.availability?.find(d => d.day_name === dayName);
-  
-  selectedDayInfo.value = dayInfo || {
-    day_name: dayName,
-    is_available: false,
-    slots: []
-  };
-};
-
-const selectTimeSlot = (index) => {
-  const slot = selectedDayInfo.value.slots[index];
-  selectedSlotIndex.value = index;
-  form.value.start_time = formatTime(slot.start_time);
-  form.value.end_time = formatTime(slot.end_time);
-};
-
-const confirmBooking = async (booking: Booking) => {
-  if (!confirm('Are you sure you want to confirm this booking?')) return;
-  
-  try {
-    const token = getAuthToken();
-    
-    const response = await axios.put(`${API_BASE_URL}/bookings/${booking.id}/confirm`, {}, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/json'
-      }
-    });
-    
-    // Update store state
-    bookingStore.updateBookingLocally(response.data.booking || response.data);
-    
-    // Update selected booking if it's the same
-    if (selectedBooking.value && selectedBooking.value.id === booking.id) {
-      selectedBooking.value = response.data.booking || response.data;
-    }
-    
-    alert('Booking confirmed successfully!');
-    
-  } catch (error: any) {
-    console.error('Error confirming booking:', error);
-    alert(error.response?.data?.message || 'Failed to confirm booking');
-  }
-  
-  const search = equipmentSearch.value.toLowerCase();
-  filteredEquipment.value = availableEquipment.value.filter(item =>
-    item.name.toLowerCase().includes(search) ||
-    item.description?.toLowerCase().includes(search)
-  );
-};
-
-const addEquipment = (item) => {
-  const existing = selectedEquipment.value.find(i => i.id === item.id);
-  
-  try {
-    const token = getAuthToken();
-    
-    const response = await axios.put(`${API_BASE_URL}/bookings/${booking.id}/cancel`, {}, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/json'
-      }
-    });
-    
-    // Update store state
-    bookingStore.updateBookingLocally(response.data.booking || response.data);
-    
-    // Update selected booking if it's the same
-    if (selectedBooking.value && selectedBooking.value.id === booking.id) {
-      selectedBooking.value = response.data.booking || response.data;
-    }
-    
-    alert('Booking cancelled successfully!');
-    
-  } catch (error: any) {
-    console.error('Error cancelling booking:', error);
-    alert(error.response?.data?.message || 'Failed to cancel booking');
-  }
-};
-
-const decreaseQuantity = (index) => {
-  const item = selectedEquipment.value[index];
-  if (item.quantity > 1) {
-    item.quantity--;
-  }
-};
-
-const validateQuantity = (index) => {
-  const item = selectedEquipment.value[index];
-  if (item.quantity < 1) item.quantity = 1;
-  if (item.quantity > item.available_quantity) {
-    item.quantity = item.available_quantity;
-  }
-};
-
-// OTP Functions
+// OTP Input Handlers
 const onOtpInput = (index, event) => {
   const value = event.target.value;
   
@@ -1085,6 +1100,7 @@ const onOtpKeydown = (index, event) => {
   }
 };
 
+// Timer Functions
 const startTimer = () => {
   otpTimer.value = 300;
   if (timerInterval.value) clearInterval(timerInterval.value);
@@ -1094,6 +1110,7 @@ const startTimer = () => {
       otpTimer.value--;
     } else {
       clearInterval(timerInterval.value);
+      otpError.value = 'OTP expired. Please request a new one.';
     }
   }, 1000);
 };
@@ -1107,7 +1124,10 @@ const closeOTPModal = () => {
   showOTPModal.value = false;
   otp.value = Array(6).fill('');
   otpError.value = '';
-  if (timerInterval.value) clearInterval(timerInterval.value);
+  if (timerInterval.value) {
+    clearInterval(timerInterval.value);
+    timerInterval.value = null;
+  }
 };
 
 const closeSuccessModal = () => {
@@ -1123,7 +1143,11 @@ const closeSuccessModal = () => {
   };
   selectedEquipment.value = [];
   selectedSlotIndex.value = -1;
-  updateDayInfo();
+  pendingBookingId.value = null;
+  bookingReference.value = '';
+  debugOTP.value = '';
+  
+  onDateChange();
 };
 
 const goToBookings = () => {
@@ -1140,6 +1164,13 @@ onMounted(() => {
   });
   
   loadResourceDetails();
+});
+
+// Cleanup
+onUnmounted(() => {
+  if (timerInterval.value) {
+    clearInterval(timerInterval.value);
+  }
 });
 </script>
 
@@ -1195,11 +1226,27 @@ onMounted(() => {
   width: 100%;
   padding: 8px;
   font-size: 0.9rem;
+  transition: all 0.2s;
 }
 
 .time-slot-btn.btn-success {
   background-color: #4BB66D;
   border-color: #4BB66D;
+}
+
+.time-slot-btn.btn-outline-success {
+  color: #4BB66D;
+  border-color: #4BB66D;
+}
+
+.time-slot-btn.btn-outline-success:hover {
+  background-color: #4BB66D;
+  color: white;
+}
+
+.time-slot-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .equipment-search-container {
@@ -1266,10 +1313,12 @@ onMounted(() => {
   font-weight: 600;
   border: 2px solid #dee2e6;
   border-radius: 8px;
+  transition: all 0.2s;
 }
 
 .otp-input:focus {
   border-color: #4BB66D;
+  box-shadow: 0 0 0 3px rgba(75, 182, 109, 0.1);
   outline: none;
 }
 
