@@ -69,7 +69,8 @@
           <div class="col-md-4">
             <select class="form-select" v-model="selectedCategory">
               <option value="">All Categories</option>
-              <option v-for="category in categories" :key="category.id" :value="category.id">
+              <!-- Use categories from store -->
+              <option v-for="category in categoriesList" :key="category.id" :value="category.id">
                 {{ category.name }}
               </option>
             </select>
@@ -178,38 +179,7 @@
       </div>
     </div>
   </div>
-  
-  <!-- Template Selection Modal -->
-  <div class="modal fade" :class="{ 'show d-block': showTemplateSelectionModal }" tabindex="-1" @click.self="showTemplateSelectionModal = false" style="background-color: rgba(0,0,0,0.5);" v-if="showTemplateSelectionModal">
-    <div class="modal-dialog modal-sm modal-dialog-centered">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">Select Template Category</h5>
-          <button type="button" class="btn-close" @click="showTemplateSelectionModal = false"></button>
-        </div>
-        <div class="modal-body">
-          <p class="mb-3 text-center">Which type of resource template do you need?</p>
-          <div class="d-grid gap-2">
-            <button class="btn btn-outline-dark-teal" @click="navigateToTemplateCategory('academic')">
-              <i class="bi bi-book me-2"></i>Academic Space
-            </button>
-            <button class="btn btn-outline-dark-teal" @click="navigateToTemplateCategory('it')">
-              <i class="bi bi-laptop me-2"></i>IT Space
-            </button>
-            <button class="btn btn-outline-dark-teal" @click="navigateToTemplateCategory('medical')">
-              <i class="bi bi-bandaid me-2"></i>Medical & Health
-            </button>
-            <button class="btn btn-outline-dark-teal" @click="navigateToTemplateCategory('sports')">
-              <i class="bi bi-trophy me-2"></i>Sports & Recreational
-            </button>
-            <button class="btn btn-outline-dark-teal" @click="navigateToTemplateCategory('cultural')">
-              <i class="bi bi-camera me-2"></i>Cultural
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+
 
   <!-- Delete Confirmation Modal -->
   <div class="modal fade" :class="{ 'show d-block': showDeleteConfirmation }" tabindex="-1" @click.self="handleCancelDeletion" style="background-color: rgba(0,0,0,0.5);" v-if="showDeleteConfirmation">
@@ -282,10 +252,6 @@ interface Resource {
     assigned_admin_id?: number;
     description?: string;
     status: 'Active' | 'Inactive' | 'Maintenance';
-    // resourceImages?: Array<{
-    //     file_path: string;
-    //     file_name: string;
-    // }>;
     images?: Array<{
         file_path: string;
         file_name: string;
@@ -308,33 +274,38 @@ const errorMessage = ref('');
 
 // Modal States
 const showAddModal = ref(false);
-const showTemplateSelectionModal = ref(false);
 const showDeleteConfirmation = ref(false);
 const resourceToDelete = ref<Resource | null>(null);
 const deleteStep = ref<'confirm' | 'final'>('confirm');
 
-// Computed
+// Use categories from store
+const categoriesList = computed(() => resourceStore.categories);
+
+// ===== FIXED: Filter resources by selected category with proper type conversion =====
 const filteredResources = computed(() => {
-  // MUST use resourceStore.resources
-  return resourceStore.resources.filter(resource => {
-    const matchesSearch = resource.name.toLowerCase().includes(searchQuery.value.toLowerCase());
-    const matchesCategory = !selectedCategory.value || resource.category_id.toString() === selectedCategory.value;
-    return matchesSearch && matchesCategory;
-  });
+  // Get resources from store
+  let filtered = resourceStore.resources;
+  
+  // Filter by search query
+  if (searchQuery.value) {
+    filtered = filtered.filter(resource => 
+      resource.name.toLowerCase().includes(searchQuery.value.toLowerCase())
+    );
+  }
+  
+  // Filter by selected category - Convert both to number for safe comparison
+  if (selectedCategory.value) {
+    const selectedCatId = Number(selectedCategory.value);
+    filtered = filtered.filter(resource => {
+      const resourceCatId = Number(resource.category_id);
+      return resourceCatId === selectedCatId;
+    });
+  }
+  
+  return filtered;
 });
 
 // Helper Functions
-// const getImageUrl = (resource: Resource): string => {
-//     if (resource.resourceImages && resource.resourceImages.length > 0) {
-//         const filePath = resource.resourceImages[0].file_path;
-        
-//         // This is the correct, host-accessible URL format
-//         return `${STORAGE_URL_ROOT}/${filePath}`; 
-//     }
-    
-//     return 'https://via.placeholder.com/300x180?text=No+Image';
-// };
-
 const getImageUrl = (resource: Resource): string => {
     // Now use resource.images
     if (resource.images && resource.images.length > 0) {
@@ -394,9 +365,15 @@ const fetchResources = async () => {
     }
 };
 
+// Fetch categories function
 const fetchCategories = async () => {
     try {
         const token = getAuthToken();
+        if (!token) {
+            console.error('No auth token found');
+            return;
+        }
+        
         const response = await axios.get(`${API_BASE_URL}/categories`, {
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -404,7 +381,17 @@ const fetchCategories = async () => {
             }
         });
         
-        categories.value = response.data.categories || response.data;
+        // Store in local state and also update the store if needed
+        const fetchedCategories = response.data.categories || response.data;
+        categories.value = fetchedCategories;
+        
+        // Update store if the store doesn't have categories
+        if (resourceStore.categories.length === 0) {
+            // If your store has a method to set categories, use it
+            // resourceStore.setCategories(fetchedCategories);
+        }
+        
+        console.log('Categories loaded:', fetchedCategories.length);
     } catch (error) {
         console.error('Error fetching categories:', error);
     }
@@ -471,22 +458,17 @@ const navigateToAdd_Custom = () => {
     router.push('/master-admin/add-resource'); 
 };
 
+const openTemplateSelectionModal = () => {
+  showAddModal.value = false;
+  router.push('/master-admin/use-template')
+};
+
 const navigateToEditResource = (id: number) => {
     router.push({ path: '/master-admin/add-resource', query: { id: id, mode: 'edit' } });
 };
 
 const handleReserveClick = (id: number) => {
     router.push({ path: '/master-admin/single-resource-booking', query: { resourceId: id } });
-};
-
-const openTemplateSelectionModal = () => {
-    showAddModal.value = false;
-    showTemplateSelectionModal.value = true;
-};
-
-const navigateToTemplateCategory = (categoryKey: string) => {
-    showTemplateSelectionModal.value = false;
-    router.push({ path: '/master-admin/use-template', query: { category: categoryKey } }); 
 };
 
 // Delete Modal Handlers
@@ -506,12 +488,17 @@ const handleCancelDeletion = () => {
     deleteStep.value = 'confirm';
     isDeleting.value = false;
 };
+
 // Initialization
 onMounted(async () => {
-    // 1. Only fetch from the API if the store is empty
+    // 1. First fetch categories
+    await fetchCategories();
+    
+    // 2. Then fetch resources if store is empty
     if (!resourceStore.isLoaded) {
         await resourceStore.fetchAll();
     }
+    
     isLoading.value = false;
 });
 </script>
