@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Role;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Cache;
 
 class UserController extends Controller
 {
@@ -60,14 +61,21 @@ class UserController extends Controller
         if (isset($request['status'])) {
             $user->update(['status' => $request['status']]);
         }
-        // Remove role from data to update
-        unset($dataToUpdate['role']); 
-        $user->update($dataToUpdate);
         // Update role if provided
         if (isset($validated['role'])) {
+            // Remove role from data to update
+            unset($dataToUpdate['role']); 
+            $user->update($dataToUpdate);
+
+            if (!$request->user()->tokenCan('*')) {
+                return response()->json(['message' => 'Forbidden. Only Master Admin can update user roles.'], 403);
+            }
             $role = Role::where('name', $validated['role'])->first();
             $user->roles()->sync([$role->id]);
         }
+
+        Cache::put("user_permissions_{$user->id}", $user->getAllPermissions(), now()->addHours(24));
+
         return response()->json($user->load('roles'));
     }
 

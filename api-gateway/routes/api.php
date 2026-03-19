@@ -293,10 +293,9 @@ Route::middleware('auth:sanctum')->group(function () {
         }
     });
     // post a new resource
-    // post a new resource
 Route::post('/resources', function (Request $request) {
     try {
-        $http = Http::timeout(30)->withToken($request->bearerToken())->asMultipart();
+        $http = Http::timeout(30)->withHeaders(['X-User-Id' => $request->user()->id])->withToken($request->bearerToken())->asMultipart();
         $data = $request->except(['images']);
 
         // Improved Recursive Function to handle 3+ levels of nesting (Slots)
@@ -344,7 +343,7 @@ Route::post('/resources', function (Request $request) {
     // Update resource
 Route::match(['put', 'post'], '/resources/{id}', function (Request $request, $id) {
     try {
-        $http = Http::timeout(30)->withToken($request->bearerToken());
+        $http = Http::timeout(30)->withHeaders(['X-User-Id' => $request->user()->id])->withToken($request->bearerToken());
         
         // Use Multipart if there are files or complex nested arrays like availability slots
         if ($request->hasFile('images') || $request->has('availability') || $request->has('equipment')) {
@@ -394,6 +393,7 @@ Route::match(['put', 'post'], '/resources/{id}', function (Request $request, $id
     Route::delete('/resources/{id}', function (Request $request, $id) {
         try {
             $response = Http::timeout(30)
+                ->withHeaders(['X-User-Id' => $request->user()->id])
                 ->withToken($request->bearerToken())
                 ->delete("http://resource_service/api/resources/{$id}");
             
@@ -589,6 +589,7 @@ Route::post('/bookings/{id}/resend-otp', function (Request $request, $id) {
 Route::get('/bookings/admin/assigned', function (Request $request) {
     try {
         $response = Http::timeout(30)
+            ->withHeaders(['X-User-Id' => $request->user()->id])
             ->withToken($request->bearerToken())
             ->get('http://booking_service/api/bookings/admin/assigned', $request->all());
         
