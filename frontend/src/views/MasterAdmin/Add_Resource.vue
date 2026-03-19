@@ -46,7 +46,7 @@
             </select>
           </div>
 
-          <!-- Department - FIXED: Now working correctly -->
+          <!-- Department -->
           <div class="col-md-6">
             <label for="resourceDepartment" class="form-label fw-bold">Department</label>
             <select class="form-select" id="resourceDepartment" v-model="resource.department_id">
@@ -248,13 +248,19 @@
               accept="image/*"
               multiple
             >
+            <small class="text-muted d-block mt-1">You can upload up to 10 images total</small>
             
             <!-- Image Previews -->
-            <div v-if="imagePreviews.length > 0" class="mt-3">
-              <h6>Selected Images:</h6>
+            <div v-if="allImagePreviews.length > 0" class="mt-3">
+              <h6>Images:</h6>
               <div class="d-flex flex-wrap gap-2">
-                <div v-for="(preview, idx) in imagePreviews" :key="idx" class="position-relative">
-                  <img :src="preview" alt="Preview" class="img-thumbnail" style="max-height: 100px; max-width: 100px;">
+                <div v-for="(preview, idx) in allImagePreviews" :key="idx" class="position-relative">
+                  <img 
+                    :src="preview" 
+                    alt="Preview" 
+                    class="img-thumbnail" 
+                    style="height: 100px; width: 100px; object-fit: cover;"
+                  >
                   <button 
                     type="button" 
                     class="btn btn-sm btn-danger position-absolute top-0 end-0" 
@@ -263,12 +269,15 @@
                   >
                     <i class="bi bi-x"></i>
                   </button>
+                  <small class="text-muted d-block text-center mt-1">
+                    {{ idx < existingImagesCount ? 'Existing' : 'New' }}
+                  </small>
                 </div>
               </div>
             </div>
           </div>
           
-          <!-- Description -->
+          <!-- Description - FIXED: Removed required attribute -->
           <div class="col-12">
             <label for="resourceDescription" class="form-label fw-bold">Description</label>
             <textarea 
@@ -326,13 +335,14 @@ export default {
     const router = useRouter();
     const route = useRoute();
     const API_BASE_URL = 'http://localhost:8000/api';
+    const STORAGE_URL_ROOT = 'http://localhost:8000/api/resources/storage';
 
     // Resource data
     const resource = ref({
       name: '',
       location_name: '',
       category_id: '',
-      department_id: '', // අපි මේක dropdown එකට use කරනවා
+      department_id: '', 
       base_price: null,
       assigned_admin_id: '',
       description: '',
@@ -361,11 +371,25 @@ export default {
     // Other state
     const selectedFiles = ref([]);
     const imagePreviews = ref([]);
+    
+    // For existing images
+    const existingImages = ref([]);
+    const existingImagePreviews = ref([]);
+    const imagesToDelete = ref([]);
+    
     const isSubmitting = ref(false);
     const errorMessage = ref('');
     const successMessage = ref('');
 
     const isEditMode = computed(() => route.query.mode === 'edit' && !!route.query.id);
+    
+    // Combine all previews
+    const allImagePreviews = computed(() => {
+      return [...existingImagePreviews.value, ...imagePreviews.value];
+    });
+    
+    // Count of existing images
+    const existingImagesCount = computed(() => existingImagePreviews.value.length);
     
     // Check if there are availability validation errors
     const hasAvailabilityErrors = computed(() => {
@@ -379,6 +403,12 @@ export default {
       return localStorage.getItem('authToken') || 
              localStorage.getItem('token') || 
              localStorage.getItem('access_token');
+    };
+
+    // Get full image URL
+    const getImageUrl = (filePath) => {
+      if (!filePath) return 'https://via.placeholder.com/600x400?text=No+Image';
+      return filePath.startsWith('http') ? filePath : `${STORAGE_URL_ROOT}/${filePath}`;
     };
 
     // Equipment methods
@@ -492,29 +522,56 @@ export default {
 
     // Image methods
     const handleFileUpload = (event) => {
-      const input = event.target;
-      if (input.files) {
-        const files = Array.from(input.files);
-        selectedFiles.value = [...selectedFiles.value, ...files];
-        
-        files.forEach(file => {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            if (e.target && typeof e.target.result === 'string') {
-              imagePreviews.value.push(e.target.result);
-            }
-          };
-          reader.readAsDataURL(file);
-        });
+      const files = Array.from(event.target.files);
+      
+      // Check total images limit
+      const totalImages = existingImages.value.length + selectedFiles.value.length + files.length;
+      if (totalImages > 10) {
+        errorMessage.value = 'Maximum 10 images allowed total.';
+        return;
       }
+      
+      files.forEach(file => {
+        selectedFiles.value.push(file);
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          if (e.target && typeof e.target.result === 'string') {
+            imagePreviews.value.push(e.target.result);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+      
+      // Clear input
+      event.target.value = '';
     };
 
     const removeImage = (index) => {
-      selectedFiles.value.splice(index, 1);
-      imagePreviews.value.splice(index, 1);
+      // Check if this is an existing image
+      if (index < existingImagePreviews.value.length) {
+        // Get the actual image ID from existing images array
+        const imageId = existingImages.value[index].id;
+        
+        // Add to delete list if not already there
+        if (!imagesToDelete.value.includes(imageId)) {
+          imagesToDelete.value.push(imageId);
+        }
+        
+        // Remove from existing arrays
+        existingImages.value.splice(index, 1);
+        existingImagePreviews.value.splice(index, 1);
+      } else {
+        // This is a new image
+        const newImageIndex = index - existingImagePreviews.value.length;
+        if (newImageIndex >= 0 && newImageIndex < selectedFiles.value.length) {
+          selectedFiles.value.splice(newImageIndex, 1);
+          imagePreviews.value.splice(newImageIndex, 1);
+        }
+      }
     };
 
-    // Prepare form data for submission - FIXED: Send department name, not ID
+    // FIXED: Prepare form data with proper description handling
     const prepareFormData = () => {
       const formData = new FormData();
       
@@ -523,7 +580,7 @@ export default {
       formData.append('location_name', resource.value.location_name);
       formData.append('category_id', resource.value.category_id.toString());
       
-      // FIXED: Get department name from selected ID and send as string (not department_id)
+      // Handle department
       if (resource.value.department_id && departments.value.length > 0) {
         const selectedDept = departments.value.find(d => d.id == resource.value.department_id);
         formData.append('department', selectedDept ? selectedDept.name : '');
@@ -536,11 +593,7 @@ export default {
         formData.append('base_price', '0.00');
       } else {
         const priceValue = parseFloat(resource.value.base_price);
-        if (isNaN(priceValue)) {
-          formData.append('base_price', '0.00');
-        } else {
-          formData.append('base_price', priceValue.toString());
-        }
+        formData.append('base_price', priceValue.toString());
       }
       
       formData.append('status', resource.value.status);
@@ -551,10 +604,24 @@ export default {
         formData.append('assigned_admin_id', '');
       }
       
-      const descriptionValue = resource.value.description || '';
-      formData.append('description', descriptionValue);
+      // FIXED: Always send description as a string
+      // Check if description exists, if not send empty string
+// ===== FIXED: Description handling - සැමවිටම field එක යවන්න =====
+ if (resource.value.description && resource.value.description.trim() !== '') {
+    formData.append('description', String(resource.value.description));
+    console.log('Sending description:', resource.value.description);
+  } else {
+    console.log('Description is empty - not sending');
+  }
       
-      // Add images
+      // Add images to delete
+      if (imagesToDelete.value.length > 0) {
+        imagesToDelete.value.forEach((id, index) => {
+          formData.append(`removeImages[${index}]`, id);
+        });
+      }
+      
+      // Add new images
       selectedFiles.value.forEach((file, index) => {
         formData.append(`images[${index}]`, file);
       });
@@ -612,6 +679,13 @@ export default {
           throw new Error('Authentication required. Please login again.');
         }
         
+        // Log FormData contents for debugging
+        console.log('=== FormData Contents ===');
+        for (let pair of formData.entries()) {
+          console.log(pair[0] + ': ' + pair[1]);
+        }
+        console.log('=== End FormData ===');
+        
         const response = await axios.post(`${API_BASE_URL}/resources`, formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
@@ -622,7 +696,6 @@ export default {
         
         successMessage.value = 'Resource created successfully!';
         
-        // Update store
         if (response.data.resource || response.data) {
           resourceStore.addResource(response.data.resource || response.data);
         }
@@ -638,6 +711,7 @@ export default {
           errorMessage.value = 'Authentication required. Please login again.';
         } else if (error.response?.data?.errors) {
           const errors = error.response.data.errors;
+          console.error('Validation errors:', errors);
           errorMessage.value = Object.values(errors).flat().join(', ');
         } else if (error.response?.data?.message) {
           errorMessage.value = error.response.data.message;
@@ -682,7 +756,6 @@ export default {
         
         successMessage.value = 'Resource updated successfully!';
         
-        // Update store
         if (response.data.resource || response.data) {
           resourceStore.updateResource(response.data.resource || response.data);
         }
@@ -709,7 +782,7 @@ export default {
       }
     };
 
-    // Load resource for edit - FIXED: Handle department correctly
+    // Load resource for edit
     const loadResourceForEdit = async (resourceId) => {
       try {
         const token = getAuthToken();
@@ -727,7 +800,7 @@ export default {
         
         const resourceData = response.data;
         
-        // FIXED: Find department ID from department name for dropdown selection
+        // Find department ID from department name
         let departmentId = '';
         if (resourceData.department && departments.value.length > 0) {
           const matchedDept = departments.value.find(d => 
@@ -743,7 +816,7 @@ export default {
           name: resourceData.name || '',
           location_name: resourceData.location_name || '',
           category_id: resourceData.category_id || '',
-          department_id: departmentId, // Store the ID for dropdown selection
+          department_id: departmentId,
           base_price: resourceData.base_price !== null && resourceData.base_price !== undefined 
             ? parseFloat(resourceData.base_price) 
             : null,
@@ -760,6 +833,12 @@ export default {
           }));
         } else {
           equipment.value = [];
+        }
+        
+        // Load existing images
+        if (resourceData.images && Array.isArray(resourceData.images)) {
+          existingImages.value = resourceData.images;
+          existingImagePreviews.value = resourceData.images.map(img => getImageUrl(img.file_path));
         }
         
         // Load availability
@@ -800,7 +879,7 @@ export default {
       }
     };
 
-    // Fetch departments from API (fallback if store doesn't have them)
+    // Fetch departments from API (fallback)
     const fetchDepartments = async () => {
       try {
         const token = getAuthToken();
@@ -813,7 +892,6 @@ export default {
           }
         });
         
-        // Update store if needed
         if (response.data && Array.isArray(response.data)) {
           resourceStore.setDepartments(response.data);
         }
@@ -829,7 +907,6 @@ export default {
       if (!resourceStore.isLoaded) {
         await resourceStore.fetchAll();
       } else {
-        // If store has departments, use them, otherwise fetch
         if (!resourceStore.departments || resourceStore.departments.length === 0) {
           await fetchDepartments();
         }
@@ -842,7 +919,6 @@ export default {
       if (isEditMode.value) {
         await loadResourceForEdit(route.query.id);
       } else {
-        // Add one empty equipment field by default for new resource
         addEquipment();
       }
     });
@@ -853,6 +929,8 @@ export default {
       equipment,
       selectedFiles,
       imagePreviews,
+      allImagePreviews,
+      existingImagesCount,
       isSubmitting,
       errorMessage,
       successMessage,
