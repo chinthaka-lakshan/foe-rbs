@@ -18,6 +18,9 @@ import Booking_Item from '../views/MasterAdmin/Booking_Item.vue';
 import User_Dashboard from '../views/User/User_Dashboard.vue';
 import Admin_Dashboard from '../views/Admin/Admin_Dashboard.vue';
 import Department from '../views/MasterAdmin/Department.vue';
+import Resource from '../views/Admin/Resource.vue';
+
+
 
 
 
@@ -168,6 +171,13 @@ const routes: Array<RouteRecordRaw> = [
     component: Admin_Dashboard,
     meta: { requiresAuth: true, role: 'Admin' }
   },
+     {
+    path: '/admin/resource',
+    name: 'admin-resource',
+    component: Resource,
+    meta: { requiresAuth: true, role: 'Admin' }
+  },
+  
 
  
   
