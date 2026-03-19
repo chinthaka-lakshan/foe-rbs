@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\UserPermissionOverride;
 use App\Models\User;
+use Illuminate\Support\Facades\Cache;
 
 class UserPermissionController extends Controller
 {
@@ -28,6 +29,8 @@ class UserPermissionController extends Controller
             ['user_id' => $userId, 'permission_slug' => $validated['permission_slug']],
             ['is_allowed' => $validated['is_allowed']]
         );
+
+        Cache::put("user_permissions_{$userId}", User::find($userId)->getAllPermissions(), now()->addHours(24));
 
         return response()->json(['message' => 'User permission override updated successfully']);
     }

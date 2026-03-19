@@ -53,7 +53,7 @@ class User extends Authenticatable
         //Define standard role defaults
         $roleDefaults = [
             'Master Admin' => ['*'],
-            'Admin'        => ['resource.create', 'resource.update', 'resource.view', 'resource.delete', 'user.index'],
+            'Admin'        => ['resource.create', 'resource.update', 'resource.view', 'resource.delete', 'user.index', 'manage_resources', 'view_assigned_bookings', 'view_reports', 'verify_bookings'],
             'User'         => ['resource.view', 'booking.create'],
         ];
         $permissions = $roleDefaults[$roleName] ?? [];
