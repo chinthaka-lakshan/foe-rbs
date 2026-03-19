@@ -65,6 +65,14 @@ services:
     networks:
       - foe_rbs_network
 
+  redis_cache:
+    image: redis:alpine
+    container_name: foe_rbs_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - foe_rbs_network
+
 
   #API GATEWAY (Fixed to use Laravel Artisan Serve)
   api_gateway:

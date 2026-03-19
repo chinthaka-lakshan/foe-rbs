@@ -21,6 +21,12 @@ return new class extends Migration
                 $table->string('department')->nullable();
                 $table->enum('status', ['Active', 'Inactive', 'Maintenance'])->default('Active');
                 $table->timestamps();
+
+                $table->index('category_id');
+                $table->index('status');
+                $table->index('department');
+                $table->index('assigned_admin_id');
+                $table->index('template_id');
             });
         }
         public function down(): void

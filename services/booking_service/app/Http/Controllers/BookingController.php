@@ -18,7 +18,9 @@ class BookingController
 {
     public function index(): JsonResponse
     {
-        $bookings = Booking::with('details')->orderBy('booking_date', 'desc')->get();
+        $bookings = Cache::tags(['bookings'])->remember('all_bookings', 60 * 60, function () {
+            return Booking::with('details')->orderBy('booking_date', 'desc')->get();
+        });
         return response()->json($bookings);
     }
 
@@ -218,6 +220,7 @@ class BookingController
 
             $booking->details()->createMany($detailsToCreate);
             Cache::forget($cacheKey);
+            Cache::tags(['bookings'])->flush();
 
             DB::commit();
             return response()->json(['message' => 'Booking success!', 'booking' => $booking], 201);
@@ -261,6 +264,7 @@ class BookingController
             return response()->json(['message' => 'Cannot cancel this booking'], 422);
         }
         $booking->update(['status' => 'Cancelled']);
+        Cache::tags(['bookings'])->flush();
         return response()->json(['message' => 'Booking cancelled', 'booking' => $booking]);
     }
 
@@ -279,14 +283,18 @@ class BookingController
         $resourcesMap = collect($resourcesResp->json())->keyBy('id');
         $adminResourceIds = $resourcesMap->where('assigned_admin_id', $validated['admin_id'])->pluck('id')->toArray();
 
-        $bookings = Booking::with('details')
-            ->when($validated['status'] ?? null, fn($q, $s) => $q->where('status', $s))
-            ->get()
-            ->filter(function ($b) use ($adminResourceIds) {
-                return $b->details->contains(fn($d) => $d->item_type === 'resource' && in_array($d->item_id, $adminResourceIds));
-            });
+        $statusStr = $validated['status'] ?? 'all';
+        $bookingsData = Cache::tags(['bookings'])->remember("bookings_admin_{$validated['admin_id']}_{$statusStr}", 60 * 60, function () use ($validated, $adminResourceIds) {
+            $filtered = Booking::with('details')
+                ->when($validated['status'] ?? null, fn($q, $s) => $q->where('status', $s))
+                ->get()
+                ->filter(function ($b) use ($adminResourceIds) {
+                    return $b->details->contains(fn($d) => $d->item_type === 'resource' && in_array($d->item_id, $adminResourceIds));
+                });
+            return ['total' => $filtered->count(), 'bookings' => $filtered->values()];
+        });
 
-        return response()->json(['total' => $bookings->count(), 'bookings' => $bookings->values()]);
+        return response()->json($bookingsData);
     }
 
     public function getByResourceId($resourceId): JsonResponse
