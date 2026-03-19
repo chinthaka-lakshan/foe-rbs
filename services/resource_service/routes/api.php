@@ -17,12 +17,12 @@ Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
 Route::put('/categories/{id}', [CategoryController::class, 'update']);
 
 // Resource Service Resource Routes
-Route::post('/resources', [ResourceController::class, 'store']);
+Route::post('/resources', [ResourceController::class, 'store'])->middleware('permission:manage_resources');
 Route::get('/resources', [ResourceController::class, 'index']);
 Route::get('/resources/{id}', [ResourceController::class, 'show']);
-Route::put('/resources/{id}', [ResourceController::class, 'update']);
-Route::post('/resources/{id}', [ResourceController::class, 'update']);
-Route::delete('/resources/{id}', [ResourceController::class, 'destroy']);
+Route::put('/resources/{id}', [ResourceController::class, 'update'])->middleware('permission:manage_resources');
+Route::post('/resources/{id}', [ResourceController::class, 'update'])->middleware('permission:manage_resources');
+Route::delete('/resources/{id}', [ResourceController::class, 'destroy'])->middleware('permission:manage_resources');
 Route::get('resources/batch', [ResourceController::class, 'getBatch']);
 
 // Booking Item Routes

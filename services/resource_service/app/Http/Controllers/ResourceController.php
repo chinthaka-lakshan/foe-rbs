@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Cache;
 use Exception;
 
 class ResourceController extends Controller
@@ -18,7 +19,9 @@ class ResourceController extends Controller
     // List all resources with related data
     public function index(): JsonResponse
     {
-        $resources = Resource::with(['category', 'images', 'equipment', 'availability.slots'])->get();
+        $resources = Cache::remember('all_resources', 60 * 60, function () {
+            return Resource::with(['category', 'images', 'equipment', 'availability.slots'])->get();
+        });
         return response()->json($resources);
     }
 
@@ -57,6 +60,9 @@ class ResourceController extends Controller
             }
 
             DB::commit();
+
+            Cache::forget('all_resources');
+
             return response()->json([
                 'message' => 'Resource created successfully',
                 'resource' => $resource->load(['category', 'images', 'equipment', 'availability.slots'])
@@ -120,6 +126,8 @@ class ResourceController extends Controller
         }
 
         DB::commit();
+
+        Cache::forget('all_resources');
 
         // 8. Return the fully loaded resource for the Global Store
         return response()->json([
@@ -217,6 +225,9 @@ class ResourceController extends Controller
         }
 
         $resource->delete();
+
+        Cache::forget('all_resources');
+
         return response()->json(['message' => 'Deleted successfully']);
     }
 
