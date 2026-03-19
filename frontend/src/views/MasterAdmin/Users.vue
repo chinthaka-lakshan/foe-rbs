@@ -116,7 +116,7 @@
               <td>
                 <div class="btn-group btn-group-sm">
                   <button
-                    v-if="user.primaryRole !== 'Master Admin'"
+                    v-if="user.primaryRole.toLowerCase() !== 'master admin'"
                     @click="openDeleteConfirmation(user)"
                     class="btn btn-outline-danger"
                     title="Delete"
@@ -124,9 +124,27 @@
                   >
                     <i class="bi bi-trash"></i>
                   </button>
+                  <!-- Permission Matrix Button (Shield) -->
+                  <button 
+                    v-if="user.primaryRole.toLowerCase() === 'admin'"
+                    class="btn btn-outline-info" 
+                    @click="openPermissionModal(user)"
+                    title="Permission Matrix"
+                    :disabled="isPermissionUpdating"
+                  >
+                    <i class="bi bi-shield-lock"></i>
+                  </button>
+                  <button 
+                    v-if="user.primaryRole.toLowerCase() === 'master admin'"
+                    class="btn btn-outline-secondary" 
+                    disabled
+                    title="Master Admin has all permissions"
+                  >
+                    <i class="bi bi-shield-check"></i>
+                  </button>
                   <!-- Only show role update button if NOT Master Admin -->
                   <button 
-                    v-if="user.primaryRole !== 'Master Admin'"
+                    v-if="user.primaryRole.toLowerCase() !== 'master admin'"
                     class="btn btn-outline-warning" 
                     @click="openRoleModal(user)"
                     title="Change Role"
@@ -261,6 +279,64 @@
       </div>
     </div>
 
+    <!-- Permission Matrix Modal -->
+    <div class="modal fade" id="permissionModal" tabindex="-1" aria-labelledby="permissionModalLabel" aria-hidden="true" ref="permissionModalRef">
+      <div class="modal-dialog modal-md modal-dialog-centered">
+        <div class="modal-content border-info">
+          <div class="modal-header bg-info text-dark">
+            <h5 class="modal-title" id="permissionModalLabel"><i class="bi bi-shield-lock-fill me-2"></i>Permission Matrix</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div v-if="permissionErrorMessage" class="alert alert-danger">{{ permissionErrorMessage }}</div>
+            
+            <div class="user-header mb-4 p-3 bg-light rounded d-flex align-items-center">
+              <div class="avatar-circle me-3 bg-info text-white">
+                {{ userToEditPermissions?.name?.charAt(0).toUpperCase() }}
+              </div>
+              <div>
+                <h6 class="mb-0 fw-bold">{{ userToEditPermissions?.name }}</h6>
+                <small class="text-muted">{{ userToEditPermissions?.email }}</small>
+              </div>
+            </div>
+
+            <p class="text-muted small mb-4">Toggle specific task permissions for this Admin. Changes are applied immediately to all microservices.</p>
+
+            <div class="permission-list">
+              <div v-for="perm in taskPermissions" :key="perm.slug" class="permission-item d-flex justify-content-between align-items-center mb-3 p-2 border-bottom">
+                <div>
+                  <div class="fw-bold">{{ perm.label }}</div>
+                  <div class="text-muted x-small">{{ perm.description }}</div>
+                </div>
+                <div class="form-check form-switch">
+                  <input 
+                    class="form-check-input permission-toggle" 
+                    type="checkbox" 
+                    role="switch" 
+                    :id="'perm-' + perm.slug"
+                    :checked="currentUserPermissions.includes(perm.slug)"
+                    @change="handlePermissionToggle(perm.slug, $event)"
+                    :disabled="isPermissionUpdating"
+                  >
+                </div>
+              </div>
+            </div>
+            
+            <div v-if="isPermissionsLoading" class="text-center py-3">
+              <span class="spinner-border spinner-border-sm text-info me-2"></span>
+              Synchronizing with Auth Service...
+            </div>
+          </div>
+          <div class="modal-footer bg-light">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" :disabled="isPermissionUpdating">Close</button>
+            <button type="button" class="btn btn-info text-dark fw-bold" data-bs-dismiss="modal" :disabled="isPermissionUpdating">
+              <i class="bi bi-check-circle-fill me-1"></i> Finished
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Delete Confirmation Modal (same as category page) -->
     <div class="modal fade" id="deleteConfirmationModal" tabindex="-1" aria-labelledby="deleteConfirmationModalLabel" aria-hidden="true" ref="deleteModalRef">
       <div class="modal-dialog delete-modal-top"> 
@@ -359,12 +435,26 @@ const validationErrors = ref<ValidationErrors>({});
 const userToDelete = ref<User | null>(null);
 const deleteStep = ref<'confirm' | 'final'>('confirm');
 
+const availableRoles = ref(['Admin', 'User']);
+
 // Role modal state
 const isRoleUpdating = ref(false);
 const roleErrorMessage = ref('');
 const userToEdit = ref<User | null>(null);
 const selectedNewRole = ref('');
-const availableRoles = ref(['Admin', 'User']);
+
+// Permission modal state
+const isPermissionsLoading = ref(false);
+const isPermissionUpdating = ref(false);
+const permissionErrorMessage = ref('');
+const userToEditPermissions = ref<User | null>(null);
+const currentUserPermissions = ref<string[]>([]);
+const taskPermissions = [
+  { slug: 'manage_resources', label: 'Resource Management', description: 'Create, Edit, and Delete physical resources' },
+  { slug: 'manage_bookings', label: 'Booking Management', description: 'Manage and override user bookings' },
+  { slug: 'view_reports', label: 'Financial Reports', description: 'Access financial and usage statistics' },
+  { slug: 'manage_users', label: 'User Management', description: 'Manage other users and their roles' },
+];
 
 // Add User modal state
 const initialNewUserState: NewUserForm = {
@@ -379,9 +469,12 @@ const newUser = ref<NewUserForm>({ ...initialNewUserState });
 const userModalRef = ref<HTMLElement | null>(null);
 const roleModalRef = ref<HTMLElement | null>(null);
 const deleteModalRef = ref<HTMLElement | null>(null);
-let userModalInstance: Modal | null = null;
-let roleModalInstance: Modal | null = null;
-let deleteModalInstance: Modal | null = null;
+let userModalInstance: any = null;
+let roleModalInstance: any = null;
+let deleteModalInstance: any = null;
+let permissionModalInstance: any = null;
+
+const permissionModalRef = ref<HTMLElement | null>(null);
 
 
 const stats = computed(() => ({
@@ -604,6 +697,54 @@ const handleRoleUpdate = async () => {
   }
 };
 
+// --- PERMISSION MATRIX FUNCTIONALITY ---
+const openPermissionModal = async (user: User) => {
+  permissionErrorMessage.value = '';
+  userToEditPermissions.value = user;
+  currentUserPermissions.value = [];
+  isPermissionsLoading.value = true;
+  
+  permissionModalInstance?.show();
+
+  try {
+    const permissions = await userStore.fetchUserPermissions(user.id);
+    currentUserPermissions.value = permissions;
+  } catch (e) {
+    permissionErrorMessage.value = 'Failed to load user permissions. Please try again.';
+  } finally {
+    isPermissionsLoading.value = false;
+  }
+};
+
+const handlePermissionToggle = async (slug: string, event: Event) => {
+  const isChecked = (event.target as HTMLInputElement).checked;
+  if (!userToEditPermissions.value) return;
+
+  isPermissionUpdating.value = true;
+  permissionErrorMessage.value = '';
+
+  try {
+    await userStore.updateUserPermission(userToEditPermissions.value.id, slug, isChecked);
+    
+    // Update local list
+    if (isChecked) {
+      if (!currentUserPermissions.value.includes(slug)) {
+        currentUserPermissions.value.push(slug);
+      }
+    } else {
+      currentUserPermissions.value = currentUserPermissions.value.filter(p => p !== slug);
+    }
+    
+    successMessage.value = `Permission "${slug}" updated for ${userToEditPermissions.value.name}`;
+  } catch (e) {
+    permissionErrorMessage.value = 'Failed to update permission. Reverting UI state...';
+    // Revert the checkbox in UI
+    (event.target as HTMLInputElement).checked = !isChecked;
+  } finally {
+    isPermissionUpdating.value = false;
+  }
+};
+
 // --- ADD USER FUNCTIONALITY ---
 const openAddModal = () => {
   resetNewUserForm();
@@ -686,6 +827,10 @@ onMounted(async () => {
   if (deleteModalRef.value) {
     deleteModalInstance = new Modal(deleteModalRef.value);
     deleteModalRef.value.addEventListener('hidden.bs.modal', handleCancelDeletion);
+  }
+
+  if (permissionModalRef.value) {
+    permissionModalInstance = new Modal(permissionModalRef.value);
   }
 
   // 2. Global Store Logic: Trigger fetch if needed
@@ -798,6 +943,46 @@ onMounted(async () => {
 .form-check-input:focus {
   border-color: #4BB66D;
   box-shadow: 0 0 0 0.25rem rgba(75, 182, 109, 0.25);
+}
+
+/* Permission Modal Custom Styles */
+.avatar-circle {
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 1.2rem;
+}
+
+.x-small {
+  font-size: 0.75rem;
+}
+
+.permission-toggle:checked {
+  background-color: #0dcaf0;
+  border-color: #0dcaf0;
+}
+
+.border-info {
+  border-color: #0dcaf0 !important;
+}
+
+.btn-info {
+  background-color: #0dcaf0;
+  border-color: #0dcaf0;
+}
+
+.btn-outline-info {
+  color: #0dcaf0;
+  border-color: #0dcaf0;
+}
+
+.btn-outline-info:hover {
+  background-color: #0dcaf0;
+  color: white;
 }
 
 .form-switch {

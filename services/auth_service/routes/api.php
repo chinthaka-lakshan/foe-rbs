@@ -18,6 +18,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // MASTER ADMIN ONLY: Permission Management
     Route::middleware('role:Master Admin')->group(function () {
         Route::post('/users/{id}/permissions', [UserPermissionController::class, 'updatePermissions']);
+        Route::get('/users/{id}/permissions', [UserPermissionController::class, 'getPermissions']);
         Route::get('/users/permissions/overrides', [UserPermissionController::class, 'index']);
     });
 
@@ -34,8 +35,5 @@ Route::middleware('auth:sanctum')->group(function () {
     // Admin only passes if 'user.delete' is in their token.
     Route::middleware('permission:user.delete')->group(function () {
         Route::delete('/users/{user}', [UserController::class, 'destroy']);
-    });
-    Route::middleware(['auth:sanctum', 'permission:user.index'])->group(function () {
-        Route::get('/users', [UserController::class, 'index']);
     });
 });
