@@ -54,6 +54,11 @@
                     <strong><i class="bi bi-currency-rupee me-2"></i>Base Price:</strong>
                     <p class="mb-0">Rs. {{ resource.base_price }}/hour</p>
                   </div>
+
+                  <div class="mb-3">
+                    <strong><i class="bi bi-tag me-2"></i>Department:</strong>
+                    <p class="mb-0">{{ resource.department  || 'N/A'}} </p>
+                  </div>
                   
                   <div class="mb-3">
                     <strong><i class="bi bi-info-circle me-2"></i>Status:</strong>
@@ -826,6 +831,7 @@ interface Resource {
   category_id: number;
   category: ResourceCategory;
   base_price: number;
+  department:string;
   description?: string;
   status: 'Active' | 'Inactive' | 'Maintenance';
   capacity?: number;
@@ -947,7 +953,7 @@ const tempBookingData = ref<any>(null);
 const bookingForm = ref<BookingForm>({
   email: '',
   date: '',
-  startTime: '09:00',
+  startTime: '08:00',
   endTime: '10:00',
   purpose: ''
 });
@@ -1827,7 +1833,7 @@ const closeSuccessModal = () => {
   // Reset form for new booking
   bookingForm.value.email = '';
   bookingForm.value.date = minDate.value;
-  bookingForm.value.startTime = '09:00';
+  bookingForm.value.startTime = '08:00';
   bookingForm.value.endTime = '10:00';
   bookingForm.value.purpose = '';
   selectedEquipment.value = [];
