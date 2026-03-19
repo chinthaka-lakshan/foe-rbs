@@ -50,5 +50,35 @@ export const userStore = reactive({
       ...newUser,
       primaryRole: newUser.roles?.[0]?.name || 'User'
     });
+  },
+
+  // Fetch specific user permissions
+  async fetchUserPermissions(userId: number | string) {
+    try {
+      const token = localStorage.getItem('authToken');
+      const res = await axios.get(`http://localhost:8000/api/users/${userId}/permissions`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return res.data.permissions; // Array of slugs
+    } catch (e) {
+      console.error(`Failed to fetch permissions for user ${userId}`, e);
+      throw e;
+    }
+  },
+
+  // Update a specific user permission toggle
+  async updateUserPermission(userId: number | string, permissionSlug: string, isAllowed: boolean) {
+    try {
+      const token = localStorage.getItem('authToken');
+      await axios.post(`http://localhost:8000/api/users/${userId}/permissions`, {
+        permission_slug: permissionSlug,
+        is_allowed: isAllowed
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    } catch (e) {
+      console.error(`Failed to update permission ${permissionSlug} for user ${userId}`, e);
+      throw e;
+    }
   }
 });

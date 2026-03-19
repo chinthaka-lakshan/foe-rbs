@@ -12,6 +12,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\ResetPasswordOtpMail;
+use Illuminate\Support\Facades\Cache;
 
 class AuthController extends Controller
 {
@@ -28,6 +29,10 @@ class AuthController extends Controller
             return response()->json(['message' => 'Unauthorized'], 401);
         }
         $permissions = $user->getAllPermissions();
+        
+        // Populate Redis cache for microservices
+        Cache::put("user_permissions_{$user->id}", $permissions, now()->addHours(24));
+
         $roleNames = $user->roles->pluck('name');
         $token = $user->createToken('auth_token', $permissions)->plainTextToken;
         return response()->json([

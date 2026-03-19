@@ -98,57 +98,27 @@ Route::middleware('auth:sanctum')->group(function () {
             
         return $response->successful() 
             ? $response->json() 
-            : response()->json(['message' => 'User update failed'], $response->status());
+            : response()->json(['message' => 'Update failed'], $response->status());
     });
-    // Delete user route (Admin, Master Admin)
-    Route::delete('/users/{user}', function (Request $request, $user) {
+
+    // Permission overrides proxy
+    Route::get('/users/{id}/permissions', function (Request $request, $id) {
         $response = Http::withToken($request->bearerToken())
-            ->delete("http://auth_service/api/users/{$user}");
-            
-        return $response->successful() 
-            ? $response->json() 
-            : response()->json(['message' => 'User deletion failed'], $response->status());
+            ->get("http://auth_service/api/users/{$id}/permissions");
+        return $response->json();
     });
 
-    //get all admins
-    Route::get('/admins', function (Request $request) {
-        try {
-            $response = Http::timeout(30)->withToken($request->bearerToken())
-                ->get('http://auth_service/api/admins');
-            return $response->json();
-        } catch (Exception $e) {
-            return response()->json([
-                'message' => 'Cannot connect to authentication service',
-                'error' => $e->getMessage()
-            ], 503);
-        }
+    Route::post('/users/{id}/permissions', function (Request $request, $id) {
+        $response = Http::withToken($request->bearerToken())
+            ->post("http://auth_service/api/users/{$id}/permissions", $request->all());
+        return $response->json();
     });
 
-    //user permission management routes
-    Route::post('users/{id}/permissions', function (Request $request, $id) {
-        try {
-            $response = Http::timeout(30)->withToken($request->bearerToken())
-                ->post("http://auth_service/api/users/{$id}/permissions", $request->all());
-            return $response->json();
-        } catch (Exception $e) {
-            return response()->json([
-                'message' => 'Cannot connect to authentication service',
-                'error' => $e->getMessage()
-            ], 503);
-        }
-    });
-
+    // Get all overrides
     Route::get('/users/permissions/overrides', function (Request $request) {
-        try {
-            $response = Http::timeout(30)->withToken($request->bearerToken())
-                ->get("http://auth_service/api/users/permissions/overrides");
-            return $response->json();
-        } catch (Exception $e) {
-            return response()->json([
-                'message' => 'Cannot connect to authentication service',
-                'error' => $e->getMessage()
-            ], 503);
-        }
+        $response = Http::withToken($request->bearerToken())
+            ->get('http://auth_service/api/users/permissions/overrides');
+        return $response->json();
     });
 
     // Category CRUD routes proxying to resource service
@@ -293,81 +263,53 @@ Route::middleware('auth:sanctum')->group(function () {
         }
     });
     // post a new resource
-Route::post('/resources', function (Request $request) {
-    try {
-        $http = Http::timeout(30)->withHeaders(['X-User-Id' => $request->user()->id])->withToken($request->bearerToken())->asMultipart();
-        $data = $request->except(['images']);
-
-        // Improved Recursive Function to handle 3+ levels of nesting (Slots)
-        $flattenAndAttach = function ($http, $data, $prefix = '') use (&$flattenAndAttach) {
-            foreach ($data as $key => $value) {
-                $currentKey = $prefix ? "{$prefix}[{$key}]" : $key;
-
-                if (is_array($value)) {
-                    $flattenAndAttach($http, $value, $currentKey);
-                } else {
-                    $attachValue = $value;
-                    if (is_bool($value)) {
-                        $attachValue = $value ? '1' : '0';
-                    } elseif (is_null($value)) {
-                        $attachValue = '';
-                    }
-                    $http->attach($currentKey, $attachValue);
-                }
+    Route::post('/resources', function (Request $request) {
+        try {
+            $user = $request->user();
+            if (!$user) {
+                return response()->json(['message' => 'Unauthenticated'], 401);
             }
-        };
 
-        $flattenAndAttach($http, $data);
-
-        // Handle Images
-        if ($request->hasFile('images')) {
-            foreach ($request->file('images') as $file) {
-                if ($file && $file->isValid()) {
-                    $http->attach(
-                        'images[]',
-                        file_get_contents($file->getRealPath()),
-                        $file->getClientOriginalName()
-                    );
-                }
-            }
-        }
-
-        $response = $http->post('http://resource_service/api/resources');
-        return handleProxyResponse($response, 'Resource creation failed.');
-
-    } catch (Exception $e) {
-        return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
-    }
-});
-
-    // Update resource
-Route::match(['put', 'post'], '/resources/{id}', function (Request $request, $id) {
-    try {
-        $http = Http::timeout(30)->withHeaders(['X-User-Id' => $request->user()->id])->withToken($request->bearerToken());
-        
-        // Use Multipart if there are files or complex nested arrays like availability slots
-        if ($request->hasFile('images') || $request->has('availability') || $request->has('equipment')) {
-            $http->asMultipart();
+            $http = Http::timeout(60)
+                ->withHeaders(['X-User-Id' => (string)$user->id])
+                ->withToken($request->bearerToken())
+                ->asMultipart();
             
-            // Define Recursive function to handle deep nesting (3+ levels)
+            $data = $request->except(['images']);
+
+            // Robust recursive function to handle deep nesting
             $flattenAndAttach = function ($http, $data, $prefix = '') use (&$flattenAndAttach) {
-    foreach ($data as $key => $value) {
-        $currentKey = $prefix ? "{$prefix}[{$key}]" : $key;
-        if (is_array($value)) {
-            $flattenAndAttach($http, $value, $currentKey);
-        } else {
-            $http->attach($currentKey, $value);
-        }
-    }
-};
-            // Process all data except images (handled separately)
-            $flattenAndAttach($http, $request->except(['images']));
-            
-            // Attach image files properly
+                foreach ($data as $key => $value) {
+                    $currentKey = $prefix ? "{$prefix}[{$key}]" : $key;
+
+                    if (is_array($value)) {
+                        $http = $flattenAndAttach($http, $value, $currentKey);
+                    } else {
+                        // Ensure contents is never null for Guzzle
+                        $contents = $value;
+                        if (is_bool($value)) {
+                            $contents = $value ? '1' : '0';
+                        } elseif (is_null($value)) {
+                            $contents = '';
+                        }
+                        
+                        // Explicitly cast to string and log
+                        $contents = (string)$contents;
+                        \Log::debug("Gateway attaching: $currentKey = " . substr($contents, 0, 50));
+                        $http = $http->attach($currentKey, $contents);
+                    }
+                }
+                return $http;
+            };
+
+            $http = $flattenAndAttach($http, $data);
+
+            // Handle Images
             if ($request->hasFile('images')) {
                 foreach ($request->file('images') as $file) {
                     if ($file && $file->isValid()) {
-                        $http->attach(
+                        \Log::debug("Gateway attaching image: " . $file->getClientOriginalName());
+                        $http = $http->attach(
                             'images[]',
                             file_get_contents($file->getRealPath()),
                             $file->getClientOriginalName()
@@ -375,25 +317,90 @@ Route::match(['put', 'post'], '/resources/{id}', function (Request $request, $id
                     }
                 }
             }
-            
-            // We use POST to the microservice because multipart PUT can be unstable in some PHP versions
-            $response = $http->post("http://resource_service/api/resources/{$id}");
-        } else {
-            // Use standard JSON PUT for simple updates (name, price, etc.)
-            $response = $http->put("http://resource_service/api/resources/{$id}", $request->all());
+
+            $response = $http->post('http://resource_service/api/resources');
+            return handleProxyResponse($response, 'Resource creation failed.');
+
+        } catch (Exception $e) {
+            \Log::error('Gateway Multipart Error: ' . $e->getMessage());
+            return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
         }
-        
-        return handleProxyResponse($response, 'Resource update failed.');
-        
-    } catch (Exception $e) {
-        return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
-    }
-});
+    });
+
+    // Update resource
+    Route::match(['put', 'post'], '/resources/{id}', function (Request $request, $id) {
+        try {
+            $user = $request->user();
+            if (!$user) {
+                return response()->json(['message' => 'Unauthenticated'], 401);
+            }
+
+            $http = Http::timeout(60)
+                ->withHeaders(['X-User-Id' => (string)$user->id])
+                ->withToken($request->bearerToken());
+            
+            // Use Multipart if there are files or complex nested arrays like availability slots
+            if ($request->hasFile('images') || $request->has('availability') || $request->has('equipment')) {
+                $http->asMultipart();
+                
+                // Define Recursive function to handle deep nesting (3+ levels)
+                $flattenAndAttach = function ($http, $data, $prefix = '') use (&$flattenAndAttach) {
+                    foreach ($data as $key => $value) {
+                        $currentKey = $prefix ? "{$prefix}[{$key}]" : $key;
+                        if (is_array($value)) {
+                            $flattenAndAttach($http, $value, $currentKey);
+                        } else {
+                            $contents = $value;
+                            if (is_bool($value)) {
+                                $contents = $value ? '1' : '0';
+                            } elseif (is_null($value)) {
+                                $contents = '';
+                            }
+                            $http->attach($currentKey, (string)$contents);
+                        }
+                    }
+                };
+                
+                // Process all data except images (handled separately)
+                $flattenAndAttach($http, $request->except(['images']));
+                
+                // Attach image files properly
+                if ($request->hasFile('images')) {
+                    foreach ($request->file('images') as $file) {
+                        if ($file && $file->isValid()) {
+                            $http->attach(
+                                'images[]',
+                                file_get_contents($file->getRealPath()),
+                                $file->getClientOriginalName()
+                            );
+                        }
+                    }
+                }
+                
+                // We use POST to the microservice because multipart PUT can be unstable in some PHP versions
+                $response = $http->post("http://resource_service/api/resources/{$id}");
+            } else {
+                // Use standard JSON PUT for simple updates (name, price, etc.)
+                $response = $http->put("http://resource_service/api/resources/{$id}", $request->all());
+            }
+            
+            return handleProxyResponse($response, 'Resource update failed.');
+            
+        } catch (Exception $e) {
+            \Log::error('Gateway Multipart Update Error: ' . $e->getMessage());
+            return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
+        }
+    });
     // Delete resource
     Route::delete('/resources/{id}', function (Request $request, $id) {
         try {
+            $user = $request->user();
+            if (!$user) {
+                return response()->json(['message' => 'Unauthenticated'], 401);
+            }
+
             $response = Http::timeout(30)
-                ->withHeaders(['X-User-Id' => $request->user()->id])
+                ->withHeaders(['X-User-Id' => (string)$user->id])
                 ->withToken($request->bearerToken())
                 ->delete("http://resource_service/api/resources/{$id}");
             
