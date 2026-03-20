@@ -285,7 +285,7 @@ Route::middleware('auth:sanctum')->group(function () {
                     if (is_array($value)) {
                         $http = $flattenAndAttach($http, $value, $currentKey);
                     } else {
-                        // Ensure contents is never null for Guzzle
+                        // FIX: Use a stream to prevent Laravel's array_filter from stripping empty strings or '0'
                         $contents = $value;
                         if (is_bool($value)) {
                             $contents = $value ? '1' : '0';
@@ -293,10 +293,11 @@ Route::middleware('auth:sanctum')->group(function () {
                             $contents = '';
                         }
                         
-                        // Explicitly cast to string and log
-                        $contents = (string)$contents;
-                        \Log::debug("Gateway attaching: $currentKey = " . substr($contents, 0, 50));
-                        $http = $http->attach($currentKey, $contents);
+                        $stream = fopen('php://temp', 'r+');
+                        fwrite($stream, (string)$contents);
+                        rewind($stream);
+                        
+                        $http = $http->attach($currentKey, $stream);
                     }
                 }
                 return $http;
@@ -348,7 +349,7 @@ Route::middleware('auth:sanctum')->group(function () {
                     foreach ($data as $key => $value) {
                         $currentKey = $prefix ? "{$prefix}[{$key}]" : $key;
                         if (is_array($value)) {
-                            $flattenAndAttach($http, $value, $currentKey);
+                            $http = $flattenAndAttach($http, $value, $currentKey);
                         } else {
                             $contents = $value;
                             if (is_bool($value)) {
@@ -356,9 +357,15 @@ Route::middleware('auth:sanctum')->group(function () {
                             } elseif (is_null($value)) {
                                 $contents = '';
                             }
-                            $http->attach($currentKey, (string)$contents);
+                            
+                            $stream = fopen('php://temp', 'r+');
+                            fwrite($stream, (string)$contents);
+                            rewind($stream);
+
+                            $http = $http->attach($currentKey, $stream);
                         }
                     }
+                    return $http;
                 };
                 
                 // Process all data except images (handled separately)
