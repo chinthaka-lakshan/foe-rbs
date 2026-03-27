@@ -316,6 +316,11 @@ Route::middleware('auth:sanctum')->group(function () {
                             file_get_contents($file->getRealPath()),
                             $file->getClientOriginalName()
                         );
+                    } else {
+                        return response()->json([
+                            'message' => 'Image upload failed. The file may be too large.',
+                            'errors' => ['images' => ['One or more images exceed the maximum allowed size (2MB).']]
+                        ], 422);
                     }
                 }
             }
@@ -381,6 +386,11 @@ Route::middleware('auth:sanctum')->group(function () {
                                 file_get_contents($file->getRealPath()),
                                 $file->getClientOriginalName()
                             );
+                        } else {
+                            return response()->json([
+                                'message' => 'Image upload failed. The file may be too large.',
+                                'errors' => ['images' => ['One or more images exceed the maximum allowed size (2MB).']]
+                            ], 422);
                         }
                     }
                 }
