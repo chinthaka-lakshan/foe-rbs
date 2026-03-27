@@ -273,6 +273,7 @@ Route::middleware('auth:sanctum')->group(function () {
             $http = Http::timeout(60)
                 ->withHeaders(['X-User-Id' => (string)$user->id])
                 ->withToken($request->bearerToken())
+                ->acceptJson()
                 ->asMultipart();
             
             $data = $request->except(['images']);
