@@ -9,68 +9,72 @@
     </div>
    
 
-    <div class="row g-4 mb-4">
+    <div class="row g-4 mb-4" v-if="!isLoading">
       <div class="col-sm-6 col-md-3">
         <StatCard
-          icon="bi bi-people-fill"
-          :value="stats.totalUsers"
-          label="Total Users"
-          color="#4BB66D"
+          icon="bi bi-box-seam"
+          :value="stats.totalResources"
+          label="Total Resources"
+          color="#1e4449"
         />
       </div>
       <div class="col-sm-6 col-md-3">
         <StatCard
-          icon="bi bi-box-fill"
-          :value="stats.totalResources"
-          label="Total Resources"
+          icon="bi bi-journal-text"
+          :value="stats.totalBookings"
+          label="My Total Bookings"
           color="#26d516"
         />
       </div>
       <div class="col-sm-6 col-md-3">
         <StatCard
-          icon="bi bi-clock-fill"
+          icon="bi bi-clock-history"
           :value="stats.pendingBookings"
-          label="Pending Bookings"
+          label="My Pending Bookings"
           color="#fcc300"
         />
       </div>
       <div class="col-sm-6 col-md-3">
         <StatCard
-          icon="bi bi-check-circle-fill"
+          icon="bi bi-check2-circle"
           :value="stats.approvedBookings"
-          label="Approved Bookings"
-          color="#1e4449"
+          label="My Approved Bookings"
+          color="#4BB66D"
         />
       </div>
     </div>
 
-    <div class="row g-4 mb-4">
+    <div v-if="isLoading" class="text-center py-5">
+      <div class="spinner-border text-primary" role="status"></div>
+    </div>
+
+    <div class="row g-4 mb-4" v-if="!isLoading">
       <div class="col-md-6">
         <div class="chart-card">
           <h5 class="mb-3">Bookings Status</h5>
           <div class="pie-chart-container">
             <PieChart
-              :approved="156"
-              :pending="60"
-              :rejected="35"
+              :approved="stats.approvedBookings"
+              :pending="stats.pendingBookings"
+              :rejected="stats.rejectedBookings"
             />
           </div>
         </div>
       </div>
       <div class="col-md-6">
         <div class="chart-card">
-          <h5 class="mb-3">Total Bookings</h5>
+          <h5 class="mb-3">My Total Bookings</h5>
           <div class="total-bookings">
             <h2>{{ stats.totalBookings }}</h2>
               <div class="booking-boxes">
                 <div class="booking-box approved"> 
-                  <span class="badge bg-success">65%</span> <p>Approved</p>
+                  <span class="badge bg-success">{{ stats.totalBookings ? Math.round((stats.approvedBookings / stats.totalBookings) * 100) : 0 }}%</span> <p>Approved</p>
                 </div>
                 <div class="booking-box pending">
-                  <span class="badge bg-warning text-dark">25%</span> <p>Pending</p>
+                  <span class="badge bg-warning text-dark">{{ stats.totalBookings ? Math.round((stats.pendingBookings / stats.totalBookings) * 100) : 0 }}%</span> <p>Pending</p>
                 </div>
                 <div class="booking-box rejected">
-                  <span class="badge bg-danger">10%</span> <p>Rejected</p>
+                  <span class="badge bg-danger">{{ stats.totalBookings ? Math.round((stats.rejectedBookings / stats.totalBookings) * 100) : 0 }}%</span> <p>Rejected</p>
                 </div>
              </div>
           </div>
@@ -81,18 +85,41 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import StatCard from '../../components/StatCard.vue';
 import PieChart from '../../components/PieChart.vue';
 import Navbar from '../../components/Navbar.vue';
 import UserSidebar from '../../components/Sidebar/UserSidebar.vue';
+import { resourceStore } from '../../store/resourceStore';
+import { bookingStore } from '../../store/bookingStore';
 
-const stats = ref({
-  totalUsers: 265,
-  totalResources: 42,
-  pendingBookings: 18,
-  approvedBookings: 156,
-  totalBookings: 240
+const isLoading = ref(true);
+
+onMounted(async () => {
+  try {
+    await Promise.all([
+      resourceStore.fetchAll(),
+      bookingStore.fetchMyBookings()
+    ]);
+  } finally {
+    isLoading.value = false;
+  }
+});
+
+const myBookings = computed(() => bookingStore.bookings || []);
+
+const stats = computed(() => {
+  const pendingCount = myBookings.value.filter(b => b.status === 'Pending_for_Verification' || b.status === 'Pending').length;
+  const approvedCount = myBookings.value.filter(b => b.status === 'Approved' || b.status === 'Confirmed' || b.status === 'Completed').length;
+  const rejectedCount = myBookings.value.filter(b => b.status === 'Cancelled' || b.status === 'Rejected').length;
+
+  return {
+    totalResources: resourceStore.resources.length,
+    pendingBookings: pendingCount,
+    approvedBookings: approvedCount,
+    rejectedBookings: rejectedCount,
+    totalBookings: myBookings.value.length
+  };
 });
 </script>
 

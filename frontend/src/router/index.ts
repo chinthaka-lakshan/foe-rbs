@@ -19,6 +19,9 @@ import User_Dashboard from '../views/User/User_Dashboard.vue';
 import Admin_Dashboard from '../views/Admin/Admin_Dashboard.vue';
 import Department from '../views/MasterAdmin/Department.vue';
 import Resource from '../views/Admin/Resource.vue';
+import User_Resource from '../views/User/Resource.vue';
+import User_Booking from '../views/User/Booking.vue';
+import User_Setting from '../views/User/Setting.vue';
 
 
 
@@ -162,6 +165,24 @@ const routes: Array<RouteRecordRaw> = [
     path: '/user/dashboard',
     name: 'user-dashboard',
     component: User_Dashboard,
+    meta: { requiresAuth: true, role: 'User' }
+  },
+  {
+    path: '/user/resource',
+    name: 'user-resource',
+    component: User_Resource,
+    meta: { requiresAuth: true, role: 'User' }
+  },
+  {
+    path: '/user/booking',
+    name: 'user-booking',
+    component: User_Booking,
+    meta: { requiresAuth: true, role: 'User' }
+  },
+  {
+    path: '/user/setting',
+    name: 'user-setting',
+    component: User_Setting,
     meta: { requiresAuth: true, role: 'User' }
   },
 

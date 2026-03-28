@@ -15,6 +15,12 @@ Route::post('/forgot-password/reset', [AuthController::class, 'resetPassword']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
 
+    // USER: Self Profile Management
+    Route::get('/user', function (Request $request) {
+        return response()->json($request->user()->load('roles'));
+    });
+    Route::put('/user/profile', [UserController::class, 'updateProfile']);
+
     // MASTER ADMIN ONLY: Permission Management
     Route::middleware('role:Master Admin')->group(function () {
         Route::post('/users/{id}/permissions', [UserPermissionController::class, 'updatePermissions']);

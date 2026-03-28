@@ -10,6 +10,30 @@ use Illuminate\Support\Facades\Cache;
 
 class UserController extends Controller
 {
+    // update self profile
+    public function updateProfile(Request $request)
+    {
+        $user = $request->user();
+        if (!$user) return response()->json(['message' => 'Unauthenticated'], 401);
+
+        $validated = $request->validate([
+            'name' => 'nullable|string',
+            'email' => 'nullable|email|unique:users,email,' . $user->id,
+            'password' => 'nullable|string|min:6',
+        ]);
+        
+        $dataToUpdate = $validated;
+        
+        if (isset($dataToUpdate['password']) && !empty($dataToUpdate['password'])) {
+            $dataToUpdate['password'] = Hash::make($dataToUpdate['password']);
+        } else {
+            unset($dataToUpdate['password']);
+        }
+        
+        $user->update($dataToUpdate);
+        return response()->json($user->load('roles'));
+    }
+
     // index
     public function index()
     {
