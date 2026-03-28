@@ -113,6 +113,8 @@ const handleLogin = async () => {
             localStorage.setItem('isAuthenticated', 'true');
             localStorage.setItem('authToken', data.token);
             localStorage.setItem('userName', data.user.name); 
+            localStorage.setItem('userEmail', data.user.email);
+            localStorage.setItem('userId', data.user.id.toString());
             const role = data.roles && data.roles.length > 0 ? data.roles[0] : 'user';
             localStorage.setItem('userRole', role);
 

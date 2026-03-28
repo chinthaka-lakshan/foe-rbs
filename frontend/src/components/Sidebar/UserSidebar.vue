@@ -15,7 +15,14 @@
         <span>Dashboard</span>
       </router-link>
 
-    
+      <router-link
+        to="/user/resource"
+        class="nav-item"
+        :class="{ active: isActive('/user/resource') }"
+      >
+        <i class="bi bi-box-seam"></i>
+        <span>Resource</span>
+      </router-link>
 
       <router-link
         to="/user/booking"
@@ -36,7 +43,7 @@
         :class="{ active: isActive('/user/setting') }"
       >
         <i class="bi bi-gear"></i>
-        <span>Setting</span>
+        <span>Settings</span>
       </router-link>
     </nav>
   </div>
