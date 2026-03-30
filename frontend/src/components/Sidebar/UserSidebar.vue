@@ -1,52 +1,54 @@
 <template>
-  <div class="sidebar">
-    <div class="logo-container">
-      <img src="/logo.png" alt="FOE RBS" class="logo" />
-      <h4 class="logo-text">FOE RBS</h4>
+  <aside class="sidebar">
+    <div class="brand-section">
+      <div class="logo-box">
+        <img src="/logo.png" alt="FOE RBS" class="logo-img fixed-logo" />
+      </div>
+      <div class="brand-info">
+        <h1 class="brand-name">FOE RBS</h1>
+        <p class="brand-role">User Portal</p>
+      </div>
     </div>
 
-    <nav class="nav-menu">
-      <router-link
-        to="/user/dashboard"
-        class="nav-item"
-        :class="{ active: isActive('/user/dashboard') }"
-      >
-        <i class="bi bi-speedometer2"></i>
-        <span>Dashboard</span>
-      </router-link>
+    <nav class="nav-container">
+      <div class="nav-group">
+        <span class="group-label">Core</span>
+        
+        <router-link to="/user/dashboard" class="nav-link" :class="{ active: isActive('/user/dashboard') }">
+          <div class="icon-box"><i class="bi bi-grid-fill"></i></div>
+          <span>Dashboard</span>
+        </router-link>
 
-      <router-link
-        to="/user/resource"
-        class="nav-item"
-        :class="{ active: isActive('/user/resource') }"
-      >
-        <i class="bi bi-box-seam"></i>
-        <span>Resource</span>
-      </router-link>
+        <router-link to="/user/resource" class="nav-link" :class="{ active: isActive('/user/resource') }">
+          <div class="icon-box"><i class="bi bi-stack"></i></div>
+          <span>Resources</span>
+        </router-link>
 
-      <router-link
-        to="/user/booking"
-        class="nav-item"
-        :class="{ active: isActive('/user/booking') }"
-      >
-        <i class="bi bi-calendar-check"></i>
-        <span>Booking</span>
-      </router-link>
+        <router-link to="/user/booking" class="nav-link" :class="{ active: isActive('/user/booking') }">
+          <div class="icon-box"><i class="bi bi-calendar-check-fill"></i></div>
+          <span>Bookings</span>
+        </router-link>
+      </div>
 
-     
-
-     
-
-      <router-link
-        to="/user/setting"
-        class="nav-item"
-        :class="{ active: isActive('/user/setting') }"
-      >
-        <i class="bi bi-gear"></i>
-        <span>Settings</span>
-      </router-link>
+      <div class="nav-group border-top pt-3 mt-2">
+        <span class="group-label">Account</span>
+        <router-link to="/user/setting" class="nav-link" :class="{ active: isActive('/user/setting') }">
+          <div class="icon-box"><i class="bi bi-gear-fill"></i></div>
+          <span>Settings</span>
+        </router-link>
+      </div>
     </nav>
-  </div>
+
+    <div class="sidebar-footer">
+      <div class="user-pill">
+        <div class="avatar">U</div>
+        <div class="user-meta">
+          <span class="u-name">User</span>
+          <span class="u-status">Online</span>
+        </div>
+      </div>
+    </div>
+  </aside>
 </template>
 
 <script setup lang="ts">
@@ -61,99 +63,151 @@ const isActive = (path: string): boolean => {
 
 <style scoped>
 .sidebar {
-  width: 250px;
-  /* Key change: Start the sidebar 60px from the top (assuming a top Navbar height) */
-  top: 60px; 
-  /* Reduce height by 60px to ensure it doesn't extend past the bottom of the viewport */
-  height: calc(100vh - 60px); 
-  background-color: #2c3e50;
-  color: white;
+  width: 260px;
   position: fixed;
+  top: 60px;
   left: 0;
-  padding: 20px 0;
-  overflow-y: auto;
-  z-index: 1000; /* Added z-index to ensure it sits above dashboard content */
-}
-
-.logo-container {
-  display: flex;
-  align-items: center;
-  padding: 0 20px 30px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  margin-bottom: 20px;
-}
-
-.logo {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  margin-right: 10px;
-}
-
-.logo-text {
-  margin: 0;
-  font-size: 1.2rem;
-  font-weight: 600;
-}
-
-.nav-menu {
+  height: calc(100vh - 60px);
+  background-color: #fcfdfe;
+  border-right: 1.5px solid #e2e8f0;
+  box-shadow: 4px 0 15px rgba(0, 0, 0, 0.04);
   display: flex;
   flex-direction: column;
+  z-index: 1000;
 }
 
-.nav-item {
+.brand-section {
+  padding: 30px 20px;
   display: flex;
   align-items: center;
-  padding: 15px 20px;
-  color: #ecf0f1;
+  gap: 12px;
+}
+
+.logo-box {
+  background: #ffffff;
+  padding: 8px;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  min-height: 48px;
+}
+
+.fixed-logo {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  display: block;
+}
+
+.brand-name {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #1e293b;
+  margin: 0;
+}
+
+.brand-role {
+  font-size: 0.75rem;
+  color: #10b981;
+  font-weight: 600;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.nav-container {
+  flex: 1;
+  padding: 0 15px;
+  overflow-y: auto;
+}
+
+.nav-group { margin-bottom: 25px; }
+
+.group-label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  padding-left: 10px;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 15px;
   text-decoration: none;
-  transition: all 0.3s ease;
-  border-left: 3px solid transparent;
+  color: #64748b;
+  font-weight: 500;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+  margin-bottom: 5px;
 }
 
-.nav-item:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+.icon-box {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.nav-link:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.nav-link.active {
+  background: #ecfdf5;
+  color: #065f46;
+}
+
+.nav-link.active .icon-box {
+  background: #10b981;
   color: white;
+  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);
 }
 
-.nav-item.active {
-  background-color: #34495e;
-  border-left-color: #3498db;
+.sidebar-footer {
+  padding: 20px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.user-pill {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  padding: 10px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.avatar {
+  width: 35px;
+  height: 35px;
+  background: #10b981;
   color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.8rem;
 }
 
-.nav-item i {
-  font-size: 1.2rem;
-  margin-right: 15px;
-  width: 24px;
-}
-
-.nav-item span {
-  font-size: 1rem;
-}
+.u-name { font-size: 0.85rem; font-weight: 700; display: block; color: #1e293b;}
+.u-status { font-size: 0.65rem; color: #10b981; display: block; font-weight: 600;}
 
 @media (max-width: 768px) {
-  .sidebar {
-    width: 70px;
-  }
-
-  .logo-text,
-  .nav-item span {
-    display: none;
-  }
-
-  .logo-container {
-    justify-content: center;
-    padding: 0 10px 20px;
-  }
-
-  .nav-item {
-    justify-content: center;
-    padding: 15px 10px;
-  }
-
-  .nav-item i {
-    margin-right: 0;
-  }
+  .sidebar { width: 85px; }
+  .brand-info, .group-label, .nav-link span, .user-meta { display: none; }
 }
-</style>
+</style>
