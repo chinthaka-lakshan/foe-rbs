@@ -115,6 +115,16 @@ Route::middleware('auth:sanctum')->group(function () {
             : response()->json(['message' => 'Update failed'], $response->status());
     });
 
+    // Delete user route (Master Admin)
+    Route::delete('/users/{user}', function (Request $request, $user) {
+        $response = Http::withToken($request->bearerToken())
+            ->delete("http://auth_service/api/users/{$user}");
+            
+        return $response->successful() 
+            ? $response->json() 
+            : response()->json(['message' => 'Deletion failed'], $response->status());
+    });
+
     // Permission overrides proxy
     Route::get('/users/{id}/permissions', function (Request $request, $id) {
         $response = Http::withToken($request->bearerToken())

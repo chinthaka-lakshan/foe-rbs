@@ -47,21 +47,24 @@ class User extends Authenticatable
     // Get all permissions considering role defaults and user-specific overrides
     public function getAllPermissions(): array
     {
-        //Identify the primary role name
-        $roleName = $this->roles()->first()?->name;
-
-        //Define standard role defaults
-        $roleDefaults = [
-            'Master Admin' => ['*'],
-            'Admin'        => ['resource.create', 'resource.update', 'resource.view', 'resource.delete', 'user.index', 'manage_resources', 'view_assigned_bookings', 'view_reports', 'verify_bookings'],
-            'User'         => ['resource.view', 'booking.create'],
-        ];
-        $permissions = $roleDefaults[$roleName] ?? [];
-        // Master Admin has everything; we can return early unless you specifically want to deny Master Admin things
-        if ($roleName === 'Master Admin') {
+        // Identify if the user is a Master Admin (they have everything)
+        // We check if the role exists in their roles collection
+        if ($this->roles()->where('name', 'Master Admin')->exists()) {
             return ['*'];
         }
-        //Apply User-Specific Overrides from database
+
+        // Define standard role defaults (Admins and Users start with no hardcoded permissions)
+        // Master Admin is handled above. 
+        $roleDefaults = [
+            'Admin' => [],
+            'User'  => [],
+        ];
+
+        // Identify the primary role name for defaults (if any)
+        $roleName = $this->roles()->first()?->name;
+        $permissions = $roleDefaults[$roleName] ?? [];
+
+        // Apply User-Specific Overrides from database
         $overrides = $this->permissionOverrides()->get();
         foreach ($overrides as $override) {
             if ($override->is_allowed) {
