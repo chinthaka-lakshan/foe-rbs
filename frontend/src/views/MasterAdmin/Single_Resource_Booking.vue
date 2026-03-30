@@ -219,7 +219,7 @@
               <h5 class="mb-0">Book This Resource</h5>
             </div>
             <div class="card-body">
-              <form @submit.prevent="validateAndShowOTP">
+              <form @submit.prevent="createBookingAndSendOTP">
                 <!-- Resource Unavailable Message -->
                 <div v-if="isResourceUnavailable" class="alert alert-warning">
                   <i class="bi bi-exclamation-triangle me-2"></i>
@@ -440,41 +440,60 @@
                   </div>
                 </div>
 
-                <!-- Weekly Schedule Summary -->
+                <!-- Weekly Availability (Beautiful UI) -->
                 <div class="schedule-details mb-4 pb-3 border-bottom">
                   <h6 class="text-muted fw-bold mb-3">Weekly Availability</h6>
                   
                   <div v-if="!resource.availability || resource.availability.length === 0" class="text-muted small">
-                      Schedule not defined.
+                      No schedule defined.
                   </div>
                   
-                  <ul v-else class="list-unstyled schedule-list">
-                      <li v-for="day in resource.availability" :key="day.day_name" class="d-flex justify-content-between align-items-center small">
-                          <span class="fw-medium">{{ day.day_name }}</span>
-                          
-                          <span :class="day.is_available ? 'text-success fw-medium' : 'text-danger'">
-                              <span v-if="day.is_available">
-                                  <i class="bi bi-check-circle-fill me-1"></i>
-                                  {{ formatTime(day.start_time) }} - {{ formatTime(day.end_time) }}
+                  <div v-else class="availability-list">
+                    <div v-for="day in sortedAvailability" :key="day.day_name" class="day-availability mb-3">
+                      <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="fw-medium text-dark">{{ day.day_name }}</span>
+                        <span :class="day.is_available ? 'badge bg-success' : 'badge bg-secondary'">
+                          {{ day.is_available ? 'Available' : 'Not Available' }}
+                        </span>
+                      </div>
+                      
+                      <!-- Time slots for the day -->
+                      <div v-if="day.is_available && day.slots && day.slots.length > 0">
+                        <div class="time-slots-container ms-2">
+                          <div v-for="(slot, index) in day.slots" :key="index" class="time-slot mb-2">
+                            <div class="d-flex align-items-center">
+                              <i class="bi bi-clock text-dark-teal me-2"></i>
+                              <span class="slot-time">
+                                {{ formatTime(slot.start_time) }} - {{ formatTime(slot.end_time) }}
                               </span>
-                              <span v-else>
-                                  <i class="bi bi-x-circle-fill me-1"></i>
-                                  Unavailable
+                              <span v-if="day.slots.length > 1" class="badge bg-light text-dark border ms-2">
+                                Slot {{ index + 1 }}
                               </span>
-                          </span>
-                      </li>
-                  </ul>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div v-else-if="day.is_available" class="text-muted small ms-2">
+                        <i class="bi bi-info-circle me-1"></i> No specific time slots (available all day)
+                      </div>
+                      
+                      <div v-else class="text-muted small ms-2">
+                        <i class="bi bi-x-circle me-1"></i> Not available on this day
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 <!-- Submit Button -->
                 <button 
                   type="submit" 
                   class="btn btn-success w-100"
-                  :disabled="isSendingOTP || isResourceUnavailable"
+                  :disabled="isCreatingBooking || isResourceUnavailable"
                 >
-                  <span v-if="isSendingOTP" class="spinner-border spinner-border-sm me-2"></span>
-                  <i class="bi bi-calendar-check me-2"></i>
-                  {{ isSendingOTP ? 'Sending OTP...' : 'Send OTP & Book' }}
+                  <span v-if="isCreatingBooking" class="spinner-border spinner-border-sm me-2"></span>
+                  <i class="bi bi-send-check me-2"></i>
+                  {{ isCreatingBooking ? 'Creating Booking...' : 'Book Now & Verify OTP' }}
                 </button>
               </form>
             </div>
@@ -504,7 +523,7 @@
             <strong>{{ bookingForm.email }}</strong>
           </p>
           <div v-if="otpSentSuccess" class="alert alert-success alert-sm py-2">
-            <i class="bi bi-check-circle me-1"></i>OTP sent successfully!
+            <i class="bi bi-check-circle me-1"></i>OTP sent successfully! Please check your email.
           </div>
         </div>
         
@@ -564,12 +583,12 @@
         <button 
           type="button" 
           class="btn btn-success" 
-          @click="verifyOTPAndCompleteBooking"
+          @click="verifyOTPAndConfirmBooking"
           :disabled="!isOtpComplete || isVerifyingOTP"
         >
           <span v-if="isVerifyingOTP" class="spinner-border spinner-border-sm me-2"></span>
           <i class="bi bi-check-circle me-2"></i>
-          {{ isVerifyingOTP ? 'Verifying...' : 'Verify & Complete Booking' }}
+          {{ isVerifyingOTP ? 'Verifying...' : 'Verify & Confirm Booking' }}
         </button>
       </div>
     </div>
@@ -580,7 +599,7 @@
     <div class="modal-content">
       <div class="modal-header bg-success text-white">
         <h5 class="modal-title">
-          <i class="bi bi-check-circle-fill me-2"></i>Booking Confirmed!
+          <i class="bi bi-check-circle-fill me-2"></i>Booking Confirmed Successfully!
         </h5>
       </div>
       <div class="modal-body text-center">
@@ -607,9 +626,11 @@
         <p class="text-muted small">
           A confirmation email has been sent to <strong>{{ bookingForm.email }}</strong>
         </p>
-        <div v-if="pendingBookingReference" class="alert alert-info mt-3">
+        <div v-if="confirmedBookingReference" class="alert alert-info mt-3">
           <i class="bi bi-info-circle me-2"></i>
-          Booking Reference: <strong>{{ pendingBookingReference }}</strong>
+          Booking Reference: <strong>{{ confirmedBookingReference }}</strong>
+          <br>
+          <small>Status: <span class="badge status-confirmed">Confirmed</span></small>
         </div>
       </div>
       <div class="modal-footer justify-content-center">
@@ -722,14 +743,14 @@
             <div class="timeline-item">
               <div class="timeline-marker bg-success"></div>
               <div class="timeline-content">
-                <h6 class="mb-1">Booking Created</h6>
+                <h6 class="mb-1">Booking Created & Confirmed</h6>
                 <p class="text-muted small mb-0">{{ formatDateTime(selectedBooking.created_at) }}</p>
               </div>
             </div>
             <div v-if="selectedBooking.confirmed_at" class="timeline-item">
               <div class="timeline-marker bg-primary"></div>
               <div class="timeline-content">
-                <h6 class="mb-1">Booking Confirmed</h6>
+                <h6 class="mb-1">Booking Confirmed via OTP</h6>
                 <p class="text-muted small mb-0">{{ formatDateTime(selectedBooking.confirmed_at) }}</p>
               </div>
             </div>
@@ -746,22 +767,6 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" @click="selectedBooking = null">
           Close
-        </button>
-        <button 
-          v-if="selectedBooking.status === 'pending'"
-          type="button" 
-          class="btn btn-primary"
-          @click="confirmBooking(selectedBooking)"
-        >
-          Confirm Booking
-        </button>
-        <button 
-          v-if="selectedBooking.status === 'pending' || selectedBooking.status === 'confirmed'"
-          type="button" 
-          class="btn btn-danger"
-          @click="cancelBooking(selectedBooking)"
-        >
-          Cancel Booking
         </button>
       </div>
     </div>
@@ -842,13 +847,17 @@ interface Resource {
   }>;
 }
 
+interface TimeSlot {
+    start_time: string;
+    end_time: string;
+}
+
 interface ResourceAvailability {
     id: number;
     day_name: string;
     day_of_week: number;
     is_available: boolean;
-    start_time: string | null;
-    end_time: string | null;
+    slots: TimeSlot[]; // Support multiple slots
 }
 
 interface ResourceCategory {
@@ -856,7 +865,6 @@ interface ResourceCategory {
     name: string;
 }
 
-// NEW: Equipment Interface
 interface BookingEquipment {
     id: number;
     name: string;
@@ -925,7 +933,7 @@ const isLoading = ref(true);
 const isLoadingBookings = ref(false);
 const errorMessage = ref('');
 
-// NEW: Equipment State
+// Equipment State
 const availableEquipment = ref<BookingEquipment[]>([]);
 const filteredEquipment = ref<BookingEquipment[]>([]);
 const selectedEquipment = ref<SelectedEquipmentItem[]>([]);
@@ -940,14 +948,13 @@ const otpDigits = ref<string[]>(Array(6).fill(''));
 const otpInputs = ref<(HTMLInputElement | null)[]>(Array(6).fill(null));
 const otpError = ref('');
 const isVerifyingOTP = ref(false);
-const isSendingOTP = ref(false);
+const isCreatingBooking = ref(false);
 const isResendingOTP = ref(false);
 const otpTimer = ref(300);
 const otpTimerInterval = ref<number | null>(null);
 const pendingBookingId = ref<number | null>(null);
-const pendingBookingReference = ref<string>('');
+const confirmedBookingReference = ref<string>('');
 const otpSentSuccess = ref(false);
-const tempBookingData = ref<any>(null);
 
 // Booking Form
 const bookingForm = ref<BookingForm>({
@@ -976,7 +983,6 @@ const calculatedCost = computed(() => {
   return Math.round(hours * resource.value.base_price);
 });
 
-// NEW: Equipment Cost Computations
 const equipmentTotalCost = computed(() => {
   return selectedEquipment.value.reduce((total, item) => {
     const hours = calculateBookingDuration();
@@ -989,7 +995,7 @@ const totalBookingCost = computed(() => {
 });
 
 const isResourceUnavailable = computed(() => {
-  if (!resource.value || !bookingForm.value.date) return false;
+  if (!resource.value || !bookingForm.value.date || !bookingForm.value.startTime || !bookingForm.value.endTime) return false;
   
   const selectedDate = new Date(bookingForm.value.date);
   const selectedDayName = selectedDate.toLocaleDateString('en-US', { weekday: 'long' });
@@ -997,7 +1003,21 @@ const isResourceUnavailable = computed(() => {
     day => day.day_name.toLowerCase() === selectedDayName.toLowerCase()
   );
   
-  return !dayAvailability || !dayAvailability.is_available;
+  if (!dayAvailability || !dayAvailability.is_available) return true;
+  
+  // If there are specific slots, check if selected time fits in ANY of them
+  if (dayAvailability.slots && dayAvailability.slots.length > 0) {
+    const selectedStart = bookingForm.value.startTime.substring(0, 5);
+    const selectedEnd = bookingForm.value.endTime.substring(0, 5);
+    
+    return !dayAvailability.slots.some(slot => {
+      const slotStart = slot.start_time.substring(0, 5);
+      const slotEnd = slot.end_time.substring(0, 5);
+      return selectedStart >= slotStart && selectedEnd <= slotEnd;
+    });
+  }
+  
+  return false; // Available all day (no specific slots)
 });
 
 const isOtpComplete = computed(() => {
@@ -1008,7 +1028,48 @@ const otpExpired = computed(() => {
   return otpTimer.value <= 0;
 });
 
-// NEW: Helper Functions for Equipment
+// Sort availability by day of week (Monday to Sunday)
+const sortedAvailability = computed(() => {
+  if (!resource.value || !resource.value.availability) return [];
+  
+  const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  
+  return [...resource.value.availability].sort((a, b) => {
+    return dayOrder.indexOf(a.day_name) - dayOrder.indexOf(b.day_name);
+  });
+});
+
+// Helper Functions
+const processAvailabilityData = (availabilityData: any[]) => {
+  if (!availabilityData || !Array.isArray(availabilityData)) return [];
+  
+  return availabilityData.map(day => {
+    // If slots array exists, use it
+    if (day.slots && Array.isArray(day.slots)) {
+      return {
+        ...day,
+        slots: day.slots.map((slot: any) => ({
+          start_time: slot.start_time || '',
+          end_time: slot.end_time || ''
+        }))
+      };
+    }
+    
+    // Otherwise, create a slots array from old format
+    const slots = [];
+    if (day.start_time && day.end_time) {
+      slots.push({
+        start_time: day.start_time,
+        end_time: day.end_time
+      });
+    }
+    
+    return {
+      ...day,
+      slots
+    };
+  });
+};
 const calculateBookingDuration = (): number => {
   if (!bookingForm.value.startTime || !bookingForm.value.endTime) return 0;
   
@@ -1024,7 +1085,7 @@ const calculateEquipmentItemCost = (item: SelectedEquipmentItem): number => {
   return Math.round(item.price_per_hour * item.quantity * hours);
 };
 
-// Equipment Methods - FIXED
+// Equipment Methods
 const loadAvailableEquipment = async () => {
   isLoadingEquipment.value = true;
   try {
@@ -1037,9 +1098,6 @@ const loadAvailableEquipment = async () => {
       }
     });
     
-    console.log('Equipment API Response:', response.data);
-    
-    // Handle different response formats
     let equipmentData: BookingEquipment[] = [];
     
     if (response.data) {
@@ -1052,40 +1110,31 @@ const loadAvailableEquipment = async () => {
       }
     }
     
-    // Filter only available items
     availableEquipment.value = equipmentData.filter(item => 
       item.status === 'Available' && item.available_quantity > 0
     );
     
-    console.log(`Loaded ${availableEquipment.value.length} available equipment items out of ${equipmentData.length} total`);
-    
   } catch (error: any) {
     console.error('Error loading equipment:', error);
-    // Don't show error to user, just log it
   } finally {
     isLoadingEquipment.value = false;
   }
 };
 
 const searchEquipment = () => {
-  if (!equipmentSearch.value.trim()) {
-    filteredEquipment.value = [];
-    showEquipmentDropdown.value = false;
-    return;
-  }
-  
   const searchTerm = equipmentSearch.value.toLowerCase().trim();
   
-  // Filter available equipment based on search term
   filteredEquipment.value = availableEquipment.value.filter(item => {
     const nameMatch = item.name.toLowerCase().includes(searchTerm);
     const descMatch = item.description?.toLowerCase().includes(searchTerm) || false;
-    return (nameMatch || descMatch) && 
+    const matchesSearch = !searchTerm || nameMatch || descMatch;
+    
+    return matchesSearch && 
            item.status === 'Available' && 
            item.available_quantity > 0;
   });
   
-  showEquipmentDropdown.value = filteredEquipment.value.length > 0;
+  showEquipmentDropdown.value = true;
 };
 
 const clearEquipmentSearch = () => {
@@ -1095,11 +1144,9 @@ const clearEquipmentSearch = () => {
 };
 
 const addEquipmentItem = (item: BookingEquipment) => {
-  // Check if item is already selected
   const existingIndex = selectedEquipment.value.findIndex(selected => selected.id === item.id);
   
   if (existingIndex !== -1) {
-    // If already selected, increase quantity if possible
     const existingItem = selectedEquipment.value[existingIndex];
     if (existingItem.quantity < item.available_quantity) {
       selectedEquipment.value[existingIndex].quantity++;
@@ -1107,7 +1154,6 @@ const addEquipmentItem = (item: BookingEquipment) => {
       alert(`Cannot add more. Maximum available quantity is ${item.available_quantity}`);
     }
   } else {
-    // Add new item with quantity 1
     const selectedItem: SelectedEquipmentItem = {
       ...item,
       quantity: 1
@@ -1115,7 +1161,6 @@ const addEquipmentItem = (item: BookingEquipment) => {
     selectedEquipment.value.push(selectedItem);
   }
   
-  // Clear search and dropdown
   clearEquipmentSearch();
 };
 
@@ -1147,7 +1192,7 @@ const validateQuantity = (index: number) => {
   }
 };
 
-// Original Helper Functions
+// Helper Functions
 const getImageUrl = (resource: Resource): string => {
    if (resource && resource.images && resource.images.length > 0) {
        const filePath = resource.images[0].file_path;
@@ -1257,14 +1302,14 @@ const loadResourceDetails = async () => {
     }
     
     if (resourceData) {
-      if (!resourceData.availability) {
+      if (resourceData.availability) {
+        resourceData.availability = processAvailabilityData(resourceData.availability);
+      } else {
         resourceData.availability = [];
       }
       resource.value = resourceData;
       
-      // Load bookings for this resource
       await loadBookings();
-      // Load available equipment
       await loadAvailableEquipment();
     } else {
       errorMessage.value = 'Resource data not found in response';
@@ -1297,7 +1342,6 @@ const loadResourceDetails = async () => {
   }
 };
 
-// Load bookings
 const loadBookings = async () => {
   if (!resource.value) return;
   
@@ -1307,7 +1351,6 @@ const loadBookings = async () => {
     if (resource.value) {
       await bookingStore.fetchByResource(resource.value.id);
     }
-    console.log(`Loaded bookings for resource ${resource.value.id} into store`);
   } catch (error: any) {
     console.error('Error loading bookings:', error);
   } finally {
@@ -1315,7 +1358,7 @@ const loadBookings = async () => {
   }
 };
 
-// Create booking - UPDATED to include equipment
+// Create booking with pending status
 const createBooking = async () => {
   if (!resource.value) {
     throw new Error('Resource not loaded');
@@ -1327,7 +1370,6 @@ const createBooking = async () => {
     const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
     const userId = currentUser.id || 0;
     
-    // Prepare booking data with equipment
     const bookingPayload: any = {
       user_id: userId,
       user_email: bookingForm.value.email,
@@ -1340,10 +1382,9 @@ const createBooking = async () => {
           resource_id: resource.value.id
         }
       ],
-      booking_items: [] // This will hold equipment items
+      booking_items: []
     };
     
-    // Add equipment items if any selected
     if (selectedEquipment.value.length > 0) {
       selectedEquipment.value.forEach(item => {
         bookingPayload.booking_items.push({
@@ -1354,8 +1395,6 @@ const createBooking = async () => {
       });
     }
     
-    console.log('Creating booking with payload:', bookingPayload);
-    
     const response = await axios.post(`${API_BASE_URL}/bookings`, bookingPayload, {
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -1364,17 +1403,18 @@ const createBooking = async () => {
       }
     });
     
-    console.log('Booking created response:', response.data);
-    
-    if (response.data.booking) {
-      pendingBookingId.value = response.data.booking.id;
-      pendingBookingReference.value = response.data.booking.booking_reference;
-      bookingStore.updateBookingLocally(response.data.booking);
-    } else if (response.data.id) {
-      pendingBookingId.value = response.data.id;
-      pendingBookingReference.value = response.data.booking_reference;
-      bookingStore.updateBookingLocally(response.data);
+    const data = response.data;
+    if (data.booking) {
+      pendingBookingId.value = data.booking.id;
+      bookingStore.updateBookingLocally(data.booking);
+    } else if (data.booking_id) {
+      pendingBookingId.value = data.booking_id;
+    } else if (data.id) {
+      pendingBookingId.value = data.id;
+      bookingStore.updateBookingLocally(data);
     }
+    
+    console.log('Booking created, pending ID:', pendingBookingId.value);
     
     return response.data;
     
@@ -1395,8 +1435,8 @@ const createBooking = async () => {
   }
 };
 
-// Validate form and create booking
-const validateAndShowOTP = async () => {
+// Main function: Create booking and send OTP
+const createBookingAndSendOTP = async () => {
   if (!resource.value) {
     errorMessage.value = 'Resource not loaded. Please try again.';
     return;
@@ -1449,7 +1489,6 @@ const validateAndShowOTP = async () => {
     }
   }
   
-  // Validate equipment quantities
   for (const item of selectedEquipment.value) {
     if (item.quantity > item.available_quantity) {
       errorMessage.value = `Quantity for ${item.name} exceeds available quantity (${item.available_quantity})`;
@@ -1457,26 +1496,21 @@ const validateAndShowOTP = async () => {
     }
   }
   
-  isSendingOTP.value = true;
+  isCreatingBooking.value = true;
   errorMessage.value = '';
   
   try {
-    // Create booking (backend will send OTP automatically)
-    const bookingResponse = await createBooking();
+    // Create booking (pending status) - Backend will send OTP to email
+    await createBooking();
     
-    // Check if booking was created successfully
-    if (bookingResponse.requires_verification || pendingBookingId.value) {
+    if (pendingBookingId.value) {
       otpSentSuccess.value = true;
       
-      // Show OTP modal
+      // Open OTP modal automatically
       showOTPModal.value = true;
       startOTPTimer();
       
-      if (bookingResponse.otp_code_for_testing) {
-        console.log('TEST OTP Code (for debugging only):', bookingResponse.otp_code_for_testing);
-      }
-      
-      // Clear any previous OTP digits
+      // Clear previous OTP digits
       otpDigits.value = Array(6).fill('');
       
       // Focus on first input
@@ -1484,146 +1518,21 @@ const validateAndShowOTP = async () => {
         const firstInput = otpInputs.value[0];
         if (firstInput) {
           firstInput.focus();
-          // Clear any existing value
           firstInput.value = '';
         }
       });
-    } else {
-      // If no verification required, show success directly
-      showSuccessModal.value = true;
     }
     
   } catch (error: any) {
     console.error('Error in booking flow:', error);
-    
-    if (error.response) {
-      switch (error.response.status) {
-        case 401:
-          errorMessage.value = 'Authentication required. Please login again.';
-          break;
-        case 404:
-          errorMessage.value = 'Booking service not available. Please try again later.';
-          break;
-        case 422:
-          const errors = error.response.data.errors;
-          if (errors) {
-            errorMessage.value = Object.values(errors).flat().join(', ');
-          } else if (error.response.data.message) {
-            errorMessage.value = error.response.data.message;
-          } else {
-            errorMessage.value = 'Validation error. Please check your input.';
-          }
-          break;
-        case 500:
-          errorMessage.value = 'Server error. Please try again later.';
-          break;
-        default:
-          errorMessage.value = error.message || 'Failed to create booking. Please try again.';
-      }
-    } else if (error.request) {
-      errorMessage.value = 'No response from server. Please check your connection.';
-    } else {
-      errorMessage.value = `Request error: ${error.message}`;
-    }
+    errorMessage.value = error.message || 'Failed to create booking. Please try again.';
   } finally {
-    isSendingOTP.value = false;
+    isCreatingBooking.value = false;
   }
 };
 
-// Verify OTP with the booking ID
-const verifyOTP = async (otp: string) => {
-  if (!pendingBookingId.value) {
-    throw new Error('No pending booking found');
-  }
-  
-  try {
-    const token = getAuthToken();
-    
-    console.log('Verifying OTP for booking ID:', pendingBookingId.value);
-    
-    const response = await axios.post(`${API_BASE_URL}/bookings/${pendingBookingId.value}/verify-otp`, {
-      otp_code: otp
-    }, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/json'
-      }
-    });
-    
-    console.log('OTP verified successfully:', response.data);
-    return response.data;
-    
-  } catch (error: any) {
-    console.error('Error verifying OTP:', error);
-    
-    if (error.response?.status === 422) {
-      if (error.response.data.message) {
-        throw new Error(error.response.data.message);
-      }
-    } else if (error.response?.status === 400) {
-      throw new Error('Invalid OTP. Please try again.');
-    } else if (error.response?.data?.message) {
-      throw new Error(error.response.data.message);
-    }
-    throw error;
-  }
-};
-
-// Resend OTP
-const resendOTP = async () => {
-  if (!pendingBookingId.value) {
-    throw new Error('No pending booking found');
-  }
-  
-  isResendingOTP.value = true;
-  otpError.value = '';
-  
-  try {
-    const token = getAuthToken();
-    
-    console.log('Resending OTP for booking ID:', pendingBookingId.value);
-    
-    const response = await axios.post(`${API_BASE_URL}/bookings/${pendingBookingId.value}/resend-otp`, {}, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/json'
-      }
-    });
-    
-    console.log('OTP resent successfully:', response.data);
-    
-    // Reset timer and clear OTP inputs
-    startOTPTimer();
-    otpDigits.value = Array(6).fill('');
-    otpSentSuccess.value = true;
-    otpError.value = 'New OTP sent successfully!';
-    
-    if (response.data.otp_code_for_testing) {
-      console.log('TEST OTP Code (resend, for debugging only):', response.data.otp_code_for_testing);
-    }
-    
-    // Focus on first input
-    nextTick(() => {
-      const firstInput = otpInputs.value[0];
-      if (firstInput) {
-        firstInput.focus();
-        // Clear any existing value
-        firstInput.value = '';
-      }
-    });
-    
-    return response.data;
-    
-  } catch (error: any) {
-    console.error('Error resending OTP:', error);
-    throw error;
-  } finally {
-    isResendingOTP.value = false;
-  }
-};
-
-// Verify OTP and complete booking
-const verifyOTPAndCompleteBooking = async () => {
+// Verify OTP and confirm booking (change from pending to confirmed)
+const verifyOTPAndConfirmBooking = async () => {
   const enteredOTP = otpDigits.value.join('');
   
   if (enteredOTP.length !== 6) {
@@ -1635,27 +1544,54 @@ const verifyOTPAndCompleteBooking = async () => {
   otpError.value = '';
   
   try {
-    // Verify OTP with the booking
-    await verifyOTP(enteredOTP);
+    const token = getAuthToken();
     
-    // Success: Show success modal and refresh bookings
+    // Call backend to verify OTP and confirm booking
+    const response = await axios.post(`${API_BASE_URL}/bookings/${pendingBookingId.value}/verify-otp`, {
+      otp_code: enteredOTP,
+      email: bookingForm.value.email
+    }, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json'
+      }
+    });
+    
+    console.log('OTP verified and booking confirmed:', response.data);
+    
+    // Get confirmed booking details
+    const confirmedBooking = response.data.booking || response.data;
+    confirmedBookingReference.value = confirmedBooking.booking_reference;
+    
+    // Update booking in store
+    bookingStore.updateBookingLocally(confirmedBooking);
+    
+    // Close OTP modal and show success
     closeOTPModal();
     showSuccessModal.value = true;
     
-    // Refresh the booking list to show the new booking
+    // Refresh bookings list
     await loadBookings();
     
   } catch (error: any) {
-    console.error('Error in verification:', error);
-    otpError.value = error.message || 'Failed to verify OTP. Please try again.';
+    console.error('Error verifying OTP:', error);
     
-    // Reset OTP on error
+    if (error.response?.status === 422) {
+      otpError.value = error.response.data.message || 'Invalid OTP. Please try again.';
+    } else if (error.response?.status === 400) {
+      otpError.value = error.response.data.message || 'Invalid or expired OTP. Please request a new one.';
+    } else if (error.response?.data?.message) {
+      otpError.value = error.response.data.message;
+    } else {
+      otpError.value = 'Failed to verify OTP. Please try again.';
+    }
+    
+    // Clear OTP inputs on error
     otpDigits.value = Array(6).fill('');
     nextTick(() => {
       const firstInput = otpInputs.value[0];
       if (firstInput) {
         firstInput.focus();
-        // Clear input value
         firstInput.value = '';
       }
     });
@@ -1664,70 +1600,52 @@ const verifyOTPAndCompleteBooking = async () => {
   }
 };
 
-// Booking Actions
-const viewBookingDetails = (booking: Booking) => {
-  selectedBooking.value = booking;
-};
-
-const confirmBooking = async (booking: Booking) => {
-  if (!confirm('Are you sure you want to confirm this booking?')) return;
+// Resend OTP
+const resendOTP = async () => {
+  if (!pendingBookingId.value) {
+    otpError.value = 'No pending booking found';
+    return;
+  }
+  
+  isResendingOTP.value = true;
+  otpError.value = '';
   
   try {
     const token = getAuthToken();
     
-    const response = await axios.put(`${API_BASE_URL}/bookings/${booking.id}/confirm`, {}, {
+    const response = await axios.post(`${API_BASE_URL}/bookings/${pendingBookingId.value}/resend-otp`, {
+      email: bookingForm.value.email
+    }, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Accept': 'application/json'
       }
     });
     
-    // Update store state
-    bookingStore.updateBookingLocally(response.data.booking || response.data);
+    // Reset timer
+    startOTPTimer();
+    otpDigits.value = Array(6).fill('');
+    otpSentSuccess.value = true;
+    otpError.value = 'New OTP sent successfully!';
     
-    // Update selected booking if it's the same
-    if (selectedBooking.value && selectedBooking.value.id === booking.id) {
-      selectedBooking.value = response.data.booking || response.data;
-    }
-    
-    alert('Booking confirmed successfully!');
-    
-  } catch (error: any) {
-    console.error('Error confirming booking:', error);
-    alert(error.response?.data?.message || 'Failed to confirm booking');
-  }
-};
-
-const cancelBooking = async (booking: Booking) => {
-  if (!confirm('Are you sure you want to cancel this booking?')) return;
-  
-  try {
-    const token = getAuthToken();
-    
-    const response = await axios.put(`${API_BASE_URL}/bookings/${booking.id}/cancel`, {}, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/json'
+    // Focus on first input
+    nextTick(() => {
+      const firstInput = otpInputs.value[0];
+      if (firstInput) {
+        firstInput.focus();
+        firstInput.value = '';
       }
     });
     
-    // Update store state
-    bookingStore.updateBookingLocally(response.data.booking || response.data);
-    
-    // Update selected booking if it's the same
-    if (selectedBooking.value && selectedBooking.value.id === booking.id) {
-      selectedBooking.value = response.data.booking || response.data;
-    }
-    
-    alert('Booking cancelled successfully!');
-    
   } catch (error: any) {
-    console.error('Error cancelling booking:', error);
-    alert(error.response?.data?.message || 'Failed to cancel booking');
+    console.error('Error resending OTP:', error);
+    otpError.value = error.response?.data?.message || 'Failed to resend OTP. Please try again.';
+  } finally {
+    isResendingOTP.value = false;
   }
 };
 
-// OTP Functions
+// OTP Input Handlers
 const onOtpInput = (index: number, event: Event) => {
   const input = event.target as HTMLInputElement;
   const value = input.value;
@@ -1769,10 +1687,6 @@ const onOtpKeydown = (index: number, event: KeyboardEvent) => {
       if (prevInput) prevInput.focus();
     });
   }
-  
-  if ((event.ctrlKey || event.metaKey) && event.key === 'v') {
-    // Allow paste, it will be handled in onOtpInput
-  }
 };
 
 const startOTPTimer = () => {
@@ -1790,23 +1704,6 @@ const startOTPTimer = () => {
       }
     }
   }, 1000);
-};
-
-// Debug function
-const debugResourceLoading = async () => {
-  console.log('=== DEBUG RESOURCE LOADING ===');
-  console.log('Route:', route);
-  console.log('Query:', route.query);
-  console.log('Params:', route.params);
-  console.log('Resource ID:', route.query.resourceId || route.params.id);
-  console.log('Current resource state:', resource.value);
-  
-  const resourceId = route.query.resourceId || route.params.id;
-  if (resourceId) {
-    await loadResourceDetails();
-  } else {
-    console.error('No resource ID found in URL');
-  }
 };
 
 // Modal Functions
@@ -1841,13 +1738,59 @@ const closeSuccessModal = () => {
   filteredEquipment.value = [];
   showEquipmentDropdown.value = false;
   pendingBookingId.value = null;
-  pendingBookingReference.value = '';
-  tempBookingData.value = null;
+  confirmedBookingReference.value = '';
 };
 
 const redirectToBookings = () => {
   closeSuccessModal();
   router.push('/master-admin/booking');
+};
+
+const viewBookingDetails = (booking: Booking) => {
+  selectedBooking.value = booking;
+};
+
+const cancelBooking = async (booking: Booking) => {
+  if (!confirm('Are you sure you want to cancel this booking?')) return;
+  
+  try {
+    const token = getAuthToken();
+    
+    const response = await axios.put(`${API_BASE_URL}/bookings/${booking.id}/cancel`, {}, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json'
+      }
+    });
+    
+    bookingStore.updateBookingLocally(response.data.booking || response.data);
+    
+    if (selectedBooking.value && selectedBooking.value.id === booking.id) {
+      selectedBooking.value = response.data.booking || response.data;
+    }
+    
+    alert('Booking cancelled successfully!');
+    await loadBookings();
+    
+  } catch (error: any) {
+    console.error('Error cancelling booking:', error);
+    alert(error.response?.data?.message || 'Failed to cancel booking');
+  }
+};
+
+const debugResourceLoading = async () => {
+  console.log('=== DEBUG RESOURCE LOADING ===');
+  console.log('Route:', route);
+  console.log('Query:', route.query);
+  console.log('Params:', route.params);
+  console.log('Resource ID:', route.query.resourceId || route.params.id);
+  
+  const resourceId = route.query.resourceId || route.params.id;
+  if (resourceId) {
+    await loadResourceDetails();
+  } else {
+    console.error('No resource ID found in URL');
+  }
 };
 
 // Watch for route changes
@@ -1860,24 +1803,6 @@ watch(
   }
 );
 
-// Watch booking time changes to update equipment costs
-watch(
-  () => [bookingForm.value.startTime, bookingForm.value.endTime],
-  () => {
-    // Equipment costs will automatically update through computed properties
-  }
-);
-
-// Close dropdown when clicking outside
-onMounted(() => {
-  document.addEventListener('click', (event) => {
-    const target = event.target as HTMLElement;
-    if (!target.closest('.equipment-search-container')) {
-      showEquipmentDropdown.value = false;
-    }
-  });
-});
-
 // Initialize
 onMounted(() => {
   loadResourceDetails();
@@ -1885,8 +1810,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* Existing styles remain, adding new styles for equipment section */
-
+/* Existing styles remain */
 .section {
   animation: fadeIn 0.3s ease;
   margin-left: 260px;
@@ -1935,10 +1859,6 @@ onMounted(() => {
 /* Equipment Section Styles */
 .booking-equipment-section {
   margin-top: 1.5rem;
-}
-
-.equipment-search-container {
-  position: relative;
 }
 
 .equipment-dropdown {
@@ -2143,5 +2063,63 @@ onMounted(() => {
   background-color: #d1ecf1;
   border-color: #bee5eb;
   color: #0c5460;
+}
+
+/* NEW: Availability specific styles */
+.availability-list {
+  max-height: 350px;
+  overflow-y: auto;
+  padding-right: 5px;
+}
+
+.day-availability {
+  padding: 12px;
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  border: 1px solid #f1f3f5;
+  border-left: 4px solid #1e4449;
+  margin-bottom: 12px;
+}
+
+.time-slots-container {
+  background-color: #f8f9fa;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+}
+
+.time-slot {
+  padding: 4px 8px;
+  background-color: white;
+  border-radius: 4px;
+  border-left: 3px solid #4BB66D;
+  margin-bottom: 5px;
+}
+
+.time-slot:last-child {
+  margin-bottom: 0;
+}
+
+.slot-time {
+  font-family: 'Courier New', Courier, monospace;
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 0.85rem;
+}
+
+/* Scrollbar styling for availability list */
+.availability-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.availability-list::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.availability-list::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 10px;
 }
 </style>

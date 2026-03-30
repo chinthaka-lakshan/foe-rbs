@@ -226,11 +226,12 @@ class BookingController
                 }
             }
 
-            // Update original booking record
+            // Update original booking record to Confirmed status
             $booking->update([
-                'status' => 'Pending',
+                'status' => 'Confirmed',
                 'total_amount' => $totalAmount,
                 'is_verified' => true,
+                'confirmed_at' => now(), // Add confirmed_at timestamp
                 'user_type' => $userType
             ]);
 
@@ -322,10 +323,42 @@ class BookingController
         return response()->json($bookings);
     }
 
+    // public function destroy($id): JsonResponse
+    // {
+    //     $booking = Booking::findOrFail($id);
+    //     $booking->delete();
+    //     return response()->json(['message' => 'Booking deleted']);
+    // }
+
     public function destroy($id): JsonResponse
-    {
-        $booking = Booking::findOrFail($id);
+{
+    // Find the booking or fail with a 404
+    $booking = Booking::findOrFail($id);
+
+    // Use a transaction to ensure "All or Nothing" deletion
+    DB::beginTransaction();
+
+    try {
+        // 1. Delete all associated details first
+        $booking->details()->delete();
+
+        // 2. Delete the main booking record
         $booking->delete();
-        return response()->json(['message' => 'Booking deleted']);
+
+        DB::commit();
+
+        return response()->json([
+            'message' => 'Booking and associated details deleted successfully'
+        ], 200);
+
+    } catch (\Exception $e) {
+        // If anything goes wrong, undo the partial deletion
+        DB::rollBack();
+
+        return response()->json([
+            'message' => 'Failed to delete booking',
+            'error' => $e->getMessage()
+        ], 500);
     }
+}
 }
