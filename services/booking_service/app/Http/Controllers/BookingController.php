@@ -24,6 +24,22 @@ class BookingController
         return response()->json($bookings);
     }
 
+    public function myBookings(Request $request): JsonResponse
+    {
+        $userEmail = $request->header('X-User-Email');
+        
+        if (!$userEmail) {
+            return response()->json(['message' => 'User email missing from gateway'], 401);
+        }
+
+        $bookings = Booking::with('details')
+            ->where('user_email', $userEmail)
+            ->orderBy('booking_date', 'desc')
+            ->get();
+            
+        return response()->json(['bookings' => $bookings]);
+    }
+
     public function show($id): JsonResponse
     {
         $booking = Booking::with('details')->findOrFail($id);

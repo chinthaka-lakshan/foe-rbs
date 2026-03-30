@@ -72,7 +72,21 @@ Route::post('/users', function (Request $request) {
 
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
-    // Get authenticated user details
+    // Get authenticated user's own profile
+    Route::get('/user', function (Request $request) {
+        $response = Http::withToken($request->bearerToken())
+            ->get('http://auth_service/api/user');
+        return handleProxyResponse($response, 'Failed to get user profile.');
+    });
+
+    // Update user's own profile
+    Route::put('/user/profile', function (Request $request) {
+        $response = Http::withToken($request->bearerToken())
+            ->put('http://auth_service/api/user/profile', $request->all());
+        return handleProxyResponse($response, 'Failed to update profile.');
+    });
+
+    // Get all users (Admin/Master Admin)
     Route::get('/users', function (Request $request) {
         $response = Http::withToken($request->bearerToken())
             ->get('http://auth_service/api/users');
@@ -506,6 +520,26 @@ Route::middleware('auth:sanctum')->group(function () {
 
 
 // BOOKING ROUTES (Booking Service)
+// Get my bookings
+Route::get('/bookings/my', function (Request $request) {
+    try {
+        $user = $request->user();
+        if (!$user) return response()->json(['message' => 'Unauthenticated'], 401);
+        
+        $response = Http::timeout(30)
+            ->withHeaders([
+                'X-User-Id' => (string)$user->id,
+                'X-User-Email' => $user->email
+            ])
+            ->withToken($request->bearerToken())
+            ->get('http://booking_service/api/bookings/my');
+        return handleProxyResponse($response, 'Failed to fetch personal bookings.');
+    } catch (Exception $e) {
+        \Log::error('My bookings gateway error: ' . $e->getMessage());
+        return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
+    }
+});
+
 // Get all bookings
 Route::get('/bookings', function (Request $request) {
     try {
