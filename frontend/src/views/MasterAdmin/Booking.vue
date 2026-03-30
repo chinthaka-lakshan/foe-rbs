@@ -94,15 +94,53 @@
                   'day-has-booking': day.hasBooking,
                   'day-is-start': day.dateString && day.dateString === startDate,
                   'day-is-end': day.dateString && day.dateString === endDate,
-                  'day-in-range': day.dateString && isDateInRange(day.dateString)
+                  'day-in-range': day.dateString && isDateInRange(day.dateString),
+                  'day-focused': day.dateString && focusedDate === day.dateString
               }"
-              @click="day.dateString && updateDateRange(day.dateString)"
+              @click="day.dateString && handleDayClick(day.dateString)"
               :title="day.hasBooking ? `${day.bookingCount} booking(s) on ${day.dayNumber}` : ''"
             >
               <span class="day-label" v-if="day.dateString === startDate">Start</span>
               <span class="day-label" v-else-if="day.dateString === endDate">End</span>
               <span class="day-number">{{ day.dayNumber }}</span>
               <span v-if="day.bookingCount" class="booking-badge">{{ day.bookingCount }}</span>
+            </div>
+        </div>
+      </div>
+
+      <!-- Selected Day details for Admin -->
+      <div v-if="focusedDate" class="card mb-4 border-0 shadow-sm animate-fade-in day-details-panel">
+        <div class="card-header bg-light-teal py-3 d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 text-dark-teal"><i class="bi bi-info-circle-fill me-2"></i>Bookings for {{ formatDateLong(focusedDate) }}</h5>
+            <button class="btn-close" @click="focusedDate = ''"></button>
+        </div>
+        <div class="card-body">
+            <div v-if="focusedDateBookings.length > 0" class="row g-3">
+                <div v-for="b in focusedDateBookings" :key="b.id" class="col-md-6 col-lg-4">
+                    <div class="booking-mini-card p-3 border rounded">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <span class="badge bg-light text-dark border">{{ b.booking_reference }}</span>
+                            <span class="badge" :class="getStatusClass(b.status)">{{ b.status }}</span>
+                        </div>
+                        <div class="user-info small mb-2">
+                            <i class="bi bi-person me-1"></i>{{ b.user_email }}
+                        </div>
+                        <div class="resource-info small fw-bold mb-1">
+                            <i class="bi bi-box-seam me-1"></i>{{ b.resource?.name || b.details?.[0]?.item_name || 'N/A' }}
+                        </div>
+                        <div class="time-info small text-muted">
+                            <i class="bi bi-clock me-1"></i>{{ b.start_time }} - {{ b.end_time }}
+                        </div>
+                        <div class="mt-2 d-flex gap-2">
+                            <button class="btn btn-xs btn-outline-primary py-0 px-2" @click="viewBookingDetails(b.id)" style="font-size: 0.7rem;">View</button>
+                            <button v-if="b.status === 'Pending'" class="btn btn-xs btn-outline-success py-0 px-2" @click="confirmBooking(b.id)" style="font-size: 0.7rem;">Confirm</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div v-else class="text-center py-4 text-muted">
+                <i class="bi bi-journal-x fs-2 d-block mb-2"></i>
+                No bookings found for this specific date.
             </div>
         </div>
       </div>
@@ -318,6 +356,7 @@ const selectedResource = ref('');
 const selectedStatus = ref('');
 const startDate = ref(''); 
 const endDate = ref('');   
+const focusedDate = ref(''); 
 
 // Delete Modal State
 const bookingToDelete = ref<any>(null);
@@ -604,6 +643,20 @@ const filteredBookings = computed(() => {
   });
 });
 
+const focusedDateBookings = computed(() => {
+  if (!focusedDate.value) return [];
+  return bookings.value.filter(booking => {
+    const bookingDate = new Date(booking.booking_date).toISOString().split('T')[0];
+    return bookingDate === focusedDate.value;
+  });
+});
+
+const formatDateLong = (dateStr: string) => {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+};
+
 // --- Calendar Functions ---
 const currentMonthName = computed(() => 
   currentDate.value.toLocaleString('default', { month: 'long' })
@@ -632,6 +685,11 @@ const updateDateRange = (dateString: string) => {
     startDate.value = '';
     endDate.value = '';
   }
+};
+
+const handleDayClick = (dateString: string) => {
+  focusedDate.value = dateString;
+  updateDateRange(dateString);
 };
 
 const isDateInRange = (dateString: string) => {
@@ -753,6 +811,36 @@ onMounted(async () => {
   border-radius: 8px;
   padding: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.day-details-panel {
+    border-top: 4px solid #10b981;
+}
+
+.bg-light-teal {
+    background-color: #f0fdf4;
+}
+
+.booking-mini-card {
+    background: white;
+    transition: all 0.2s ease;
+}
+
+.booking-mini-card:hover {
+    border-color: #10b981 !important;
+    background-color: #f8fafc;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.day-focused {
+    box-shadow: inset 0 0 0 2px #10b981;
+}
+
+.btn-xs {
+    padding: 2px 8px;
+    font-size: 0.75rem;
+    border-radius: 4px;
 }
 
 .text-dark-teal {
