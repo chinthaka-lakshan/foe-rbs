@@ -17,12 +17,18 @@ class CheckPermission
     public function handle(Request $request, Closure $next, $permission)
         {
             // $request->user() gets the user from the Sanctum token
-            // tokenCan() checks the "abilities" we put in the token during login
-            if (!$request->user() || !$request->user()->tokenCan($permission)) {
-                return response()->json([
-                    'message' => "Access Denied. You do not have the permission: {$permission}"
-                ], 403);
+            if (!$request->user()) {
+                return response()->json(['message' => 'Unauthenticated'], 401);
             }
+
+            // Check if user has the master '*' permission or the requested permission
+            if ($request->user()->tokenCan('*') || $request->user()->tokenCan($permission)) {
+                return $next($request);
+            }
+
+            return response()->json([
+                'message' => "Access Denied. You do not have the permission: {$permission}"
+            ], 403);
 
             return $next($request);
         }
