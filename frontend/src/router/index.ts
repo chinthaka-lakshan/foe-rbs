@@ -22,7 +22,9 @@ import Resource from '../views/Admin/Resource.vue';
 import User_Resource from '../views/User/Resource.vue';
 import User_Booking from '../views/User/Booking.vue';
 import User_Setting from '../views/User/Setting.vue';
-
+import Admin_Booking from '../views/Admin/Booking.vue';
+import Admin_Reports from '../views/Admin/Reports.vue';
+import Admin_Setting from '../views/Admin/Setting.vue';
 
 
 
@@ -198,7 +200,24 @@ const routes: Array<RouteRecordRaw> = [
     component: Resource,
     meta: { requiresAuth: true, role: 'Admin' }
   },
-  
+   {
+    path: '/admin/booking',
+    name: 'admin-booking',
+    component: Admin_Booking,
+    meta: { requiresAuth: true, role: 'Admin' }
+  },
+   {
+    path: '/admin/reports',
+    name: 'admin-reports',
+    component: Admin_Reports,
+    meta: { requiresAuth: true, role: 'Admin' }
+  },
+   {
+    path: '/admin/setting',
+    name: 'admin-setting',
+    component: Admin_Setting,
+    meta: { requiresAuth: true, role: 'Admin' }
+  },
 
  
   
