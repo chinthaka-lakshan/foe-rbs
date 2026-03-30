@@ -220,7 +220,7 @@
                 >
               </div>
 
-              <!-- Assigned Admin - FIXED: Using the same pattern as Add Resource page -->
+              <!-- Assigned Admin - FIXED: Using EXACT same logic as Add Resource page -->
               <div class="col-md-6">
                 <label class="form-label">Assign Admin</label>
                 <select class="form-select" v-model="resourceForm.assigned_admin_id">
@@ -247,7 +247,9 @@
                   class="form-control" 
                   rows="2"
                   v-model="resourceForm.description"
+                  placeholder="Optional: Provide a detailed description of the resource"
                 ></textarea>
+                <div class="form-text text-muted">This field is completely optional. Leave empty if not needed.</div>
               </div>
             </div>
           </div>
@@ -481,6 +483,53 @@
             </div>
           </div>
 
+          <!-- Equipment Section - Added from Add Resource page -->
+          <div class="form-section">
+            <label class="form-label fw-bold">Custom Equipment/Accessories</label>
+            <div class="equipment-list border p-3 rounded">
+              <div 
+                v-for="(item, index) in equipment" 
+                :key="index" 
+                class="d-flex align-items-center mb-3 p-2 border-bottom"
+              >
+                <div class="flex-grow-1 me-3">
+                  <input 
+                    type="text" 
+                    class="form-control form-control-sm mb-2" 
+                    v-model="item.equipment_name" 
+                    placeholder="Equipment Name (e.g., Projector)"
+                  >
+                </div>
+                
+                <div class="me-3" style="width: 100px;">
+                  <input 
+                    type="number" 
+                    class="form-control form-control-sm" 
+                    v-model.number="item.quantity" 
+                    placeholder="Qty"
+                    min="1"
+                  >
+                </div>
+                
+                <button 
+                  type="button" 
+                  class="btn btn-sm btn-outline-danger flex-shrink-0" 
+                  @click="removeEquipment(index)"
+                >
+                  <i class="bi bi-x"></i>
+                </button>
+              </div>
+              
+              <button 
+                type="button" 
+                class="btn btn-sm btn-outline-dark-teal mt-2" 
+                @click="addEquipment"
+              >
+                <i class="bi bi-plus-circle me-1"></i> Add Equipment
+              </button>
+            </div>
+          </div>
+
           <!-- Images Section -->
           <div class="form-section">
             <h4 class="section-title">
@@ -495,13 +544,19 @@
               accept="image/*"
               multiple
             >
+            <small class="text-muted d-block mt-1">You can upload up to 10 images total</small>
             
             <!-- Image Previews -->
-            <div v-if="imagePreviews.length > 0" class="mt-3">
-              <h6>Selected Images:</h6>
+            <div v-if="allImagePreviews.length > 0" class="mt-3">
+              <h6>Images:</h6>
               <div class="d-flex flex-wrap gap-2">
-                <div v-for="(preview, idx) in imagePreviews" :key="idx" class="position-relative">
-                  <img :src="preview" alt="Preview" class="img-thumbnail" style="max-height: 100px; max-width: 100px;">
+                <div v-for="(preview, idx) in allImagePreviews" :key="idx" class="position-relative">
+                  <img 
+                    :src="preview" 
+                    alt="Preview" 
+                    class="img-thumbnail" 
+                    style="height: 100px; width: 100px; object-fit: cover;"
+                  >
                   <button 
                     type="button" 
                     class="btn btn-sm btn-danger position-absolute top-0 end-0" 
@@ -538,9 +593,16 @@ import { useRouter } from 'vue-router';
 import axios from 'axios';
 import Navbar from '../../components/Navbar.vue';
 import MasterAdminSidebar from '../../components/Sidebar/MasterAdminSidebar.vue';
+import { resourceStore } from '../../store/resourceStore';
+import { userStore } from '../../store/userStore';
 
 // Router
 const router = useRouter();
+
+// Store integration - EXACT same as Add Resource page
+const admins = computed(() => userStore.users.filter(u => u.primaryRole && u.primaryRole.toLowerCase().includes('admin')));
+const categories = computed(() => resourceStore.categories);
+const departments = computed(() => resourceStore.departments);
 
 // View State
 const currentView = ref('selection');
@@ -548,9 +610,6 @@ const selectedTemplate = ref(null);
 
 // Data State
 const templates = ref([]);
-const categories = ref([]);
-const departments = ref([]);
-const admins = ref([]);
 const isLoading = ref(false);
 const isSubmitting = ref(false);
 const errorMessage = ref('');
@@ -582,15 +641,22 @@ const availability = ref([
   { day_name: 'Sunday', is_available: false, slots: [], slotError: '' },
 ]);
 
+// Equipment data - EXACT same as Add Resource page
+const equipment = ref([]);
+
 // Template field values
 const fieldValues = ref({});
 
-// Image handling
+// Image handling - EXACT same as Add Resource page
 const selectedFiles = ref([]);
 const imagePreviews = ref([]);
+const existingImages = ref([]);
+const existingImagePreviews = ref([]);
+const imagesToDelete = ref([]);
 
 // API Base URL
 const API_BASE_URL = 'http://localhost:8000/api';
+const STORAGE_URL_ROOT = 'http://localhost:8000/api/resources/storage';
 
 // Computed Properties
 const filteredTemplates = computed(() => {
@@ -622,6 +688,11 @@ const hasAvailabilityErrors = computed(() => {
   );
 });
 
+// Combine all previews
+const allImagePreviews = computed(() => {
+  return [...existingImagePreviews.value, ...imagePreviews.value];
+});
+
 // Helper Functions
 const getAuthToken = () => {
   return localStorage.getItem('authToken') || 
@@ -629,187 +700,76 @@ const getAuthToken = () => {
          localStorage.getItem('access_token');
 };
 
-// Fetch Data
-const fetchCategories = async () => {
-  try {
-    const token = getAuthToken();
-    if (!token) return;
-
-    const response = await axios.get(`${API_BASE_URL}/categories`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    
-    categories.value = response.data || [];
-    if (categories.value.length > 0 && selectedCategoryId.value === null) {
-      selectedCategoryId.value = categories.value[0].id;
-    }
-  } catch (error) {
-    console.error('Error fetching categories:', error);
-  }
+// Get full image URL
+const getImageUrl = (filePath) => {
+  if (!filePath) return 'https://via.placeholder.com/600x400?text=No+Image';
+  return filePath.startsWith('http') ? filePath : `${STORAGE_URL_ROOT}/${filePath}`;
 };
 
-const fetchDepartments = async () => {
-  try {
-    const token = getAuthToken();
-    if (!token) return;
-
-    const response = await axios.get(`${API_BASE_URL}/departments`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    
-    departments.value = response.data || [];
-  } catch (error) {
-    console.error('Error fetching departments:', error);
-  }
+// Equipment methods - EXACT same as Add Resource page
+const addEquipment = () => {
+  equipment.value.push({
+    equipment_name: '',
+    quantity: 1,
+  });
 };
 
-// FIXED: Admin fetch function with multiple endpoints (same as Add Resource page)
-const fetchAdmins = async () => {
-  try {
-    const token = getAuthToken();
-    if (!token) return;
+const removeEquipment = (index) => {
+  equipment.value.splice(index, 1);
+};
 
-    // Multiple endpoints to try (same as Add Resource page)
-    const endpoints = [
-      `${API_BASE_URL}/users/admins`,
-      `${API_BASE_URL}/admins`,
-      `${API_BASE_URL}/users`,
-      `${API_BASE_URL}/users?role=admin`
-    ];
+// Image methods - EXACT same as Add Resource page
+const handleFileUpload = (event) => {
+  const files = Array.from(event.target.files);
+  
+  // Check total images limit
+  const totalImages = existingImages.value.length + selectedFiles.value.length + files.length;
+  if (totalImages > 10) {
+    formError.value = 'Maximum 10 images allowed total.';
+    return;
+  }
+  
+  files.forEach(file => {
+    selectedFiles.value.push(file);
     
-    for (const endpoint of endpoints) {
-      try {
-        const response = await axios.get(endpoint, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          }
-        });
-        
-        if (response.data) {
-          let adminsData = [];
-          
-          if (Array.isArray(response.data)) {
-            adminsData = response.data;
-          } else if (response.data.users && Array.isArray(response.data.users)) {
-            adminsData = response.data.users;
-          } else if (response.data.admins && Array.isArray(response.data.admins)) {
-            adminsData = response.data.admins;
-          } else if (response.data.data && Array.isArray(response.data.data)) {
-            adminsData = response.data.data;
-          }
-          
-          // Filter for admin role if endpoint includes role=admin
-          if (endpoint.includes('role=admin')) {
-            adminsData = adminsData.filter(user => user.role === 'admin');
-          }
-          
-          admins.value = adminsData;
-          console.log('Admins loaded successfully:', adminsData.length);
-          return; // Exit if successful
-        }
-      } catch (err) {
-        console.log(`Endpoint ${endpoint} failed, trying next...`);
-        // Continue to next endpoint
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (e.target && typeof e.target.result === 'string') {
+        imagePreviews.value.push(e.target.result);
       }
-    }
-    
-    // If all endpoints fail, set empty array
-    admins.value = [];
-    console.warn('All admin endpoints failed');
-    
-  } catch (error) {
-    console.error('Error fetching admins:', error);
-    admins.value = [];
-  }
-};
-
-const fetchTemplates = async () => {
-  isLoading.value = true;
-  errorMessage.value = '';
-
-  try {
-    const token = getAuthToken();
-    if (!token) {
-      errorMessage.value = 'Authentication required. Please login again.';
-      return;
-    }
-
-    const response = await axios.get(`${API_BASE_URL}/resource-templates`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-
-    templates.value = response.data || [];
-    
-    // Fetch all required data in parallel
-    await Promise.all([
-      fetchCategories(),
-      fetchDepartments(),
-      fetchAdmins()
-    ]);
-
-  } catch (error) {
-    console.error('Fetch templates error:', error);
-    errorMessage.value = error.response?.data?.message || 'Failed to load templates.';
-  } finally {
-    isLoading.value = false;
-  }
-};
-
-// Template Selection
-const selectTemplate = (template) => {
-  selectedTemplate.value = template;
-  
-  // Reset form
-  resourceForm.value = {
-    name: '',
-    location_name: '',
-    department_id: '',
-    base_price: null,
-    assigned_admin_id: '',
-    description: '',
-    status: 'Active'
-  };
-  
-  // Reset availability
-  availability.value = [
-    { day_name: 'Monday', is_available: false, slots: [], slotError: '' },
-    { day_name: 'Tuesday', is_available: false, slots: [], slotError: '' },
-    { day_name: 'Wednesday', is_available: false, slots: [], slotError: '' },
-    { day_name: 'Thursday', is_available: false, slots: [], slotError: '' },
-    { day_name: 'Friday', is_available: false, slots: [], slotError: '' },
-    { day_name: 'Saturday', is_available: false, slots: [], slotError: '' },
-    { day_name: 'Sunday', is_available: false, slots: [], slotError: '' },
-  ];
-  
-  // Initialize field values
-  fieldValues.value = {};
-  template.fields.forEach(field => {
-    if (field.field_type === 'checkbox') {
-      fieldValues.value[field.field_name] = false;
-    } else if (field.field_type === 'dropdown') {
-      fieldValues.value[field.field_name] = '';
-    } else {
-      fieldValues.value[field.field_name] = '';
-    }
+    };
+    reader.readAsDataURL(file);
   });
   
-  // Reset other states
-  selectedFiles.value = [];
-  imagePreviews.value = [];
-  validationErrors.value = {};
-  formError.value = '';
-  successMessage.value = '';
-  
-  currentView.value = 'form';
+  // Clear input
+  event.target.value = '';
 };
 
-const goBackToSelection = () => {
-  currentView.value = 'selection';
-  selectedTemplate.value = null;
+const removeImage = (index) => {
+  // Check if this is an existing image
+  if (index < existingImagePreviews.value.length) {
+    // Get the actual image ID from existing images array
+    const imageId = existingImages.value[index].id;
+    
+    // Add to delete list if not already there
+    if (!imagesToDelete.value.includes(imageId)) {
+      imagesToDelete.value.push(imageId);
+    }
+    
+    // Remove from existing arrays
+    existingImages.value.splice(index, 1);
+    existingImagePreviews.value.splice(index, 1);
+  } else {
+    // This is a new image
+    const newImageIndex = index - existingImagePreviews.value.length;
+    if (newImageIndex >= 0 && newImageIndex < selectedFiles.value.length) {
+      selectedFiles.value.splice(newImageIndex, 1);
+      imagePreviews.value.splice(newImageIndex, 1);
+    }
+  }
 };
 
-// Availability Methods
+// Availability methods
 const addSlot = (dayIndex) => {
   availability.value[dayIndex].slots.push({
     start_time: '',
@@ -918,32 +878,14 @@ const getDropdownOptions = (field) => {
   return [];
 };
 
-// Image handling
-const handleFileUpload = (event) => {
-  const files = Array.from(event.target.files);
-  selectedFiles.value = [...selectedFiles.value, ...files];
-  
-  files.forEach(file => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      imagePreviews.value.push(e.target.result);
-    };
-    reader.readAsDataURL(file);
-  });
-};
-
-const removeImage = (index) => {
-  selectedFiles.value.splice(index, 1);
-  imagePreviews.value.splice(index, 1);
-};
-
+// Image upload for template fields
 const handleImageUpload = (event, fieldName) => {
   if (event.target.files && event.target.files[0]) {
     fieldValues.value[fieldName] = event.target.files[0];
   }
 };
 
-// Prepare form data
+// Prepare form data - EXACT same structure as Add Resource page
 const prepareFormData = () => {
   const formData = new FormData();
   
@@ -952,35 +894,59 @@ const prepareFormData = () => {
   formData.append('location_name', resourceForm.value.location_name);
   formData.append('category_id', selectedTemplate.value.category_id.toString());
   
-  if (resourceForm.value.department_id) {
-    formData.append('department_id', resourceForm.value.department_id.toString());
+  // Handle department
+  if (resourceForm.value.department_id && departments.value.length > 0) {
+    const selectedDept = departments.value.find(d => d.id == resourceForm.value.department_id);
+    formData.append('department', selectedDept ? selectedDept.name : '');
   } else {
-    formData.append('department_id', '');
+    formData.append('department', '');
   }
   
-  // Base price
-  if (resourceForm.value.base_price === null || resourceForm.value.base_price === '') {
+  // Handle base price
+  if (resourceForm.value.base_price === null || resourceForm.value.base_price === undefined || resourceForm.value.base_price === '') {
     formData.append('base_price', '0.00');
   } else {
     const priceValue = parseFloat(resourceForm.value.base_price);
-    formData.append('base_price', isNaN(priceValue) ? '0.00' : priceValue.toString());
+    formData.append('base_price', priceValue.toString());
   }
   
   formData.append('status', resourceForm.value.status);
   
   if (resourceForm.value.assigned_admin_id) {
     formData.append('assigned_admin_id', resourceForm.value.assigned_admin_id.toString());
+  } else {
+    formData.append('assigned_admin_id', '');
   }
   
-  formData.append('description', resourceForm.value.description || '');
+  // Handle description
+  if (resourceForm.value.description && resourceForm.value.description.trim() !== '') {
+    formData.append('description', String(resourceForm.value.description));
+  }
   
   // Add template ID
   formData.append('template_id', selectedTemplate.value.id.toString());
   
-  // Add images
+  // Add images to delete
+  if (imagesToDelete.value.length > 0) {
+    imagesToDelete.value.forEach((id, index) => {
+      formData.append(`removeImages[${index}]`, id);
+    });
+  }
+  
+  // Add new images
   selectedFiles.value.forEach((file, index) => {
     formData.append(`images[${index}]`, file);
   });
+  
+  // Add equipment
+  if (equipment.value.length > 0) {
+    equipment.value.forEach((item, index) => {
+      if (item.equipment_name && item.equipment_name.trim()) {
+        formData.append(`equipment[${index}][equipment_name]`, item.equipment_name);
+        formData.append(`equipment[${index}][quantity]`, item.quantity?.toString() || '1');
+      }
+    });
+  }
   
   // Add template fields
   for (const [key, value] of Object.entries(fieldValues.value)) {
@@ -995,7 +961,8 @@ const prepareFormData = () => {
   availability.value.forEach((day, dayIndex) => {
     if (day.is_available && day.slots.length > 0) {
       const validSlots = day.slots.filter(slot => 
-        slot.start_time && slot.end_time
+        slot.start_time && slot.end_time && 
+        slot.start_time.trim() && slot.end_time.trim()
       );
       
       if (validSlots.length > 0) {
@@ -1011,6 +978,128 @@ const prepareFormData = () => {
   });
   
   return formData;
+};
+
+// Fetch Data - Using store data like Add Resource page
+const fetchDepartments = async () => {
+  try {
+    const token = getAuthToken();
+    if (!token) return;
+    
+    const response = await axios.get(`${API_BASE_URL}/departments`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      }
+    });
+    
+    if (response.data && Array.isArray(response.data)) {
+      resourceStore.setDepartments(response.data);
+    }
+    
+  } catch (error) {
+    console.error('Error fetching departments:', error);
+  }
+};
+
+const fetchTemplates = async () => {
+  isLoading.value = true;
+  errorMessage.value = '';
+
+  try {
+    const token = getAuthToken();
+    if (!token) {
+      errorMessage.value = 'Authentication required. Please login again.';
+      return;
+    }
+
+    // Load dependencies from stores if not loaded - EXACT same as Add Resource page
+    if (!resourceStore.isLoaded) {
+      await resourceStore.fetchAll();
+    } else {
+      if (!resourceStore.departments || resourceStore.departments.length === 0) {
+        await fetchDepartments();
+      }
+    }
+    
+    if (!userStore.isLoaded) {
+      await userStore.fetchUsers();
+    }
+
+    const response = await axios.get(`${API_BASE_URL}/resource-templates`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    templates.value = response.data || [];
+
+  } catch (error) {
+    console.error('Fetch templates error:', error);
+    errorMessage.value = error.response?.data?.message || 'Failed to load templates.';
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+// Template Selection
+const selectTemplate = (template) => {
+  selectedTemplate.value = template;
+  
+  // Reset form
+  resourceForm.value = {
+    name: '',
+    location_name: '',
+    department_id: '',
+    base_price: null,
+    assigned_admin_id: '',
+    description: '',
+    status: 'Active'
+  };
+  
+  // Reset availability
+  availability.value = [
+    { day_name: 'Monday', is_available: false, slots: [], slotError: '' },
+    { day_name: 'Tuesday', is_available: false, slots: [], slotError: '' },
+    { day_name: 'Wednesday', is_available: false, slots: [], slotError: '' },
+    { day_name: 'Thursday', is_available: false, slots: [], slotError: '' },
+    { day_name: 'Friday', is_available: false, slots: [], slotError: '' },
+    { day_name: 'Saturday', is_available: false, slots: [], slotError: '' },
+    { day_name: 'Sunday', is_available: false, slots: [], slotError: '' },
+  ];
+  
+  // Reset equipment
+  equipment.value = [];
+  addEquipment(); // Add one empty equipment row
+  
+  // Reset images
+  selectedFiles.value = [];
+  imagePreviews.value = [];
+  existingImages.value = [];
+  existingImagePreviews.value = [];
+  imagesToDelete.value = [];
+  
+  // Initialize field values
+  fieldValues.value = {};
+  template.fields.forEach(field => {
+    if (field.field_type === 'checkbox') {
+      fieldValues.value[field.field_name] = false;
+    } else if (field.field_type === 'dropdown') {
+      fieldValues.value[field.field_name] = '';
+    } else {
+      fieldValues.value[field.field_name] = '';
+    }
+  });
+  
+  // Reset validation
+  validationErrors.value = {};
+  formError.value = '';
+  successMessage.value = '';
+  
+  currentView.value = 'form';
+};
+
+const goBackToSelection = () => {
+  currentView.value = 'selection';
+  selectedTemplate.value = null;
 };
 
 // Submit Resource
@@ -1057,15 +1146,27 @@ const submitResource = async () => {
     }
 
     const formData = prepareFormData();
+    
+    // Log FormData contents for debugging
+    console.log('=== FormData Contents ===');
+    for (let pair of formData.entries()) {
+      console.log(pair[0] + ': ' + pair[1]);
+    }
+    console.log('=== End FormData ===');
 
     const response = await axios.post(`${API_BASE_URL}/resources`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
         'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
       },
     });
 
     successMessage.value = 'Resource created successfully!';
+    
+    if (response.data.resource || response.data) {
+      resourceStore.addResource(response.data.resource || response.data);
+    }
     
     // Auto navigate to resources page after 2 seconds
     setTimeout(() => {
@@ -1075,11 +1176,17 @@ const submitResource = async () => {
   } catch (error) {
     console.error('Submit resource error:', error);
     
-    if (error.response?.status === 422 && error.response.data.errors) {
-      validationErrors.value = error.response.data.errors;
-      formError.value = 'Please check the form for errors.';
+    if (error.response?.status === 401) {
+      formError.value = 'Authentication required. Please login again.';
+    } else if (error.response?.data?.errors) {
+      const errors = error.response.data.errors;
+      console.error('Validation errors:', errors);
+      validationErrors.value = errors;
+      formError.value = Object.values(errors).flat().join(', ');
+    } else if (error.response?.data?.message) {
+      formError.value = error.response.data.message;
     } else {
-      formError.value = error.response?.data?.message || 'Failed to create resource.';
+      formError.value = 'Failed to create resource. Please try again.';
     }
   } finally {
     isSubmitting.value = false;
@@ -1380,6 +1487,13 @@ onMounted(() => {
   margin-bottom: 20px;
   padding-bottom: 10px;
   border-bottom: 2px solid #fcc300;
+}
+
+/* Equipment List */
+.equipment-list {
+  max-height: 350px;
+  overflow-y: auto;
+  background-color: #f8f9fa;
 }
 
 /* Availability Matrix */
