@@ -73,21 +73,40 @@
 
       <div class="calendar-card mb-4">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <button class="btn btn-sm btn-outline-dark-teal" @click="changeMonth(-1)">
-                <i class="bi bi-chevron-left"></i>
-            </button>
-            <h5 class="mb-0 calendar-title-header">{{ currentMonthName }} {{ currentYear }}</h5>
-            <button class="btn btn-sm btn-outline-dark-teal" @click="changeMonth(1)">
+            <div class="d-flex align-items-center">
+                <button class="btn btn-sm btn-outline-dark-teal" @click="navigateCalendar(-1)">
+                    <i class="bi bi-chevron-left"></i>
+                </button>
+                <div class="btn-group btn-group-sm ms-3 view-switcher">
+                    <button 
+                        class="btn" 
+                        :class="viewMode === 'month' ? 'btn-dark-teal active' : 'btn-outline-dark-teal'" 
+                        @click="viewMode = 'month'"
+                    >Month</button>
+                    <button 
+                        class="btn" 
+                        :class="viewMode === 'day' ? 'btn-dark-teal active' : 'btn-outline-dark-teal'" 
+                        @click="viewMode = 'day'"
+                    >Day</button>
+                </div>
+            </div>
+
+            <h5 class="mb-0 calendar-title-header">
+                {{ viewMode === 'month' ? `${currentMonthName} ${currentYear}` : formatDateLong(focusedDate || currentDate.toISOString().split('T')[0]) }}
+            </h5>
+
+            <button class="btn btn-sm btn-outline-dark-teal" @click="navigateCalendar(1)">
                 <i class="bi bi-chevron-right"></i>
             </button>
         </div>
 
-        <div class="calendar-grid">
+        <!-- Month View Grid -->
+        <div v-if="viewMode === 'month'" class="calendar-grid animate-fade-in">
             <div v-for="day in weekdays" :key="day" class="calendar-header">{{ day }}</div>
             
             <div 
               v-for="day in daysInMonth" 
-              :key="day.dateString" 
+              :key="day.key" 
               class="calendar-day"
               :class="{ 
                   'day-outside-month': day.isOutsideMonth,
@@ -104,6 +123,46 @@
               <span class="day-label" v-else-if="day.dateString === endDate">End</span>
               <span class="day-number">{{ day.dayNumber }}</span>
               <span v-if="day.bookingCount" class="booking-badge">{{ day.bookingCount }}</span>
+            </div>
+        </div>
+
+        <!-- Day/Time View Timeline -->
+        <div v-else class="day-view-container animate-fade-in">
+            <div class="timeline-header-row mb-3 d-flex justify-content-between align-items-center">
+                <div class="text-dark-teal fw-bold">
+                    <i class="bi bi-clock-history me-2"></i>Daily Schedule
+                </div>
+                <div class="small text-muted">
+                    Total: {{ focusedDateBookings.length }} Booking(s)
+                </div>
+            </div>
+
+            <div class="timeline-scroll-area">
+                <div class="timeline-grid">
+                    <!-- Hour Labels and Grid Lines -->
+                    <div v-for="hour in 24" :key="hour-1" class="hour-row">
+                        <div class="hour-label">{{ formatHour(hour-1) }}</div>
+                        <div class="hour-line"></div>
+                    </div>
+
+                    <!-- Bookings on Timeline -->
+                    <div class="booking-layer">
+                        <div 
+                            v-for="b in focusedDateBookings" 
+                            :key="b.id"
+                            class="timeline-booking-block"
+                            :style="getBookingTimelineStyle(b)"
+                            :class="getStatusClass(b.status)"
+                            @click="viewBookingDetails(b.id)"
+                        >
+                            <div class="booking-block-content">
+                                <div class="booking-block-ref">{{ b.booking_reference }}</div>
+                                <div class="booking-block-resource">{{ b.resource?.name || b.details?.[0]?.item_name || 'N/A' }}</div>
+                                <div class="booking-block-time">{{ b.start_time }} - {{ b.end_time }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
       </div>
@@ -431,6 +490,7 @@ const successMessage = ref('');
 // Calendar State
 const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const currentDate = ref(new Date());
+const viewMode = ref<'month' | 'day'>('month');
 
 // --- Helper Functions ---
 const formatDate = (dateString: string) => {
@@ -748,6 +808,63 @@ const changeMonth = (delta: number) => {
   currentDate.value = newMonthDate;
 };
 
+const changeDay = (delta: number) => {
+  const date = focusedDate.value ? new Date(focusedDate.value) : new Date(currentDate.value);
+  date.setDate(date.getDate() + delta);
+  const dateString = date.toISOString().split('T')[0];
+  focusedDate.value = dateString;
+  
+  // also update currentDate if month changes to keep calendar sync'd
+  if (date.getMonth() !== currentDate.value.getMonth() || date.getFullYear() !== currentDate.value.getFullYear()) {
+      currentDate.value = new Date(date.getFullYear(), date.getMonth(), 1);
+  }
+};
+
+const navigateCalendar = (delta: number) => {
+    if (viewMode.value === 'month') {
+        changeMonth(delta);
+    } else {
+        changeDay(delta);
+    }
+};
+
+// --- Day View Helpers ---
+const formatHour = (hour: number) => {
+    return `${hour.toString().padStart(2, '0')}:00`;
+};
+
+const timeToMinutes = (timeStr: string) => {
+    if (!timeStr) return 0;
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return hours * 60 + (minutes || 0);
+};
+
+const getBookingTimelineStyle = (booking: any) => {
+    const startMins = timeToMinutes(booking.start_time);
+    const endMins = timeToMinutes(booking.end_time);
+    const durationMins = Math.max(endMins - startMins, 30); // Min 30 mins for visibility
+
+    const topPosition = (startMins / 60) * 60; // 60px per hour
+    const height = (durationMins / 60) * 60;
+
+    // Overlap management (Simplified: calculate offset based on resource frequency)
+    // In a real app, you'd calculate actual collisions. 
+    // Here we use a random shift for aesthetic multiple resources.
+    const resourceBookings = focusedDateBookings.value.filter(b => 
+        timeToMinutes(b.start_time) < endMins && timeToMinutes(b.end_time) > startMins
+    );
+    const index = resourceBookings.findIndex(b => b.id === booking.id);
+    const width = 100 / (resourceBookings.length || 1);
+    const left = index * width;
+
+    return {
+        top: `${topPosition}px`,
+        height: `${height}px`,
+        left: `${left}%`,
+        width: `${width}%`
+    };
+};
+
 const parseDate = (dateString: string) => {
   return dateString.replace(/-/g, '');
 };
@@ -812,7 +929,9 @@ const daysInMonth = computed(() => {
 
   for (let i = startingDayOfWeekIndex; i > 0; i--) {
     const dayNumber = daysInPreviousMonth - i + 1;
-    allDays.push({ dayNumber, isOutsideMonth: true, dateString: '', hasBooking: false, bookingCount: 0 });
+    // Use a unique dummy date string for keys
+    const dummyDate = `prev-${year}-${month}-${dayNumber}`;
+    allDays.push({ dayNumber, isOutsideMonth: true, dateString: '', key: dummyDate, hasBooking: false, bookingCount: 0 });
   }
 
   for (let day = 1; day <= daysInCurrentMonth; day++) {
@@ -824,6 +943,7 @@ const daysInMonth = computed(() => {
       dayNumber: day, 
       isOutsideMonth: false, 
       dateString, 
+      key: dateString,
       hasBooking, 
       bookingCount 
     });
@@ -832,7 +952,8 @@ const daysInMonth = computed(() => {
   const totalCells = Math.ceil(allDays.length / 7) * 7;
   const remainingCells = totalCells - allDays.length;
   for (let i = 1; i <= remainingCells; i++) {
-    allDays.push({ dayNumber: i, isOutsideMonth: true, dateString: '', hasBooking: false, bookingCount: 0 });
+    const dummyDate = `next-${year}-${month}-${i}`;
+    allDays.push({ dayNumber: i, isOutsideMonth: true, dateString: '', key: dummyDate, hasBooking: false, bookingCount: 0 });
   }
 
   return allDays;
@@ -932,6 +1053,7 @@ onMounted(async () => {
 .calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
+    grid-auto-rows: min-content;
     gap: 5px;
     text-align: center;
     user-select: none;
@@ -1027,8 +1149,121 @@ onMounted(async () => {
     --bs-btn-color: #1e4449;
     --bs-btn-border-color: #1e4449;
     --bs-btn-hover-bg: #fcc300;
-    --bs-btn-hover-color: #ffffff;
+    --bs-btn-hover-color: #1e4449;
     --bs-btn-hover-border-color: #fcc300;
+}
+
+.btn-dark-teal {
+    background-color: #1e4449;
+    color: white;
+    border-color: #1e4449;
+}
+
+.btn-dark-teal:hover {
+    background-color: #143236;
+    color: white;
+}
+
+.view-switcher .btn.active {
+    background-color: #1e4449;
+    color: white;
+}
+
+/* Day View Timeline Styles */
+.day-view-container {
+    padding-top: 10px;
+}
+
+.timeline-scroll-area {
+    max-height: 500px;
+    overflow-y: auto;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    position: relative;
+    background: #fdfdfd;
+}
+
+.timeline-grid {
+    position: relative;
+    height: 1440px; /* 24 hours * 60px */
+}
+
+.hour-row {
+    height: 60px;
+    display: flex;
+    align-items: flex-start;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.hour-label {
+    width: 60px;
+    font-size: 0.75rem;
+    color: #94a3b8;
+    text-align: right;
+    padding-right: 10px;
+    margin-top: -8px;
+    background: white;
+    z-index: 1;
+}
+
+.hour-line {
+    flex-grow: 1;
+}
+
+.booking-layer {
+    position: absolute;
+    top: 0;
+    left: 60px;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+}
+
+.timeline-booking-block {
+    position: absolute;
+    z-index: 10;
+    pointer-events: auto;
+    cursor: pointer;
+    border-left: 4px solid rgba(0,0,0,0.2);
+    border-radius: 4px;
+    padding: 2px 8px;
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+    font-size: 0.75rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.timeline-booking-block:hover {
+    transform: scale(1.02);
+    z-index: 20;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.booking-block-content {
+    height: 100%;
+}
+
+.booking-block-ref {
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.booking-block-resource {
+    font-size: 0.7rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.booking-block-time {
+    font-size: 0.65rem;
+    opacity: 0.8;
+}
+
+.animate-fade-in {
+    animation: fadeIn 0.4s ease;
 }
 
 .btn-success {
