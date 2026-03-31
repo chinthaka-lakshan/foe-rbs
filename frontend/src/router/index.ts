@@ -25,6 +25,8 @@ import User_Setting from '../views/User/Setting.vue';
 import Admin_Booking from '../views/Admin/Booking.vue';
 import Admin_Reports from '../views/Admin/Reports.vue';
 import Admin_Setting from '../views/Admin/Setting.vue';
+import Admin_Users from '../views/Admin/Users.vue';
+
 
 
 
@@ -218,6 +220,13 @@ const routes: Array<RouteRecordRaw> = [
     component: Admin_Setting,
     meta: { requiresAuth: true, role: 'Admin' }
   },
+    {
+    path: '/admin/users',
+    name: 'admin-user',
+    component: Admin_Users,
+    meta: { requiresAuth: true, role: 'Admin' }
+  }
+
 
  
   
