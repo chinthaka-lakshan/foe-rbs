@@ -228,7 +228,7 @@ class BookingController
 
             // Update original booking record to Confirmed status
             $booking->update([
-                'status' => 'Confirmed',
+                'status' => 'Pending', // Change to 'Pending' after verification
                 'total_amount' => $totalAmount,
                 'is_verified' => true,
                 'confirmed_at' => now(), // Add confirmed_at timestamp
