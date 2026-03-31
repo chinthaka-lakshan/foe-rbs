@@ -33,10 +33,6 @@
       <div class="nav-group mb-4">
         <span class="group-label">Management</span>
         
-        <router-link to="/admin/users" class="nav-link" :class="{ active: isActive('/admin/users') }">
-          <div class="icon-box"><i class="bi bi-people-fill"></i></div>
-          <span>Users</span>
-        </router-link>
 
         <router-link to="/admin/reports" class="nav-link" :class="{ active: isActive('/admin/reports') }">
           <div class="icon-box"><i class="bi bi-bar-chart-line-fill"></i></div>
