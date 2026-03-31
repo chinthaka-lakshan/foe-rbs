@@ -145,7 +145,6 @@
                         <div class="d-flex align-items-center">
                           <i class="bi bi-person-circle me-2"></i>
                           <div>
-                            <div class="fw-medium small">{{ booking.user?.name || booking.user_name || 'N/A' }}</div>
                             <div class="text-muted extra-small">{{ booking.user?.email || booking.user_email || 'N/A' }}</div>
                           </div>
                         </div>
