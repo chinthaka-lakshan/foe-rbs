@@ -268,10 +268,28 @@ class BookingController
 
     public function updateStatus(Request $request, $id): JsonResponse
     {
-        $validated = $request->validate(['status' => 'required|in:Pending,Confirmed,Cancelled,Completed']);
+        $validated = $request->validate([
+            'status' => 'required|in:Pending,Confirmed,Cancelled,Completed'
+        ]);
+
         $booking = Booking::findOrFail($id);
-        $booking->update(['status' => $validated['status']]);
-        return response()->json(['message' => 'Status updated', 'booking' => $booking]);
+        
+        DB::beginTransaction();
+        try {
+            $booking->update(['status' => $validated['status']]);
+
+            // CRITICAL: Clear the cache so the Admin Dashboard updates instantly
+            Cache::tags(['bookings'])->flush();
+
+            DB::commit();
+            return response()->json([
+                'message' => 'Status updated and cache cleared',
+                'booking' => $booking
+            ]);
+        } catch (Exception $e) {
+            DB::rollBack();
+            return response()->json(['message' => 'Update failed'], 500);
+        }
     }
 
     public function cancel($id): JsonResponse
@@ -331,34 +349,29 @@ class BookingController
     // }
 
     public function destroy($id): JsonResponse
-{
-    // Find the booking or fail with a 404
-    $booking = Booking::findOrFail($id);
+    {
+        $booking = Booking::findOrFail($id);
 
-    // Use a transaction to ensure "All or Nothing" deletion
-    DB::beginTransaction();
+        DB::beginTransaction();
+        try {
+            // Delete children first to satisfy Foreign Key constraints
+            $booking->details()->delete();
+            $booking->delete();
 
-    try {
-        // 1. Delete all associated details first
-        $booking->details()->delete();
+            // CRITICAL: Clear the cache so the booking disappears from the list
+            Cache::tags(['bookings'])->flush();
 
-        // 2. Delete the main booking record
-        $booking->delete();
+            DB::commit();
+            return response()->json([
+                'message' => 'Booking deleted and cache synchronized'
+            ], 200);
 
-        DB::commit();
-
-        return response()->json([
-            'message' => 'Booking and associated details deleted successfully'
-        ], 200);
-
-    } catch (\Exception $e) {
-        // If anything goes wrong, undo the partial deletion
-        DB::rollBack();
-
-        return response()->json([
-            'message' => 'Failed to delete booking',
-            'error' => $e->getMessage()
-        ], 500);
+        } catch (Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Deletion failed',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
-}
 }
