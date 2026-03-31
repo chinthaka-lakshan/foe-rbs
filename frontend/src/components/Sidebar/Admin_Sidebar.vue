@@ -1,12 +1,12 @@
 <template>
   <aside class="sidebar">
-    <div class="brand-section">
+     <div class="brand-section">
       <div class="logo-box">
-        <img src="/logo.png" alt="FOE RBS" class="logo-img fixed-logo" />
+        <img :src="systemStore.logo || '/default-logo.png'" :alt="systemStore.name" class="logo-img fixed-logo" />
       </div>
       <div class="brand-info">
-        <h1 class="brand-name">FOE RBS</h1>
-        <p class="brand-role">Admin Portal</p>
+        <h1 class="brand-name">{{ systemStore.name }}</h1>
+        <p class="brand-role">Admin</p>
       </div>
     </div>
 
@@ -32,6 +32,11 @@
 
       <div class="nav-group mb-4">
         <span class="group-label">Management</span>
+
+         <router-link to="/admin/users" class="nav-link" :class="{ active: isActive('/admin/users') }">
+          <div class="icon-box"><i class="bi bi-people-fill"></i></div>
+          <span>Users</span>
+        </router-link>
         
 
         <router-link to="/admin/reports" class="nav-link" :class="{ active: isActive('/admin/reports') }">
@@ -63,12 +68,17 @@
 
 <script setup lang="ts">
 import { useRoute } from 'vue-router';
+import { onMounted } from 'vue';
+import { systemStore } from '../../store/systemSettings';
 
 const route = useRoute();
 
 const isActive = (path: string): boolean => {
   return route.path === path;
 };
+onMounted(() => {
+  systemStore.loadSettings();
+});
 </script>
 
 <style scoped>
@@ -220,4 +230,4 @@ const isActive = (path: string): boolean => {
   .sidebar { width: 85px; }
   .brand-info, .group-label, .nav-link span, .user-meta { display: none; }
 }
-</style>
+</style>
