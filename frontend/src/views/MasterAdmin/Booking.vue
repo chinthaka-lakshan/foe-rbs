@@ -748,7 +748,7 @@ const uniqueResources = computed(() => {
 });
 
 const filteredBookings = computed(() => {
-  return bookings.value.filter(booking => {
+  return bookings.value.filter((booking: any) => {
     // Resource filter
     if (selectedResource.value) {
       let resourceName = '';
@@ -785,7 +785,7 @@ const filteredBookings = computed(() => {
 
 const focusedDateBookings = computed(() => {
   if (!focusedDate.value) return [];
-  return bookings.value.filter(booking => {
+  return bookings.value.filter((booking: any) => {
     const bookingDate = new Date(booking.booking_date).toISOString().split('T')[0];
     return bookingDate === focusedDate.value;
   });
@@ -850,10 +850,10 @@ const getBookingTimelineStyle = (booking: any) => {
     // Overlap management (Simplified: calculate offset based on resource frequency)
     // In a real app, you'd calculate actual collisions. 
     // Here we use a random shift for aesthetic multiple resources.
-    const resourceBookings = focusedDateBookings.value.filter(b => 
+    const resourceBookings = focusedDateBookings.value.filter((b: any) => 
         timeToMinutes(b.start_time) < endMins && timeToMinutes(b.end_time) > startMins
     );
-    const index = resourceBookings.findIndex(b => b.id === booking.id);
+    const index = resourceBookings.findIndex((b: any) => b.id === booking.id);
     const width = 100 / (resourceBookings.length || 1);
     const left = index * width;
 
@@ -916,13 +916,13 @@ const daysInMonth = computed(() => {
   const monthStart = new Date(year, month, 1).toISOString().split('T')[0];
   const monthEnd = new Date(year, month + 1, 0).toISOString().split('T')[0];
   
-  const monthBookings = filteredBookings.value.filter(booking => {
+  const monthBookings = filteredBookings.value.filter((booking: any) => {
     const bookingDate = new Date(booking.booking_date).toISOString().split('T')[0];
     return bookingDate >= monthStart && bookingDate <= monthEnd;
   });
 
   const bookingCountMap = new Map();
-  monthBookings.forEach(booking => {
+  monthBookings.forEach((booking: any) => {
     const bookingDate = new Date(booking.booking_date).toISOString().split('T')[0];
     bookingCountMap.set(bookingDate, (bookingCountMap.get(bookingDate) || 0) + 1);
   });

@@ -145,7 +145,7 @@
                         <div class="d-flex align-items-center">
                           <i class="bi bi-person-circle me-2"></i>
                           <div>
-                            <div class="fw-medium small">{{ booking.user?.name || 'N/A' }}</div>
+                            <div class="fw-medium small">{{ booking.user?.name || booking.user_name || 'N/A' }}</div>
                             <div class="text-muted extra-small">{{ booking.user?.email || booking.user_email || 'N/A' }}</div>
                           </div>
                         </div>
@@ -923,10 +923,13 @@ interface BookingDetail {
 const resource = ref<Resource | null>(null);
 const bookings = computed(() => {
   if (!resource.value) return [];
-  return bookingStore.bookings.filter(b => 
-    (b.resource_id === resource.value?.id) || 
-    (b.resources && b.resources.some((r: any) => r.id === resource.value?.id))
-  );
+  const currentResourceId = resource.value.id;
+  return bookingStore.bookings.filter((b: any) => {
+    // Check if this booking belongs to the current resource via its details
+    return b.details && b.details.some((detail: any) => 
+      detail.item_type === 'resource' && Number(detail.item_id) === Number(currentResourceId)
+    );
+  });
 });
 const selectedBooking = ref<Booking | null>(null);
 const isLoading = ref(true);
