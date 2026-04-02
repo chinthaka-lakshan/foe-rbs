@@ -267,16 +267,17 @@ class ResourceController extends Controller
             $totalStock = $item->available_quantity;
 
             // Find all logs for this item on this date that overlap with the requested window
+            // EXCLUDE the current booking itself to avoid double-counting
             $overlappingLogs = ItemStockLog::where('item_id', $validated['item_id'])
                 ->where('date', $validated['date'])
+                ->where('booking_id', '!=', $validated['booking_id'])
                 ->where(function ($query) use ($startTime, $endTime) {
                     $query->where('start_time', '<', $endTime)
                           ->where('end_time', '>', $startTime);
                 })
                 ->get();
 
-            // Calculate peak usage
-            // Collect all start times within the window + the requested start time
+            // Calculate peak usage within the window
             $timePoints = $overlappingLogs->pluck('start_time')
                 ->merge([$startTime])
                 ->unique()
@@ -284,16 +285,17 @@ class ResourceController extends Controller
             
             $maxUsage = 0;
             foreach ($timePoints as $time) {
+                // Peak usage = Sum of OTHER bookings' quantities + our new quantity
                 $usageAtTime = $overlappingLogs->filter(function ($log) use ($time) {
                     return $time >= $log->start_time && $time < $log->end_time;
-            })->sum('quantity') + $validated['quantity'];
+                })->sum('quantity') + $validated['quantity'];
 
                 if ($usageAtTime > $maxUsage) {
                     $maxUsage = $usageAtTime;
                 }
             }
             
-            // Fallback if no time points were found (should not happen due to current request start time)
+            // Fallback if no overlapping logs
             if ($maxUsage === 0) {
                  $maxUsage = $validated['quantity'];
             }
@@ -301,6 +303,11 @@ class ResourceController extends Controller
             if ($maxUsage > $totalStock) {
                 return response()->json(['message' => 'Out of Stock'], 422);
             }
+
+            // DELETE any existing log for this booking/item pair (Idempotency)
+            ItemStockLog::where('booking_id', $validated['booking_id'])
+                        ->where('item_id', $validated['item_id'])
+                        ->delete();
 
             ItemStockLog::create($validated);
 
