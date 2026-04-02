@@ -411,6 +411,129 @@
     </div>
   </div>
 
+  <!-- Booking Preview Modal - Centered on Page -->
+  <teleport to="body">
+    <div v-if="showDetailsModal" class="modal-overlay" @click.self="closeDetailsModal">
+      <div class="modal-container modal-container-lg">
+        <div class="modal-content-wrapper">
+          <div class="modal-header-custom bg-dark-teal">
+            <h5 class="modal-title-custom">
+              <i class="bi bi-calendar-check me-2"></i>
+              Booking Details Preview
+            </h5>
+            <button type="button" class="btn-close-custom" @click="closeDetailsModal">×</button>
+          </div>
+          <div class="modal-body-custom">
+            <div class="row g-4">
+              <!-- Left Info Column -->
+              <div class="col-md-6 border-end">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                  <span class="badge bg-light text-dark-teal border py-2 px-3 fs-6">
+                    Ref: {{ bookingToView?.booking_reference }}
+                  </span>
+                  <span class="badge rounded-pill py-2 px-3" :class="getStatusClass(bookingToView?.status)">
+                    {{ bookingToView?.status }}
+                  </span>
+                </div>
+                
+                <div class="info-group mb-3">
+                  <label class="text-muted small fw-bold text-uppercase mb-1 d-block">Reservation Time</label>
+                  <div class="d-flex align-items-center">
+                    <i class="bi bi-clock-fill text-dark-teal me-2"></i>
+                    <span class="fw-bold">{{ bookingToView?.start_time }} - {{ bookingToView?.end_time }}</span>
+                  </div>
+                </div>
+
+                <div class="info-group mb-3">
+                  <label class="text-muted small fw-bold text-uppercase mb-1 d-block">Booking Date</label>
+                  <div class="d-flex align-items-center">
+                    <i class="bi bi-calendar-event-fill text-dark-teal me-2"></i>
+                    <span class="fw-bold">{{ formatDate(bookingToView?.booking_date) }}</span>
+                  </div>
+                </div>
+
+                <div class="info-group mb-0">
+                  <label class="text-muted small fw-bold text-uppercase mb-1 d-block">Duration & Cost</label>
+                  <div class="d-flex align-items-center">
+                    <i class=" text-success me-2 fs-5"></i>
+                    <span class="fw-bold fs-5 text-success">Total Amount: Rs. {{ bookingToView?.total_amount }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right Info Column -->
+              <div class="col-md-6">
+                <div class="info-group mb-4">
+                  <label class="text-muted small fw-bold text-uppercase mb-1 d-block">Resource Requested</label>
+                  <div class="p-3 bg-light rounded shadow-sm border-start border-4 border-dark-teal">
+                    <i class="bi bi-box-seam-fill text-dark-teal me-2"></i>
+                    <span class="fw-bold text-dark-teal">
+                      {{ bookingToView?.resource?.name || bookingToView?.details?.[0]?.item_name || 'Individual Item' }}
+                    </span>
+                  </div>
+                </div>
+
+                <div class="info-group mb-4">
+                  <label class="text-muted small fw-bold text-uppercase mb-1 d-block">Customer Information</label>
+                  <div class="d-flex align-items-center p-2 rounded hover-light">
+                    <i class="bi bi-envelope-at-fill text-muted me-3 fs-5"></i>
+                    <div>
+                      <div class="fw-bold text-dark">{{ bookingToView?.user_email }}</div>
+                      <div class="extra-small text-muted">ID: {{ bookingToView?.user_id || 'Guest' }}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div v-if="bookingToView?.notes" class="info-group mb-0">
+                  <label class="text-muted small fw-bold text-uppercase mb-1 d-block">Additional Notes</label>
+                  <div class="p-2 border rounded small italic bg-light">
+                    "{{ bookingToView?.notes }}"
+                  </div>
+                </div>
+              </div>
+
+              <!-- Items & Accessories Row (Full Width) -->
+              <div class="col-12" v-if="bookingToView?.details && bookingToView.details.length > 0">
+                <hr class="my-2">
+                <label class="text-muted small fw-bold text-uppercase mb-2 d-block">Included Items & Equipment</label>
+                <div class="table-responsive rounded border">
+                  <table class="table table-sm table-striped mb-0">
+                    <thead class="table-light">
+                      <tr>
+                        <th class="ps-3">Item Name</th>
+                        <th>Type</th>
+                        <th class="text-center">Qty</th>
+                        <th class="text-end pe-3">Subtotal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="item in bookingToView.details" :key="item.id">
+                        <td class="ps-3 fw-bold small text-dark-teal">{{ item.item_name || 'N/A' }}</td>
+                        <td class="small text-muted">{{ item.item_type || 'N/A' }}</td>
+                        <td class="text-center small">{{ item.quantity }}</td>
+                        <td class="text-end pe-3 fw-bold small">Rs. {{ item.subtotal || item.unit_price * item.quantity }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer-custom">
+            <div class="w-100 d-flex justify-content-between align-items-center">
+              <div>
+                <small class="text-muted">Booking Reference: {{ bookingToView?.booking_reference }}</small>
+              </div>
+              <div class="d-flex gap-2">
+                <button type="button" class="btn btn-secondary px-4 shadow-sm" @click="closeDetailsModal">Close</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </teleport>
+
   <!-- Success Toast -->
   <div v-if="showSuccessToast" class="toast-container position-fixed top-0 end-0 p-3">
     <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
@@ -478,6 +601,23 @@ const bookingToDelete = ref<any>(null);
 const showDeleteConfirmation = ref(false);
 const deleteStep = ref<'confirm' | 'final'>('confirm');
 const isDeleting = ref(false);
+
+// Booking Preview Modal State
+const bookingToView = ref<any>(null);
+const showDetailsModal = ref(false);
+
+const viewBookingDetails = (bookingId: number) => {
+  const booking = bookings.value.find((b: any) => b.id === bookingId);
+  if (booking) {
+    bookingToView.value = booking;
+    showDetailsModal.value = true;
+  }
+};
+
+const closeDetailsModal = () => {
+  showDetailsModal.value = false;
+  bookingToView.value = null;
+};
 
 // Confirm Modal State
 const bookingToConfirm = ref<any>(null);
@@ -583,6 +723,11 @@ const confirmBooking = async (bookingId: number) => {
     showSuccess('Booking confirmed successfully!');
     closeConfirmModal();
     
+    // If the details modal was open, refresh the status there too
+    if (bookingToView.value && bookingToView.value.id === bookingId) {
+       bookingToView.value.status = 'Confirmed';
+    }
+    
   } catch (error: any) {
     console.error('Error confirming booking:', error);
     showError(error.response?.data?.message || 'Failed to confirm booking');
@@ -618,6 +763,11 @@ const rejectBooking = async (bookingId: number) => {
     
     showSuccess('Booking rejected successfully!');
     closeRejectModal();
+    
+    // If the details modal was open, refresh the status there too
+    if (bookingToView.value && bookingToView.value.id === bookingId) {
+       bookingToView.value.status = 'Cancelled';
+    }
     
   } catch (error: any) {
     console.error('Error rejecting booking:', error);
@@ -671,9 +821,6 @@ const deleteBooking = async (bookingId: number) => {
   }
 };
 
-const viewBookingDetails = (bookingId: number) => {
-  router.push(`/booking-details/${bookingId}`);
-};
 
 // --- Confirm Modal Functions ---
 const openConfirmConfirmation = (booking: any) => {
@@ -1162,6 +1309,24 @@ onMounted(async () => {
     --bs-btn-hover-border-color: #fcc300;
 }
 
+.detail-modal-top {
+    max-width: 800px;
+    margin-top: 50px;
+}
+
+.hover-light:hover {
+    background-color: #f8f9fa;
+}
+
+.extra-small {
+    font-size: 0.7rem;
+}
+
+.bg-dark-teal {
+  background-color: #1e4449;
+  color: white;
+}
+
 .btn-dark-teal {
     background-color: #1e4449;
     color: white;
@@ -1348,7 +1513,7 @@ onMounted(async () => {
     --bs-btn-hover-color: white;
 }
 
-/* Modal Styles */
+/* Modal Styles - FIXED CENTERING */
 .modal {
     position: fixed; top: 0; left: 0; z-index: 1050; width: 100%; height: 100%; 
     overflow-x: hidden; overflow-y: auto; outline: 0; opacity: 0; transition: opacity 0.15s linear;
@@ -1364,6 +1529,117 @@ onMounted(async () => {
 @media (min-width: 576px) { 
     .modal-dialog.delete-modal-top,
     .modal-dialog.action-modal-top { max-width: 400px; margin: 1.75rem auto; }
+}
+
+/* New styles for centered modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: fadeIn 0.2s ease;
+}
+
+.modal-container {
+  background: white;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 800px;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: modalFadeIn 0.3s ease;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.modal-container-lg {
+  max-width: 900px;
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.modal-content-wrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header-custom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+
+.modal-title-custom {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: white;
+}
+
+.btn-close-custom {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  color: white;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.btn-close-custom:hover {
+  opacity: 1;
+}
+
+.modal-body-custom {
+  padding: 1.5rem;
+  overflow-y: auto;
+}
+
+.modal-footer-custom {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #e5e7eb;
+  background-color: #f9fafb;
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .modal-container {
+    width: 95%;
+    max-height: 95vh;
+  }
+  
+  .modal-body-custom {
+    padding: 1rem;
+  }
+  
+  .modal-header-custom {
+    padding: 0.75rem 1rem;
+  }
+  
+  .modal-footer-custom {
+    padding: 0.75rem 1rem;
+  }
 }
 
 .bg-warning { background-color: #ffc107 !important; }
