@@ -264,24 +264,28 @@
                   
                   <div class="row">
                     <div class="col-6">
-                      <label for="startTime" class="form-label">Start Time</label>
-                      <input
-                        type="time"
-                        id="startTime"
-                        class="form-control"
-                        v-model="bookingForm.startTime"
-                        required
-                      >
+                      <label class="form-label">Start Time (24h)</label>
+                      <div class="d-flex gap-1 align-items-center">
+                        <select v-model="startHour" class="form-select form-select-sm">
+                          <option v-for="h in hourOptions" :key="h" :value="h">{{ h }}</option>
+                        </select>
+                        <span class="fw-bold">:</span>
+                        <select v-model="startMin" class="form-select form-select-sm">
+                          <option v-for="m in minuteOptions" :key="m" :value="m">{{ m }}</option>
+                        </select>
+                      </div>
                     </div>
                     <div class="col-6">
-                      <label for="endTime" class="form-label">End Time</label>
-                      <input
-                        type="time"
-                        id="endTime"
-                        class="form-control"
-                        v-model="bookingForm.endTime"
-                        required
-                      >
+                      <label class="form-label">End Time (24h)</label>
+                      <div class="d-flex gap-1 align-items-center">
+                        <select v-model="endHour" class="form-select form-select-sm">
+                          <option v-for="h in hourOptions" :key="h" :value="h">{{ h }}</option>
+                        </select>
+                        <span class="fw-bold">:</span>
+                        <select v-model="endMin" class="form-select form-select-sm">
+                          <option v-for="m in minuteOptions" :key="m" :value="m">{{ m }}</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
                   
@@ -1078,6 +1082,41 @@ const sortedAvailability = computed(() => {
     return dayOrder.indexOf(a.day_name) - dayOrder.indexOf(b.day_name);
   });
 });
+
+// Time Picker State (Split Hour/Min)
+const hourOptions = computed(() => Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0')));
+const minuteOptions = computed(() => Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0')));
+
+const startHour = ref('08');
+const startMin = ref('00');
+const endHour = ref('10');
+const endMin = ref('00');
+
+// Synchronize local split state with bookingForm string format
+watch([startHour, startMin], () => {
+  bookingForm.value.startTime = `${startHour.value}:${startMin.value}`;
+});
+
+watch([endHour, endMin], () => {
+  bookingForm.value.endTime = `${endHour.value}:${endMin.value}`;
+});
+
+// Ensure local split state updates if bookingForm is changed elsewhere (e.g. reload or reset)
+watch(() => bookingForm.value.startTime, (newVal: string) => {
+  if (newVal && newVal.includes(':')) {
+    const [h, m] = newVal.split(':');
+    startHour.value = h.substring(0, 2).padStart(2, '0');
+    startMin.value = m.substring(0, 2).padStart(2, '0');
+  }
+}, { immediate: true });
+
+watch(() => bookingForm.value.endTime, (newVal: string) => {
+  if (newVal && newVal.includes(':')) {
+    const [h, m] = newVal.split(':');
+    endHour.value = h.substring(0, 2).padStart(2, '0');
+    endMin.value = m.substring(0, 2).padStart(2, '0');
+  }
+}, { immediate: true });
 
 // Helper Functions
 const processAvailabilityData = (availabilityData: any[]) => {
