@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\BookingItem;
+use App\Models\ItemStockLog;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -168,5 +169,80 @@ class BookingItemController extends Controller
             ->get();
 
         return response()->json($items);
+    }
+
+    /**
+     * Get dynamic availability for items based on a date and time window.
+     */
+    public function availability(Request $request): JsonResponse
+    {
+        $request->validate([
+            'date' => 'required|date',
+            'start_time' => 'required',
+            'end_time' => 'required',
+            'item_id' => 'nullable|exists:booking_items,id'
+        ]);
+
+        $date = $request->query('date');
+        $startTime = \Carbon\Carbon::parse($request->query('start_time'))->format('H:i');
+        $endTime = \Carbon\Carbon::parse($request->query('end_time'))->format('H:i');
+        $itemId = $request->query('item_id');
+
+        $query = BookingItem::where('status', 'Available');
+        if ($itemId) {
+            $query->where('id', $itemId);
+        }
+
+        $items = $query->get();
+
+        $itemsWithAvailability = $items->map(function ($item) use ($date, $startTime, $endTime) {
+            $totalStock = $item->available_quantity;
+
+            // Find all logs for this item on this date that overlap with the requested window
+            $overlappingLogs = ItemStockLog::where('item_id', $item->id)
+                ->where('date', $date)
+                ->where(function ($q) use ($startTime, $endTime) {
+                    $q->where('start_time', '<', $endTime)
+                      ->where('end_time', '>', $startTime);
+                })
+                ->get();
+
+            // Calculate peak usage within the requested window
+            $timePoints = $overlappingLogs->pluck('start_time')
+                ->merge($overlappingLogs->pluck('end_time'))
+                ->merge([$startTime, $endTime])
+                ->unique()
+                ->filter(fn($t) => $t >= $startTime && $t <= $endTime)
+                ->sort();
+
+            $maxReserved = 0;
+            if ($timePoints->isEmpty()) {
+                $maxReserved = 0;
+            } else {
+                foreach ($timePoints as $time) {
+                    $usageAtTime = $overlappingLogs->filter(function ($log) use ($time) {
+                        return $time >= $log->start_time && $time < $log->end_time;
+                    })->sum('quantity');
+
+                    if ($usageAtTime > $maxReserved) {
+                        $maxReserved = $usageAtTime;
+                    }
+                }
+            }
+
+            $currentAvailable = max(0, $totalStock - $maxReserved);
+
+            return [
+                'id' => $item->id,
+                'name' => $item->name,
+                'description' => $item->description,
+                'price_per_hour' => $item->price_per_hour,
+                'total_quantity' => $totalStock,
+                'available_quantity' => $currentAvailable,
+                'status' => $item->status,
+            ];
+        });
+
+        return response()->json($itemsWithAvailability);
     }
 }

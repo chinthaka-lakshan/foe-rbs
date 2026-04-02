@@ -1109,6 +1109,13 @@ watch([endHour, endMin], () => {
   bookingForm.value.endTime = `${endHour.value}:${endMin.value}`;
 });
 
+// Watch for date/time changes to refresh equipment availability
+watch([() => bookingForm.value.date, () => bookingForm.value.startTime, () => bookingForm.value.endTime], () => {
+  if (bookingForm.value.date && bookingForm.value.startTime && bookingForm.value.endTime && bookingForm.value.startTime < bookingForm.value.endTime) {
+    loadAvailableEquipment();
+  }
+});
+
 // Ensure local split state updates if bookingForm is changed elsewhere (e.g. reload or reset)
 watch(() => bookingForm.value.startTime, (newVal: string) => {
   if (newVal && newVal.includes(':')) {
@@ -1174,35 +1181,68 @@ const calculateEquipmentItemCost = (item: SelectedEquipmentItem): number => {
 
 // Equipment Methods
 const loadAvailableEquipment = async () => {
+  if (!bookingForm.value.date || !bookingForm.value.startTime || !bookingForm.value.endTime) {
+    // If time not set, load static list (total stock)
+    try {
+      const token = getAuthToken();
+      const response = await axios.get(`${API_BASE_URL}/booking-items`, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
+      });
+      let equipmentData = response.data.items || response.data.data || response.data;
+      availableEquipment.value = equipmentData.filter((item: any) => item.status === 'Available');
+    } catch (error) {
+      console.error('Error loading static equipment:', error);
+    }
+    return;
+  }
+
   isLoadingEquipment.value = true;
   try {
     const token = getAuthToken();
+    const params = {
+      date: bookingForm.value.date,
+      start_time: bookingForm.value.startTime,
+      end_time: bookingForm.value.endTime
+    };
     
-    const response = await axios.get(`${API_BASE_URL}/booking-items`, {
+    const response = await axios.get(`${API_BASE_URL}/booking-items/availability`, {
+      params,
       headers: {
         'Authorization': `Bearer ${token}`,
         'Accept': 'application/json',
       }
     });
     
-    let equipmentData: BookingEquipment[] = [];
+    const equipmentData = response.data;
     
-    if (response.data) {
-      if (Array.isArray(response.data)) {
-        equipmentData = response.data;
-      } else if (response.data.data && Array.isArray(response.data.data)) {
-        equipmentData = response.data.data;
-      } else if (response.data.items && Array.isArray(response.data.items)) {
-        equipmentData = response.data.items;
-      }
+    // Ensure equipmentData is an array to avoid crashes
+    if (Array.isArray(equipmentData)) {
+      // Update availableEquipment list
+      availableEquipment.value = equipmentData.filter((item: any) => 
+        item.status === 'Available' && item.available_quantity > 0
+      );
+    } else {
+      console.warn('API returned non-array for availability:', equipmentData);
+      availableEquipment.value = [];
     }
-    
-    availableEquipment.value = equipmentData.filter(item => 
-      item.status === 'Available' && item.available_quantity > 0
-    );
+
+    // CRITICAL: Also update available_quantity for items already in selectedEquipment
+    selectedEquipment.value.forEach(selectedItem => {
+      const liveData = equipmentData.find((item: any) => item.id === selectedItem.id);
+      if (liveData) {
+        selectedItem.available_quantity = liveData.available_quantity;
+        // If current quantity exceeds new limit, cap it
+        if (selectedItem.quantity > liveData.available_quantity) {
+          selectedItem.quantity = liveData.available_quantity;
+          if (selectedItem.available_quantity === 0) {
+             // Remove if now unavailable? Maybe just show error.
+          }
+        }
+      }
+    });
     
   } catch (error: any) {
-    console.error('Error loading equipment:', error);
+    console.error('Error loading dynamic equipment:', error);
   } finally {
     isLoadingEquipment.value = false;
   }
@@ -1572,16 +1612,9 @@ const createBookingAndSendOTP = async () => {
     return;
   }
   
-  if (dayAvailability.start_time && dayAvailability.end_time) {
-    const selectedStartTime = bookingForm.value.startTime;
-    const selectedEndTime = bookingForm.value.endTime;
-    const availableStartTime = dayAvailability.start_time.substring(0, 5);
-    const availableEndTime = dayAvailability.end_time.substring(0, 5);
-    
-    if (selectedStartTime < availableStartTime || selectedEndTime > availableEndTime) {
-      errorMessage.value = `Booking time must be between ${availableStartTime} and ${availableEndTime} on ${selectedDayName}`;
-      return;
-    }
+  if (isResourceUnavailable.value) {
+    errorMessage.value = `Resource is not available during the selected time on ${selectedDayName}`;
+    return;
   }
   
   for (const item of selectedEquipment.value) {
@@ -1887,6 +1920,17 @@ const debugResourceLoading = async () => {
     console.error('No resource ID found in URL');
   }
 };
+
+// Watch for booking details changes to update available equipment counts
+watch(
+  [() => bookingForm.value.date, () => bookingForm.value.startTime, () => bookingForm.value.endTime],
+  (newValues) => {
+    // Only reload if all fields are filled
+    if (newValues[0] && newValues[1] && newValues[2]) {
+      loadAvailableEquipment();
+    }
+  }
+);
 
 // Watch for route changes
 watch(
