@@ -73,21 +73,40 @@
 
       <div class="calendar-card mb-4">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <button class="btn btn-sm btn-outline-dark-teal" @click="changeMonth(-1)">
-                <i class="bi bi-chevron-left"></i>
-            </button>
-            <h5 class="mb-0 calendar-title-header">{{ currentMonthName }} {{ currentYear }}</h5>
-            <button class="btn btn-sm btn-outline-dark-teal" @click="changeMonth(1)">
+            <div class="d-flex align-items-center">
+                <button class="btn btn-sm btn-outline-dark-teal" @click="navigateCalendar(-1)">
+                    <i class="bi bi-chevron-left"></i>
+                </button>
+                <div class="btn-group btn-group-sm ms-3 view-switcher">
+                    <button 
+                        class="btn" 
+                        :class="viewMode === 'month' ? 'btn-dark-teal active' : 'btn-outline-dark-teal'" 
+                        @click="viewMode = 'month'"
+                    >Month</button>
+                    <button 
+                        class="btn" 
+                        :class="viewMode === 'day' ? 'btn-dark-teal active' : 'btn-outline-dark-teal'" 
+                        @click="viewMode = 'day'"
+                    >Day</button>
+                </div>
+            </div>
+
+            <h5 class="mb-0 calendar-title-header">
+                {{ viewMode === 'month' ? `${currentMonthName} ${currentYear}` : formatDateLong(focusedDate || currentDate.toISOString().split('T')[0]) }}
+            </h5>
+
+            <button class="btn btn-sm btn-outline-dark-teal" @click="navigateCalendar(1)">
                 <i class="bi bi-chevron-right"></i>
             </button>
         </div>
 
-        <div class="calendar-grid">
+        <!-- Month View Grid -->
+        <div v-if="viewMode === 'month'" class="calendar-grid animate-fade-in">
             <div v-for="day in weekdays" :key="day" class="calendar-header">{{ day }}</div>
             
             <div 
               v-for="day in daysInMonth" 
-              :key="day.dateString" 
+              :key="day.key" 
               class="calendar-day"
               :class="{ 
                   'day-outside-month': day.isOutsideMonth,
@@ -104,6 +123,46 @@
               <span class="day-label" v-else-if="day.dateString === endDate">End</span>
               <span class="day-number">{{ day.dayNumber }}</span>
               <span v-if="day.bookingCount" class="booking-badge">{{ day.bookingCount }}</span>
+            </div>
+        </div>
+
+        <!-- Day/Time View Timeline -->
+        <div v-else class="day-view-container animate-fade-in">
+            <div class="timeline-header-row mb-3 d-flex justify-content-between align-items-center">
+                <div class="text-dark-teal fw-bold">
+                    <i class="bi bi-clock-history me-2"></i>Daily Schedule
+                </div>
+                <div class="small text-muted">
+                    Total: {{ focusedDateBookings.length }} Booking(s)
+                </div>
+            </div>
+
+            <div class="timeline-scroll-area">
+                <div class="timeline-grid">
+                    <!-- Hour Labels and Grid Lines -->
+                    <div v-for="hour in 24" :key="hour-1" class="hour-row">
+                        <div class="hour-label">{{ formatHour(hour-1) }}</div>
+                        <div class="hour-line"></div>
+                    </div>
+
+                    <!-- Bookings on Timeline -->
+                    <div class="booking-layer">
+                        <div 
+                            v-for="b in focusedDateBookings" 
+                            :key="b.id"
+                            class="timeline-booking-block"
+                            :style="getBookingTimelineStyle(b)"
+                            :class="getStatusClass(b.status)"
+                            @click="viewBookingDetails(b.id)"
+                        >
+                            <div class="booking-block-content">
+                                <div class="booking-block-ref">{{ b.booking_reference }}</div>
+                                <div class="booking-block-resource">{{ b.resource?.name || b.details?.[0]?.item_name || 'N/A' }}</div>
+                                <div class="booking-block-time">{{ b.start_time }} - {{ b.end_time }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
       </div>
@@ -202,29 +261,24 @@
                
                 <td>
                   <div class="btn-group btn-group-sm">
-                    <!-- ALWAYS SHOW PREVIEW ICON -->
+                    <!-- Preview Icon - Always Show -->
                     <button class="btn btn-outline-info" @click="viewBookingDetails(booking.id)" title="View Details">
                       <i class="bi bi-eye"></i>
                     </button>
                     
-                    <!-- ALWAYS SHOW DELETE ICON -->
+                    <!-- Delete Icon - Always Show -->
                     <button class="btn btn-outline-danger" @click="openDeleteConfirmation(booking)" title="Delete Permanently">
                       <i class="bi bi-trash"></i>
                     </button>
                     
-                    <!-- SHOW CONFIRM AND REJECT ICONS ONLY FOR PENDING BOOKINGS THAT HAVEN'T BEEN ACTIONED -->
-                    <template v-if="booking.status === 'Pending' && !booking.actionTaken">
-                      <button class="btn btn-outline-success" @click="confirmBooking(booking.id)" title="Confirm">
+                    <!-- Show Confirm and Reject Icons ONLY for Pending Bookings -->
+                    <template v-if="booking.status === 'Pending'">
+                      <button class="btn btn-outline-success" @click="openConfirmConfirmation(booking)" title="Confirm Booking">
                         <i class="bi bi-check-circle"></i>
                       </button>
-                      <button class="btn btn-outline-warning" @click="rejectBooking(booking.id)" title="Reject">
+                      <button class="btn btn-outline-warning" @click="openRejectConfirmation(booking)" title="Reject Booking">
                         <i class="bi bi-x-circle"></i>
                       </button>
-                    </template>
-                    
-                    <!-- SHOW ONLY PREVIEW AND DELETE AFTER ACTION IS TAKEN -->
-                    <template v-else-if="booking.status === 'Pending' && booking.actionTaken">
-                      <!-- Preview and Delete already shown above -->
                     </template>
                   </div>
                 </td>
@@ -241,14 +295,15 @@
     </div>
   </div>
 
+  <!-- Delete Confirmation Modal (Double Confirmation) -->
   <div class="modal fade" :class="{ 'show d-block': showDeleteConfirmation }" tabindex="-1" @click.self="handleCancelDeletion" style="background-color: rgba(0,0,0,0.5);" v-if="showDeleteConfirmation">
     <div class="modal-dialog delete-modal-top"> 
       <div class="modal-content">
 
         <template v-if="deleteStep === 'confirm'">
-            <div class="modal-header bg-warning text-dark">
-                <h5 class="modal-title"><i class="bi bi-question-circle-fill me-2"></i>Confirmation</h5>
-                <button type="button" class="btn-close" @click="handleCancelDeletion"></button>
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-question-circle-fill me-2"></i>Permanently Delete</h5>
+                <button type="button" class="btn-close btn-close-white" @click="handleCancelDeletion"></button>
             </div>
             <div class="modal-body text-center">
                 <p class="mb-0">
@@ -256,14 +311,14 @@
                   <strong>{{ bookingToDelete?.booking_reference }}</strong> 
                   for <strong>{{ bookingToDelete?.resource?.name || bookingToDelete?.details?.[0]?.item_name || 'N/A' }}</strong>?
                 </p>
-                <div class="alert alert-warning mt-3" role="alert">
+                <div class="alert alert-danger mt-3" role="alert">
                   <i class="bi bi-exclamation-triangle me-2"></i>
                   This action cannot be undone!
                 </div>
             </div>
             <div class="modal-footer justify-content-center">
                 <button type="button" class="btn btn-secondary" @click="handleCancelDeletion">Cancel</button>
-                <button type="button" class="btn btn-warning text-dark" @click="handleFirstConfirmation" :disabled="isDeleting">
+                <button type="button" class="btn btn-danger" @click="handleFirstConfirmation" :disabled="isDeleting">
                   <span v-if="isDeleting" class="spinner-border spinner-border-sm me-2"></span>
                   Continue to Delete
                 </button>
@@ -276,10 +331,6 @@
                 <button type="button" class="btn-close btn-close-white" @click="handleCancelDeletion"></button>
             </div>
             <div class="modal-body text-center">
-                <div class="alert alert-danger" role="alert">
-                  <i class="bi bi-exclamation-octagon-fill me-2"></i>
-                  <strong>Permanent Deletion!</strong>
-                </div>
                 <p class="mb-0">You are about to <strong>permanently delete</strong> booking <strong>{{ bookingToDelete?.booking_reference }}</strong>.</p>
                 <p class="mt-2 mb-0 text-danger">This action cannot be undone. Are you absolutely sure?</p>
             </div>
@@ -295,6 +346,65 @@
     </div>
   </div>
 
+  <!-- Confirm Booking Modal (Single Confirmation) -->
+  <div class="modal fade" :class="{ 'show d-block': showConfirmModal }" tabindex="-1" @click.self="closeConfirmModal" style="background-color: rgba(0,0,0,0.5);" v-if="showConfirmModal">
+    <div class="modal-dialog action-modal-top" style="max-width: 400px;">
+      <div class="modal-content">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title"><i class="bi bi-check-circle-fill me-2"></i>Confirm Booking</h5>
+          <button type="button" class="btn-close btn-close-white" @click="closeConfirmModal"></button>
+        </div>
+        <div class="modal-body text-center">
+          <p class="mb-2">
+            Are you sure you want to <strong class="text-success">confirm</strong> this booking?
+          </p>
+          <div class="alert alert-light border mt-3 text-start">
+            <p class="mb-1"><strong>Booking Reference:</strong> {{ bookingToConfirm?.booking_reference }}</p>
+            <p class="mb-1"><strong>Resource:</strong> {{ bookingToConfirm?.resource?.name || bookingToConfirm?.details?.[0]?.item_name || 'N/A' }}</p>
+            <p class="mb-0"><strong>User:</strong> {{ bookingToConfirm?.user_email }}</p>
+          </div>
+        </div>
+        <div class="modal-footer justify-content-center">
+          <button type="button" class="btn btn-secondary" @click="closeConfirmModal">Cancel</button>
+          <button type="button" class="btn btn-success" @click="handleConfirmBooking" :disabled="isConfirming">
+            <span v-if="isConfirming" class="spinner-border spinner-border-sm me-2"></span>
+            Yes, Confirm Booking
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reject Booking Modal (Single Confirmation) -->
+  <div class="modal fade" :class="{ 'show d-block': showRejectModal }" tabindex="-1" @click.self="closeRejectModal" style="background-color: rgba(0,0,0,0.5);" v-if="showRejectModal">
+    <div class="modal-dialog action-modal-top" style="max-width: 400px;">
+      <div class="modal-content">
+        <div class="modal-header bg-danger text-white">
+          <h5 class="modal-title"><i class="bi bi-exclamation-triangle-fill me-2"></i>Reject Booking</h5>
+          <button type="button" class="btn-close btn-close-white" @click="closeRejectModal"></button>
+        </div>
+        <div class="modal-body text-center">
+          <p class="mb-2">
+            Are you sure you want to <strong class="text-danger">reject</strong> this booking?
+          </p>
+          <div class="alert alert-light border mt-3 text-start">
+            <p class="mb-1"><strong>Booking Reference:</strong> {{ bookingToReject?.booking_reference }}</p>
+            <p class="mb-1"><strong>Resource:</strong> {{ bookingToReject?.resource?.name || bookingToReject?.details?.[0]?.item_name || 'N/A' }}</p>
+            <p class="mb-0"><strong>User:</strong> {{ bookingToReject?.user_email }}</p>
+          </div>
+        </div>
+        <div class="modal-footer justify-content-center">
+          <button type="button" class="btn btn-secondary" @click="closeRejectModal">Cancel</button>
+          <button type="button" class="btn btn-danger" @click="handleRejectBooking" :disabled="isRejecting">
+            <span v-if="isRejecting" class="spinner-border spinner-border-sm me-2"></span>
+            Yes, Reject Booking
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Success Toast -->
   <div v-if="showSuccessToast" class="toast-container position-fixed top-0 end-0 p-3">
     <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
       <div class="toast-header bg-success text-white">
@@ -308,6 +418,7 @@
     </div>
   </div>
 
+  <!-- Error Toast -->
   <div v-if="showErrorToast" class="toast-container position-fixed top-0 end-0 p-3">
     <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
       <div class="toast-header bg-danger text-white">
@@ -348,9 +459,6 @@ const isRefreshing = ref(false);
 const errorMessage = ref('');
 const bookings = computed(() => bookingStore.bookings);
 
-// Track which bookings have had action taken (Confirm/Reject clicked)
-const actionedBookings = ref<Set<number>>(new Set());
-
 // Filter State
 const selectedResource = ref('');
 const selectedStatus = ref('');
@@ -364,6 +472,16 @@ const showDeleteConfirmation = ref(false);
 const deleteStep = ref<'confirm' | 'final'>('confirm');
 const isDeleting = ref(false);
 
+// Confirm Modal State
+const bookingToConfirm = ref<any>(null);
+const showConfirmModal = ref(false);
+const isConfirming = ref(false);
+
+// Reject Modal State
+const bookingToReject = ref<any>(null);
+const showRejectModal = ref(false);
+const isRejecting = ref(false);
+
 // Toast State
 const showSuccessToast = ref(false);
 const showErrorToast = ref(false);
@@ -372,6 +490,7 @@ const successMessage = ref('');
 // Calendar State
 const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const currentDate = ref(new Date());
+const viewMode = ref<'month' | 'day'>('month');
 
 // --- Helper Functions ---
 const formatDate = (dateString: string) => {
@@ -416,14 +535,7 @@ const loadBookings = async () => {
   errorMessage.value = '';
   
   try {
-    await bookingStore.fetchAll(true); // Force refresh toggle
-    
-    // Process local state flags if needed
-    bookings.value.forEach(booking => {
-      booking.actionTaken = actionedBookings.value.has(booking.id);
-      booking.resource = booking.resource || booking.item || booking.details?.[0] || null;
-    });
-    
+    await bookingStore.fetchAll(true);
   } catch (error: any) {
     console.error('Error loading bookings:', error);
     errorMessage.value = 'Failed to load bookings. Please try again.';
@@ -432,53 +544,10 @@ const loadBookings = async () => {
   }
 };
 
-const deleteBooking = async (bookingId: number) => {
-  isDeleting.value = true;
-  
-  try {
-    const token = getAuthToken();
-    
-    // Use DELETE endpoint for permanent deletion
-    await axios.delete(`${API_BASE_URL}/bookings/${bookingId}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/json',
-      }
-    });
-    
-    // Remove from local state and store
-    bookingStore.removeBookingLocally(bookingId);
-    
-    // Also remove from actioned bookings set
-    actionedBookings.value.delete(bookingId);
-    
-    showSuccess('Booking deleted successfully!');
-    
-  } catch (error: any) {
-    console.error('Error deleting booking:', error);
-    
-    if (error.response) {
-      if (error.response.status === 404) {
-        throw new Error('Booking not found. It may have already been deleted.');
-      } else if (error.response.status === 500) {
-        throw new Error('Server error. Please try again later.');
-      } else if (error.response.data?.message) {
-        throw new Error(error.response.data.message);
-      } else {
-        throw new Error(`Failed to delete booking: ${error.response.statusText}`);
-      }
-    } else if (error.request) {
-      throw new Error('No response from server. Please check your connection.');
-    } else {
-      throw new Error(`Request error: ${error.message}`);
-    }
-  } finally {
-    isDeleting.value = false;
-  }
-};
-
-// New function to confirm booking
+// Confirm Booking Function
 const confirmBooking = async (bookingId: number) => {
+  isConfirming.value = true;
+  
   try {
     const token = getAuthToken();
     
@@ -491,29 +560,30 @@ const confirmBooking = async (bookingId: number) => {
       }
     });
     
-    // Mark this booking as actioned
-    actionedBookings.value.add(bookingId);
-    
     // Update store state
-    const booking = bookings.value.find(b => b.id === bookingId);
+    const booking = bookings.value.find((b: any) => b.id === bookingId);
     if (booking) {
       bookingStore.updateBookingLocally({
         ...booking,
-        status: 'Confirmed',
-        actionTaken: true
+        status: 'Confirmed'
       });
     }
     
     showSuccess('Booking confirmed successfully!');
+    closeConfirmModal();
     
   } catch (error: any) {
     console.error('Error confirming booking:', error);
     showError(error.response?.data?.message || 'Failed to confirm booking');
+  } finally {
+    isConfirming.value = false;
   }
 };
 
-// New function to reject booking
+// Reject Booking Function
 const rejectBooking = async (bookingId: number) => {
+  isRejecting.value = true;
+  
   try {
     const token = getAuthToken();
     
@@ -526,29 +596,108 @@ const rejectBooking = async (bookingId: number) => {
       }
     });
     
-    // Mark this booking as actioned
-    actionedBookings.value.add(bookingId);
-    
     // Update store state
-    const booking = bookings.value.find(b => b.id === bookingId);
+    const booking = bookings.value.find((b: any) => b.id === bookingId);
     if (booking) {
       bookingStore.updateBookingLocally({
         ...booking,
-        status: 'Cancelled',
-        actionTaken: true
+        status: 'Cancelled'
       });
     }
     
     showSuccess('Booking rejected successfully!');
+    closeRejectModal();
     
   } catch (error: any) {
     console.error('Error rejecting booking:', error);
     showError(error.response?.data?.message || 'Failed to reject booking');
+  } finally {
+    isRejecting.value = false;
+  }
+};
+
+// Delete Booking Function
+const deleteBooking = async (bookingId: number) => {
+  isDeleting.value = true;
+  
+  try {
+    const token = getAuthToken();
+    
+    await axios.delete(`${API_BASE_URL}/bookings/${bookingId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      }
+    });
+    
+    // Remove from local state
+    bookingStore.removeBookingLocally(bookingId);
+    
+    showSuccess('Booking deleted successfully!');
+    handleCancelDeletion();
+    
+  } catch (error: any) {
+    console.error('Error deleting booking:', error);
+    
+    if (error.response) {
+      if (error.response.status === 404) {
+        showError('Booking not found. It may have already been deleted.');
+      } else if (error.response.status === 500) {
+        showError('Server error. Please try again later.');
+      } else if (error.response.data?.message) {
+        showError(error.response.data.message);
+      } else {
+        showError(`Failed to delete booking: ${error.response.statusText}`);
+      }
+    } else if (error.request) {
+      showError('No response from server. Please check your connection.');
+    } else {
+      showError(`Request error: ${error.message}`);
+    }
+    handleCancelDeletion();
+  } finally {
+    isDeleting.value = false;
   }
 };
 
 const viewBookingDetails = (bookingId: number) => {
   router.push(`/booking-details/${bookingId}`);
+};
+
+// --- Confirm Modal Functions ---
+const openConfirmConfirmation = (booking: any) => {
+  bookingToConfirm.value = booking;
+  showConfirmModal.value = true;
+};
+
+const closeConfirmModal = () => {
+  showConfirmModal.value = false;
+  bookingToConfirm.value = null;
+  isConfirming.value = false;
+};
+
+const handleConfirmBooking = () => {
+  if (bookingToConfirm.value) {
+    confirmBooking(bookingToConfirm.value.id);
+  }
+};
+
+// --- Reject Modal Functions ---
+const openRejectConfirmation = (booking: any) => {
+  bookingToReject.value = booking;
+  showRejectModal.value = true;
+};
+
+const closeRejectModal = () => {
+  showRejectModal.value = false;
+  bookingToReject.value = null;
+  isRejecting.value = false;
+};
+
+const handleRejectBooking = () => {
+  if (bookingToReject.value) {
+    rejectBooking(bookingToReject.value.id);
+  }
 };
 
 // --- Delete Modal Functions ---
@@ -571,33 +720,23 @@ const handleCancelDeletion = () => {
 
 const handleDeleteBooking = async () => {
   if (!bookingToDelete.value) return;
-  
-  try {
-    await deleteBooking(bookingToDelete.value.id);
-    handleCancelDeletion();
-  } catch (error: any) {
-    showError(error.message || 'Failed to delete booking');
-    handleCancelDeletion();
-  }
+  await deleteBooking(bookingToDelete.value.id);
 };
 
 // --- Filtering ---
 const uniqueResources = computed(() => {
   const resources = new Set<string>();
   
-  bookings.value.forEach(booking => {
-    // Try different possible locations for resource name
+  bookings.value.forEach((booking: any) => {
+    // 1. Try to get name from the primary resource object
     if (booking.resource?.name) {
       resources.add(booking.resource.name);
-    } else if (booking.item?.name) {
-      resources.add(booking.item.name);
-    } else if (booking.details && booking.details.length > 0) {
+    } 
+    // 2. Otherwise, look through details for the item marked as 'resource'
+    else if (booking.details && booking.details.length > 0) {
       booking.details.forEach((detail: any) => {
-        if (detail.item_name) {
+        if (detail.item_type === 'resource' && detail.item_name) {
           resources.add(detail.item_name);
-        }
-        if (detail.name) {
-          resources.add(detail.name);
         }
       });
     }
@@ -607,18 +746,17 @@ const uniqueResources = computed(() => {
 });
 
 const filteredBookings = computed(() => {
-  return bookings.value.filter(booking => {
+  return bookings.value.filter((booking: any) => {
     // Resource filter
     if (selectedResource.value) {
       let resourceName = '';
       
-      // Check all possible locations for resource name
       if (booking.resource?.name) {
         resourceName = booking.resource.name;
-      } else if (booking.item?.name) {
-        resourceName = booking.item.name;
       } else if (booking.details && booking.details.length > 0) {
-        resourceName = booking.details[0]?.item_name || booking.details[0]?.name || '';
+        // Find the detail that is actually the resource
+        const resourceDetail = booking.details.find((d: any) => d.item_type === 'resource');
+        resourceName = resourceDetail?.item_name || booking.details[0]?.item_name || '';
       }
       
       if (resourceName !== selectedResource.value) {
@@ -645,7 +783,7 @@ const filteredBookings = computed(() => {
 
 const focusedDateBookings = computed(() => {
   if (!focusedDate.value) return [];
-  return bookings.value.filter(booking => {
+  return bookings.value.filter((booking: any) => {
     const bookingDate = new Date(booking.booking_date).toISOString().split('T')[0];
     return bookingDate === focusedDate.value;
   });
@@ -666,6 +804,63 @@ const currentYear = computed(() => currentDate.value.getFullYear());
 const changeMonth = (delta: number) => {
   const newMonthDate = new Date(currentDate.value.getFullYear(), currentDate.value.getMonth() + delta, 1);
   currentDate.value = newMonthDate;
+};
+
+const changeDay = (delta: number) => {
+  const date = focusedDate.value ? new Date(focusedDate.value) : new Date(currentDate.value);
+  date.setDate(date.getDate() + delta);
+  const dateString = date.toISOString().split('T')[0];
+  focusedDate.value = dateString;
+  
+  // also update currentDate if month changes to keep calendar sync'd
+  if (date.getMonth() !== currentDate.value.getMonth() || date.getFullYear() !== currentDate.value.getFullYear()) {
+      currentDate.value = new Date(date.getFullYear(), date.getMonth(), 1);
+  }
+};
+
+const navigateCalendar = (delta: number) => {
+    if (viewMode.value === 'month') {
+        changeMonth(delta);
+    } else {
+        changeDay(delta);
+    }
+};
+
+// --- Day View Helpers ---
+const formatHour = (hour: number) => {
+    return `${hour.toString().padStart(2, '0')}:00`;
+};
+
+const timeToMinutes = (timeStr: string) => {
+    if (!timeStr) return 0;
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return hours * 60 + (minutes || 0);
+};
+
+const getBookingTimelineStyle = (booking: any) => {
+    const startMins = timeToMinutes(booking.start_time);
+    const endMins = timeToMinutes(booking.end_time);
+    const durationMins = Math.max(endMins - startMins, 30); // Min 30 mins for visibility
+
+    const topPosition = (startMins / 60) * 60; // 60px per hour
+    const height = (durationMins / 60) * 60;
+
+    // Overlap management (Simplified: calculate offset based on resource frequency)
+    // In a real app, you'd calculate actual collisions. 
+    // Here we use a random shift for aesthetic multiple resources.
+    const resourceBookings = focusedDateBookings.value.filter((b: any) => 
+        timeToMinutes(b.start_time) < endMins && timeToMinutes(b.end_time) > startMins
+    );
+    const index = resourceBookings.findIndex((b: any) => b.id === booking.id);
+    const width = 100 / (resourceBookings.length || 1);
+    const left = index * width;
+
+    return {
+        top: `${topPosition}px`,
+        height: `${height}px`,
+        left: `${left}%`,
+        width: `${width}%`
+    };
 };
 
 const parseDate = (dateString: string) => {
@@ -716,29 +911,27 @@ const daysInMonth = computed(() => {
 
   const allDays = [];
 
-  // Get bookings for the current month
   const monthStart = new Date(year, month, 1).toISOString().split('T')[0];
   const monthEnd = new Date(year, month + 1, 0).toISOString().split('T')[0];
   
-  const monthBookings = filteredBookings.value.filter(booking => {
+  const monthBookings = filteredBookings.value.filter((booking: any) => {
     const bookingDate = new Date(booking.booking_date).toISOString().split('T')[0];
     return bookingDate >= monthStart && bookingDate <= monthEnd;
   });
 
-  // Create booking count map
   const bookingCountMap = new Map();
-  monthBookings.forEach(booking => {
+  monthBookings.forEach((booking: any) => {
     const bookingDate = new Date(booking.booking_date).toISOString().split('T')[0];
     bookingCountMap.set(bookingDate, (bookingCountMap.get(bookingDate) || 0) + 1);
   });
 
-  // Add padding days (from previous month)
   for (let i = startingDayOfWeekIndex; i > 0; i--) {
     const dayNumber = daysInPreviousMonth - i + 1;
-    allDays.push({ dayNumber, isOutsideMonth: true, dateString: '', hasBooking: false, bookingCount: 0 });
+    // Use a unique dummy date string for keys
+    const dummyDate = `prev-${year}-${month}-${dayNumber}`;
+    allDays.push({ dayNumber, isOutsideMonth: true, dateString: '', key: dummyDate, hasBooking: false, bookingCount: 0 });
   }
 
-  // Add days of the current month
   for (let day = 1; day <= daysInCurrentMonth; day++) {
     const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const bookingCount = bookingCountMap.get(dateString) || 0;
@@ -748,16 +941,17 @@ const daysInMonth = computed(() => {
       dayNumber: day, 
       isOutsideMonth: false, 
       dateString, 
+      key: dateString,
       hasBooking, 
       bookingCount 
     });
   }
 
-  // Add padding days (from next month) to fill the grid
   const totalCells = Math.ceil(allDays.length / 7) * 7;
   const remainingCells = totalCells - allDays.length;
   for (let i = 1; i <= remainingCells; i++) {
-    allDays.push({ dayNumber: i, isOutsideMonth: true, dateString: '', hasBooking: false, bookingCount: 0 });
+    const dummyDate = `next-${year}-${month}-${i}`;
+    allDays.push({ dayNumber: i, isOutsideMonth: true, dateString: '', key: dummyDate, hasBooking: false, bookingCount: 0 });
   }
 
   return allDays;
@@ -768,10 +962,6 @@ onMounted(async () => {
   if (!bookingStore.isLoaded) {
     await bookingStore.fetchAll();
   }
-  // Setup local flags for currently loaded bookings
-  bookings.value.forEach(booking => {
-    booking.resource = booking.resource || booking.item || booking.details?.[0] || null;
-  });
 });
 </script>
 
@@ -848,7 +1038,6 @@ onMounted(async () => {
     font-weight: 600;
 }
 
-/* Custom styling for the input group icon */
 .input-group .form-control {
     border-right: none; 
 }
@@ -859,10 +1048,10 @@ onMounted(async () => {
     border-left: none;
 }
 
-/* --- Calendar Specific Styles --- */
 .calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
+    grid-auto-rows: min-content;
     gap: 5px;
     text-align: center;
     user-select: none;
@@ -890,7 +1079,6 @@ onMounted(async () => {
     align-items: center;
 }
 
-/* Booking badge */
 .booking-badge {
     position: absolute;
     top: 2px;
@@ -906,7 +1094,6 @@ onMounted(async () => {
     justify-content: center;
 }
 
-/* Inner elements for stacking */
 .day-label {
     font-size: 0.65rem;
     font-weight: 700;
@@ -929,7 +1116,6 @@ onMounted(async () => {
     cursor: default;
 }
 
-/* Range Styling */
 .day-in-range {
     background-color: #e6f7ff; 
     border-radius: 0;
@@ -944,7 +1130,6 @@ onMounted(async () => {
     color: #1e4449 !important;
 }
 
-/* Existing Booking Style */
 .day-has-booking {
     background-color: #e8f5e8; 
     border: 1px solid #4BB66D;
@@ -954,7 +1139,6 @@ onMounted(async () => {
     color: #1e4449;
 }
 
-/* --- Table and Button Styles --- */
 .table thead {
   background: #f8f9fa;
 }
@@ -963,8 +1147,121 @@ onMounted(async () => {
     --bs-btn-color: #1e4449;
     --bs-btn-border-color: #1e4449;
     --bs-btn-hover-bg: #fcc300;
-    --bs-btn-hover-color: #ffffff;
+    --bs-btn-hover-color: #1e4449;
     --bs-btn-hover-border-color: #fcc300;
+}
+
+.btn-dark-teal {
+    background-color: #1e4449;
+    color: white;
+    border-color: #1e4449;
+}
+
+.btn-dark-teal:hover {
+    background-color: #143236;
+    color: white;
+}
+
+.view-switcher .btn.active {
+    background-color: #1e4449;
+    color: white;
+}
+
+/* Day View Timeline Styles */
+.day-view-container {
+    padding-top: 10px;
+}
+
+.timeline-scroll-area {
+    max-height: 500px;
+    overflow-y: auto;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    position: relative;
+    background: #fdfdfd;
+}
+
+.timeline-grid {
+    position: relative;
+    height: 1440px; /* 24 hours * 60px */
+}
+
+.hour-row {
+    height: 60px;
+    display: flex;
+    align-items: flex-start;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.hour-label {
+    width: 60px;
+    font-size: 0.75rem;
+    color: #94a3b8;
+    text-align: right;
+    padding-right: 10px;
+    margin-top: -8px;
+    background: white;
+    z-index: 1;
+}
+
+.hour-line {
+    flex-grow: 1;
+}
+
+.booking-layer {
+    position: absolute;
+    top: 0;
+    left: 60px;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+}
+
+.timeline-booking-block {
+    position: absolute;
+    z-index: 10;
+    pointer-events: auto;
+    cursor: pointer;
+    border-left: 4px solid rgba(0,0,0,0.2);
+    border-radius: 4px;
+    padding: 2px 8px;
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+    font-size: 0.75rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.timeline-booking-block:hover {
+    transform: scale(1.02);
+    z-index: 20;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.booking-block-content {
+    height: 100%;
+}
+
+.booking-block-ref {
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.booking-block-resource {
+    font-size: 0.7rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.booking-block-time {
+    font-size: 0.65rem;
+    opacity: 0.8;
+}
+
+.animate-fade-in {
+    animation: fadeIn 0.4s ease;
 }
 
 .btn-success {
@@ -977,7 +1274,6 @@ onMounted(async () => {
   border-color: #3f975b;
 }
 
-/* Badge classes */
 .bg-success {
     background-color: #4BB66D !important;
 }
@@ -997,7 +1293,6 @@ onMounted(async () => {
     color: #212529 !important;
 }
 
-/* Action button styles */
 .btn-group-sm .btn {
     padding: 0.25rem 0.4rem; 
     font-size: 0.8rem;
@@ -1028,7 +1323,7 @@ onMounted(async () => {
     --bs-btn-hover-color: white;
 }
 
-/* --- DELETE MODAL STYLES --- */
+/* Modal Styles */
 .modal {
     position: fixed; top: 0; left: 0; z-index: 1050; width: 100%; height: 100%; 
     overflow-x: hidden; overflow-y: auto; outline: 0; opacity: 0; transition: opacity 0.15s linear;
@@ -1039,9 +1334,11 @@ onMounted(async () => {
 .modal-dialog-centered { display: flex; align-items: center; min-height: calc(100% - 1rem); }
 .modal-content { position: relative; display: flex; flex-direction: column; width: 100%; pointer-events: auto; background-color: #ffffff; border: 1px solid rgba(0, 0, 0, 0.2); border-radius: 0.3rem; outline: 0; }
 
-.modal-dialog.delete-modal-top { align-items: flex-start; margin-top: 50px; height: auto; }
+.modal-dialog.delete-modal-top,
+.modal-dialog.action-modal-top { align-items: flex-start; margin-top: 50px; height: auto; }
 @media (min-width: 576px) { 
-    .modal-dialog.delete-modal-top { max-width: 400px; margin: 1.75rem auto; }
+    .modal-dialog.delete-modal-top,
+    .modal-dialog.action-modal-top { max-width: 400px; margin: 1.75rem auto; }
 }
 
 .bg-warning { background-color: #ffc107 !important; }
@@ -1049,7 +1346,6 @@ onMounted(async () => {
 .btn-danger { background-color: #dc3545 !important; border-color: #dc3545 !important; }
 .btn-close-white { filter: invert(1); }
 
-/* Toast styles */
 .toast-container {
     z-index: 1060;
 }

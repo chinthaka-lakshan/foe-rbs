@@ -145,7 +145,6 @@
                         <div class="d-flex align-items-center">
                           <i class="bi bi-person-circle me-2"></i>
                           <div>
-                            <div class="fw-medium small">{{ booking.user?.name || 'N/A' }}</div>
                             <div class="text-muted extra-small">{{ booking.user?.email || booking.user_email || 'N/A' }}</div>
                           </div>
                         </div>
@@ -226,6 +225,18 @@
                   Resource is UNAVAILABLE on this day. (Check weekly schedule)
                 </div>
 
+                <!-- Booking Conflict Message -->
+                <div v-if="isBookingConflict" class="alert alert-danger">
+                  <i class="bi bi-calendar-x me-2"></i>
+                  Slot UNAVAILABLE: This time is already booked and confirmed.
+                </div>
+
+                <!-- Invalid Range Message -->
+                <div v-if="bookingForm.startTime && bookingForm.endTime && bookingForm.startTime >= bookingForm.endTime" class="alert alert-danger">
+                  <i class="bi bi-clock me-2"></i>
+                  Invalid Time: End time must be after start time.
+                </div>
+
                 <!-- Email Input -->
                 <div class="mb-3">
                   <label for="email" class="form-label">
@@ -259,24 +270,28 @@
                   
                   <div class="row">
                     <div class="col-6">
-                      <label for="startTime" class="form-label">Start Time</label>
-                      <input
-                        type="time"
-                        id="startTime"
-                        class="form-control"
-                        v-model="bookingForm.startTime"
-                        required
-                      >
+                      <label class="form-label">Start Time (24h)</label>
+                      <div class="d-flex gap-1 align-items-center">
+                        <select v-model="startHour" class="form-select form-select-sm">
+                          <option v-for="h in hourOptions" :key="h" :value="h">{{ h }}</option>
+                        </select>
+                        <span class="fw-bold">:</span>
+                        <select v-model="startMin" class="form-select form-select-sm">
+                          <option v-for="m in minuteOptions" :key="m" :value="m">{{ m }}</option>
+                        </select>
+                      </div>
                     </div>
                     <div class="col-6">
-                      <label for="endTime" class="form-label">End Time</label>
-                      <input
-                        type="time"
-                        id="endTime"
-                        class="form-control"
-                        v-model="bookingForm.endTime"
-                        required
-                      >
+                      <label class="form-label">End Time (24h)</label>
+                      <div class="d-flex gap-1 align-items-center">
+                        <select v-model="endHour" class="form-select form-select-sm">
+                          <option v-for="h in hourOptions" :key="h" :value="h">{{ h }}</option>
+                        </select>
+                        <span class="fw-bold">:</span>
+                        <select v-model="endMin" class="form-select form-select-sm">
+                          <option v-for="m in minuteOptions" :key="m" :value="m">{{ m }}</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
                   
@@ -489,7 +504,7 @@
                 <button 
                   type="submit" 
                   class="btn btn-success w-100"
-                  :disabled="isCreatingBooking || isResourceUnavailable"
+                  :disabled="isCreatingBooking || isResourceUnavailable || isBookingConflict || (bookingForm.startTime >= bookingForm.endTime)"
                 >
                   <span v-if="isCreatingBooking" class="spinner-border spinner-border-sm me-2"></span>
                   <i class="bi bi-send-check me-2"></i>
@@ -824,7 +839,8 @@ const formatDateTime = (dateString: string): string => {
 const calculateDuration = (startTime: string, endTime: string): string => {
   const start = new Date(`2000-01-01T${startTime}`);
   const end = new Date(`2000-01-01T${endTime}`);
-  const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+  const diff = end.getTime() - start.getTime();
+  const hours = diff > 0 ? diff / (1000 * 60 * 60) : 0;
   return hours.toFixed(1);
 };
 
@@ -923,10 +939,13 @@ interface BookingDetail {
 const resource = ref<Resource | null>(null);
 const bookings = computed(() => {
   if (!resource.value) return [];
-  return bookingStore.bookings.filter(b => 
-    (b.resource_id === resource.value?.id) || 
-    (b.resources && b.resources.some((r: any) => r.id === resource.value?.id))
-  );
+  const currentResourceId = resource.value.id;
+  return bookingStore.bookings.filter((b: any) => {
+    // Check if this booking belongs to the current resource via its details
+    return b.details && b.details.some((detail: any) => 
+      detail.item_type === 'resource' && Number(detail.item_id) === Number(currentResourceId)
+    );
+  });
 });
 const selectedBooking = ref<Booking | null>(null);
 const isLoading = ref(true);
@@ -978,7 +997,8 @@ const calculatedCost = computed(() => {
   
   const start = new Date(`2000-01-01T${bookingForm.value.startTime}`);
   const end = new Date(`2000-01-01T${bookingForm.value.endTime}`);
-  const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+  const diff = end.getTime() - start.getTime();
+  const hours = diff > 0 ? diff / (1000 * 60 * 60) : 0;
   
   return Math.round(hours * resource.value.base_price);
 });
@@ -1020,6 +1040,38 @@ const isResourceUnavailable = computed(() => {
   return false; // Available all day (no specific slots)
 });
 
+const isBookingConflict = computed(() => {
+  if (!resource.value || !bookingForm.value.date || !bookingForm.value.startTime || !bookingForm.value.endTime) return false;
+  
+  const selectedDateStr = bookingForm.value.date;
+  const selectedStart = bookingForm.value.startTime.substring(0, 5);
+  const selectedEnd = bookingForm.value.endTime.substring(0, 5);
+  
+  return bookings.value.some((b: any) => {
+    // Only 'confirmed' status blocks new bookings
+    const status = (b.status || '').toLowerCase();
+    if (status !== 'confirmed' && status !== 'approved') return false;
+    
+    // Date comparison
+    let bDateStr = '';
+    if (b.booking_date) {
+      const bDate = new Date(b.booking_date);
+      bDateStr = bDate.toISOString().split('T')[0];
+    }
+    
+    if (bDateStr !== selectedDateStr) return false;
+    
+    // Time overlap check (S1 < E2 and S2 < E1)
+    const bStart = (b.start_time || '').substring(0, 5);
+    const bEnd = (b.end_time || '').substring(0, 5);
+    
+    if (!bStart || !bEnd) return false;
+    
+    const overlap = (selectedStart < bEnd) && (bStart < selectedEnd);
+    return overlap;
+  });
+});
+
 const isOtpComplete = computed(() => {
   return otpDigits.value.every(digit => digit.length === 1);
 });
@@ -1038,6 +1090,41 @@ const sortedAvailability = computed(() => {
     return dayOrder.indexOf(a.day_name) - dayOrder.indexOf(b.day_name);
   });
 });
+
+// Time Picker State (Split Hour/Min)
+const hourOptions = computed(() => Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0')));
+const minuteOptions = computed(() => Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0')));
+
+const startHour = ref('08');
+const startMin = ref('00');
+const endHour = ref('10');
+const endMin = ref('00');
+
+// Synchronize local split state with bookingForm string format
+watch([startHour, startMin], () => {
+  bookingForm.value.startTime = `${startHour.value}:${startMin.value}`;
+});
+
+watch([endHour, endMin], () => {
+  bookingForm.value.endTime = `${endHour.value}:${endMin.value}`;
+});
+
+// Ensure local split state updates if bookingForm is changed elsewhere (e.g. reload or reset)
+watch(() => bookingForm.value.startTime, (newVal: string) => {
+  if (newVal && newVal.includes(':')) {
+    const [h, m] = newVal.split(':');
+    startHour.value = h.substring(0, 2).padStart(2, '0');
+    startMin.value = m.substring(0, 2).padStart(2, '0');
+  }
+}, { immediate: true });
+
+watch(() => bookingForm.value.endTime, (newVal: string) => {
+  if (newVal && newVal.includes(':')) {
+    const [h, m] = newVal.split(':');
+    endHour.value = h.substring(0, 2).padStart(2, '0');
+    endMin.value = m.substring(0, 2).padStart(2, '0');
+  }
+}, { immediate: true });
 
 // Helper Functions
 const processAvailabilityData = (availabilityData: any[]) => {
@@ -1255,7 +1342,8 @@ const calculateBookingAmount = (booking: Booking): number => {
   
   const start = new Date(`2000-01-01T${booking.start_time}`);
   const end = new Date(`2000-01-01T${booking.end_time}`);
-  const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+  const diff = end.getTime() - start.getTime();
+  const hours = diff > 0 ? diff / (1000 * 60 * 60) : 0;
   
   return Math.round(hours * (resource.value?.base_price || 0));
 };
@@ -1455,6 +1543,13 @@ const createBookingAndSendOTP = async () => {
   
   if (bookingForm.value.startTime >= bookingForm.value.endTime) {
     errorMessage.value = 'End time must be after start time';
+    return;
+  }
+  
+  // Check for conflicts with existing confirmed bookings
+  if (isBookingConflict.value) {
+    alert("This time slot is already booked and confirmed for this resource. Please choose another time.");
+    errorMessage.value = 'Time slot is already booked and confirmed.';
     return;
   }
   
