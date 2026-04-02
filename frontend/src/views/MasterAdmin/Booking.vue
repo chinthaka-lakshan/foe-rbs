@@ -2,8 +2,15 @@
   <navbar/>
   <master-admin-sidebar/>
   <div class="section">
-    <h2 class="section-title">Bookings</h2>
-
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h2 class="section-title mb-0">Bookings</h2>
+      <button
+        class="btn btn-outline-dark-teal btn-sm"
+        @click="navigatetoresource"
+      >
+        <i class="bi bi-list-ul me-1"></i>Book Resource
+      </button>
+    </div>
     <div v-if="isLoading" class="text-center py-5">
       <div class="spinner-border text-primary" role="status">
         <span class="visually-hidden">Loading...</span>
@@ -491,6 +498,10 @@ const successMessage = ref('');
 const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const currentDate = ref(new Date());
 const viewMode = ref<'month' | 'day'>('month');
+
+const navigatetoresource = () => {
+    router.push('/master-admin/resource');
+};
 
 // --- Helper Functions ---
 const formatDate = (dateString: string) => {
@@ -1162,6 +1173,16 @@ onMounted(async () => {
     color: white;
 }
 
+.btn-outline-dark-teal {
+  --bs-btn-color: #1e4449;
+  --bs-btn-border-color: #1e4449;
+  --bs-btn-hover-bg: #4BB66D;
+  --bs-btn-hover-color: #ffffff;
+  --bs-btn-hover-border-color: #4BB66D;
+ 
+ 
+}
+
 .view-switcher .btn.active {
     background-color: #1e4449;
     color: white;
@@ -1227,8 +1248,9 @@ onMounted(async () => {
     padding: 2px 8px;
     overflow: hidden;
     transition: transform 0.2s, box-shadow 0.2s;
-    font-size: 0.75rem;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    font-size: 0.85rem;
+    color: #ffffff !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .timeline-booking-block:hover {
@@ -1249,15 +1271,18 @@ onMounted(async () => {
 }
 
 .booking-block-resource {
-    font-size: 0.7rem;
+    font-size: 0.8rem;
+    font-weight: 500;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    color: #ffffff;
 }
 
 .booking-block-time {
-    font-size: 0.65rem;
-    opacity: 0.8;
+    font-size: 0.75rem;
+    color: #ffffff;
+    opacity: 0.9;
 }
 
 .animate-fade-in {
