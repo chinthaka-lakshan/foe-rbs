@@ -12,7 +12,10 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Cache;
+use App\Models\BookingItem;
+use App\Models\ItemStockLog;
 use Exception;
+
 
 class ResourceController extends Controller
 {
@@ -240,4 +243,82 @@ class ResourceController extends Controller
         $resources = Resource::with(['category', 'images', 'equipment', 'availability.slots'])->whereIn('id', $ids)->get();
         return response()->json($resources);
     }
-}
+
+    /**
+     * Reserve stock for an item.
+     */
+    public function reserve(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'item_id' => 'required|exists:booking_items,id',
+            'booking_id' => 'required|integer',
+            'date' => 'required|date',
+            'start_time' => 'required', // Allow flexible format
+            'end_time' => 'required',
+            'quantity' => 'required|integer|min:1',
+        ]);
+
+        // Normalize times to H:i
+        $startTime = \Carbon\Carbon::parse($validated['start_time'])->format('H:i');
+        $endTime = \Carbon\Carbon::parse($validated['end_time'])->format('H:i');
+
+        return DB::transaction(function () use ($validated, $startTime, $endTime) {
+            $item = BookingItem::findOrFail($validated['item_id']);
+            $totalStock = $item->available_quantity;
+
+            // Find all logs for this item on this date that overlap with the requested window
+            $overlappingLogs = ItemStockLog::where('item_id', $validated['item_id'])
+                ->where('date', $validated['date'])
+                ->where(function ($query) use ($startTime, $endTime) {
+                    $query->where('start_time', '<', $endTime)
+                          ->where('end_time', '>', $startTime);
+                })
+                ->get();
+
+            // Calculate peak usage
+            // Collect all start times within the window + the requested start time
+            $timePoints = $overlappingLogs->pluck('start_time')
+                ->merge([$startTime])
+                ->unique()
+                ->filter(fn($t) => $t >= $startTime && $t < $endTime);
+            
+            $maxUsage = 0;
+            foreach ($timePoints as $time) {
+                $usageAtTime = $overlappingLogs->filter(function ($log) use ($time) {
+                    return $time >= $log->start_time && $time < $log->end_time;
+            })->sum('quantity') + $validated['quantity'];
+
+                if ($usageAtTime > $maxUsage) {
+                    $maxUsage = $usageAtTime;
+                }
+            }
+            
+            // Fallback if no time points were found (should not happen due to current request start time)
+            if ($maxUsage === 0) {
+                 $maxUsage = $validated['quantity'];
+            }
+
+            if ($maxUsage > $totalStock) {
+                return response()->json(['message' => 'Out of Stock'], 422);
+            }
+
+            ItemStockLog::create($validated);
+
+            return response()->json(['message' => 'Success'], 201);
+        });
+    }
+
+    /**
+     * Release stock for a booking.
+     */
+    public function release(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'booking_id' => 'required|integer',
+        ]);
+
+        ItemStockLog::where('booking_id', $validated['booking_id'])->delete();
+
+        return response()->json(['message' => 'Success']);
+    }
+}
