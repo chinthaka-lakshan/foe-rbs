@@ -466,7 +466,6 @@ Route::middleware('auth:sanctum')->group(function () {
             return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
         }
     });
-    // Available booking items for selection
     Route::get('/booking-items/available', function (Request $request) {
         try {
             $response = Http::timeout(30)
@@ -474,6 +473,19 @@ Route::middleware('auth:sanctum')->group(function () {
                 ->get('http://resource_service/api/booking-items/available');
             
             return handleProxyResponse($response, 'Failed to fetch available booking items.');
+        } catch (Exception $e) {
+            return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
+        }
+    });
+
+    // Dynamic equipment availability count
+    Route::get('/booking-items/availability', function (Request $request) {
+        try {
+            $response = Http::timeout(30)
+                ->withToken($request->bearerToken())
+                ->get('http://resource_service/api/booking-items/availability', $request->all());
+            
+            return handleProxyResponse($response, 'Failed to fetch dynamic equipment availability.');
         } catch (Exception $e) {
             return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
         }

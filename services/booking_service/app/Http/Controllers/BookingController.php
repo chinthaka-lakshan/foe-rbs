@@ -226,16 +226,21 @@ class BookingController
                 }
             }
 
-            // Update original booking record to Confirmed status
+            // Update original booking record
             $booking->update([
                 'status' => 'Pending', // Change to 'Pending' after verification
                 'total_amount' => $totalAmount,
                 'is_verified' => true,
-                'confirmed_at' => now(), // Add confirmed_at timestamp
+                'confirmed_at' => now(), 
                 'user_type' => $userType
             ]);
 
             $booking->details()->createMany($detailsToCreate);
+            
+            // Re-load with details for reservation
+            $booking->load('details');
+            $this->reserveInventory($booking);
+
             Cache::forget($cacheKey);
             Cache::tags(['bookings'])->flush();
 
@@ -272,25 +277,43 @@ class BookingController
             'status' => 'required|in:Pending,Confirmed,Cancelled,Completed'
         ]);
 
-        $booking = Booking::findOrFail($id);
+        $booking = Booking::with('details')->findOrFail($id);
+        $resourceServiceUrl = env('RESOURCE_SERVICE_URL', 'http://resource_service/api');
         
         DB::beginTransaction();
         try {
+            \Log::info("Updating status for booking {$id} to {$validated['status']}. Current status: {$booking->status}");
+            \Log::info("Details count: " . $booking->details->count());
+
+            // 1. If status moves to Confirmed, reserve inventory (if not already done)
+            if ($validated['status'] === 'Confirmed' && $booking->status !== 'Confirmed') {
+                $this->reserveInventory($booking);
+            }
+
+            // 2. If status moves to Cancelled, release inventory
+            if ($validated['status'] === 'Cancelled') {
+                $this->releaseInventory($booking->id);
+            }
+
             $booking->update(['status' => $validated['status']]);
 
-            // CRITICAL: Clear the cache so the Admin Dashboard updates instantly
+            // CRITICAL: Clear the cache for real-time updates
             Cache::tags(['bookings'])->flush();
 
             DB::commit();
             return response()->json([
-                'message' => 'Status updated and cache cleared',
+                'message' => 'Status updated successfully',
                 'booking' => $booking
             ]);
         } catch (Exception $e) {
             DB::rollBack();
-            return response()->json(['message' => 'Update failed'], 500);
+            return response()->json([
+                'message' => 'Update failed',
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
+
 
     public function cancel($id): JsonResponse
     {
@@ -299,6 +322,7 @@ class BookingController
             return response()->json(['message' => 'Cannot cancel this booking'], 422);
         }
         $booking->update(['status' => 'Cancelled']);
+        $this->releaseInventory($booking->id);
         Cache::tags(['bookings'])->flush();
         return response()->json(['message' => 'Booking cancelled', 'booking' => $booking]);
     }
@@ -341,29 +365,25 @@ class BookingController
         return response()->json($bookings);
     }
 
-    // public function destroy($id): JsonResponse
-    // {
-    //     $booking = Booking::findOrFail($id);
-    //     $booking->delete();
-    //     return response()->json(['message' => 'Booking deleted']);
-    // }
-
     public function destroy($id): JsonResponse
     {
         $booking = Booking::findOrFail($id);
+        $resourceServiceUrl = env('RESOURCE_SERVICE_URL', 'http://resource_service/api');
 
         DB::beginTransaction();
         try {
-            // Delete children first to satisfy Foreign Key constraints
+            // Release stock logs if any existed for this booking
+            $this->releaseInventory($booking->id);
+
+            // Delete children first 
             $booking->details()->delete();
             $booking->delete();
 
-            // CRITICAL: Clear the cache so the booking disappears from the list
             Cache::tags(['bookings'])->flush();
 
             DB::commit();
             return response()->json([
-                'message' => 'Booking deleted and cache synchronized'
+                'message' => 'Booking deleted and stock released'
             ], 200);
 
         } catch (Exception $e) {
@@ -373,5 +393,39 @@ class BookingController
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    private function reserveInventory(Booking $booking): void
+    {
+        $resourceServiceUrl = env('RESOURCE_SERVICE_URL', 'http://resource_service/api');
+        
+        foreach ($booking->details as $detail) {
+            if ($detail->item_type === 'booking_item') {
+                $reserveResponse = Http::post("{$resourceServiceUrl}/items/reserve", [
+                    'item_id' => $detail->item_id,
+                    'booking_id' => $booking->id,
+                    'date' => $booking->booking_date,
+                    'start_time' => \Carbon\Carbon::parse($booking->start_time)->format('H:i'),
+                    'end_time' => \Carbon\Carbon::parse($booking->end_time)->format('H:i'),
+                    'quantity' => $detail->quantity,
+                ]);
+
+                if ($reserveResponse->status() === 422) {
+                    throw new Exception("The item '{$detail->item_name}' is fully booked for this time slot.");
+                }
+
+                if (!$reserveResponse->successful()) {
+                    throw new Exception("Inventory Service Error: " . ($reserveResponse->json()['message'] ?? 'Unknown error'));
+                }
+            }
+        }
+    }
+
+    private function releaseInventory(int $bookingId): void
+    {
+        $resourceServiceUrl = env('RESOURCE_SERVICE_URL', 'http://resource_service/api');
+        Http::post("{$resourceServiceUrl}/items/release", [
+            'booking_id' => $bookingId
+        ]);
     }
 }

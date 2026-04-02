@@ -2,7 +2,6 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Http;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ResourceController;
 use App\Http\Controllers\BookingItemController;
@@ -24,10 +23,14 @@ Route::put('/resources/{id}', [ResourceController::class, 'update'])->middleware
 Route::post('/resources/{id}', [ResourceController::class, 'update'])->middleware('permission:manage_resources');
 Route::delete('/resources/{id}', [ResourceController::class, 'destroy'])->middleware('permission:manage_resources');
 Route::get('resources/batch', [ResourceController::class, 'getBatch']);
+Route::post('/items/reserve', [ResourceController::class, 'reserve']);
+Route::post('/items/release', [ResourceController::class, 'release']);
+
 
 // Booking Item Routes
 Route::get('/booking-items', [BookingItemController::class, 'index']);
 Route::get('/booking-items/available', [BookingItemController::class, 'available']);
+Route::get('/booking-items/availability', [BookingItemController::class, 'availability']);
 Route::post('/booking-items', [BookingItemController::class, 'store']);
 Route::get('/booking-items/{id}', [BookingItemController::class, 'show']);
 Route::put('/booking-items/{id}', [BookingItemController::class, 'update']);
