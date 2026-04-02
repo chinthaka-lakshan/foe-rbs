@@ -561,7 +561,7 @@ const confirmBooking = async (bookingId: number) => {
     });
     
     // Update store state
-    const booking = bookings.value.find(b => b.id === bookingId);
+    const booking = bookings.value.find((b: any) => b.id === bookingId);
     if (booking) {
       bookingStore.updateBookingLocally({
         ...booking,
@@ -597,7 +597,7 @@ const rejectBooking = async (bookingId: number) => {
     });
     
     // Update store state
-    const booking = bookings.value.find(b => b.id === bookingId);
+    const booking = bookings.value.find((b: any) => b.id === bookingId);
     if (booking) {
       bookingStore.updateBookingLocally({
         ...booking,
@@ -727,18 +727,16 @@ const handleDeleteBooking = async () => {
 const uniqueResources = computed(() => {
   const resources = new Set<string>();
   
-  bookings.value.forEach(booking => {
+  bookings.value.forEach((booking: any) => {
+    // 1. Try to get name from the primary resource object
     if (booking.resource?.name) {
       resources.add(booking.resource.name);
-    } else if (booking.item?.name) {
-      resources.add(booking.item.name);
-    } else if (booking.details && booking.details.length > 0) {
+    } 
+    // 2. Otherwise, look through details for the item marked as 'resource'
+    else if (booking.details && booking.details.length > 0) {
       booking.details.forEach((detail: any) => {
-        if (detail.item_name) {
+        if (detail.item_type === 'resource' && detail.item_name) {
           resources.add(detail.item_name);
-        }
-        if (detail.name) {
-          resources.add(detail.name);
         }
       });
     }
@@ -755,10 +753,10 @@ const filteredBookings = computed(() => {
       
       if (booking.resource?.name) {
         resourceName = booking.resource.name;
-      } else if (booking.item?.name) {
-        resourceName = booking.item.name;
       } else if (booking.details && booking.details.length > 0) {
-        resourceName = booking.details[0]?.item_name || booking.details[0]?.name || '';
+        // Find the detail that is actually the resource
+        const resourceDetail = booking.details.find((d: any) => d.item_type === 'resource');
+        resourceName = resourceDetail?.item_name || booking.details[0]?.item_name || '';
       }
       
       if (resourceName !== selectedResource.value) {
