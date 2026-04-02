@@ -225,6 +225,12 @@
                   Resource is UNAVAILABLE on this day. (Check weekly schedule)
                 </div>
 
+                <!-- Booking Conflict Message -->
+                <div v-if="isBookingConflict" class="alert alert-danger">
+                  <i class="bi bi-calendar-x me-2"></i>
+                  Slot UNAVAILABLE: This time is already booked and confirmed.
+                </div>
+
                 <!-- Email Input -->
                 <div class="mb-3">
                   <label for="email" class="form-label">
@@ -488,7 +494,7 @@
                 <button 
                   type="submit" 
                   class="btn btn-success w-100"
-                  :disabled="isCreatingBooking || isResourceUnavailable"
+                  :disabled="isCreatingBooking || isResourceUnavailable || isBookingConflict"
                 >
                   <span v-if="isCreatingBooking" class="spinner-border spinner-border-sm me-2"></span>
                   <i class="bi bi-send-check me-2"></i>
@@ -1022,6 +1028,38 @@ const isResourceUnavailable = computed(() => {
   return false; // Available all day (no specific slots)
 });
 
+const isBookingConflict = computed(() => {
+  if (!resource.value || !bookingForm.value.date || !bookingForm.value.startTime || !bookingForm.value.endTime) return false;
+  
+  const selectedDateStr = bookingForm.value.date;
+  const selectedStart = bookingForm.value.startTime.substring(0, 5);
+  const selectedEnd = bookingForm.value.endTime.substring(0, 5);
+  
+  return bookings.value.some((b: any) => {
+    // Only 'confirmed' status blocks new bookings
+    const status = (b.status || '').toLowerCase();
+    if (status !== 'confirmed' && status !== 'approved') return false;
+    
+    // Date comparison
+    let bDateStr = '';
+    if (b.booking_date) {
+      const bDate = new Date(b.booking_date);
+      bDateStr = bDate.toISOString().split('T')[0];
+    }
+    
+    if (bDateStr !== selectedDateStr) return false;
+    
+    // Time overlap check (S1 < E2 and S2 < E1)
+    const bStart = (b.start_time || '').substring(0, 5);
+    const bEnd = (b.end_time || '').substring(0, 5);
+    
+    if (!bStart || !bEnd) return false;
+    
+    const overlap = (selectedStart < bEnd) && (bStart < selectedEnd);
+    return overlap;
+  });
+});
+
 const isOtpComplete = computed(() => {
   return otpDigits.value.every(digit => digit.length === 1);
 });
@@ -1457,6 +1495,13 @@ const createBookingAndSendOTP = async () => {
   
   if (bookingForm.value.startTime >= bookingForm.value.endTime) {
     errorMessage.value = 'End time must be after start time';
+    return;
+  }
+  
+  // Check for conflicts with existing confirmed bookings
+  if (isBookingConflict.value) {
+    alert("This time slot is already booked and confirmed for this resource. Please choose another time.");
+    errorMessage.value = 'Time slot is already booked and confirmed.';
     return;
   }
   
