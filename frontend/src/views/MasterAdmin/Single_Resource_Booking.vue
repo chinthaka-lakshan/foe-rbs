@@ -231,6 +231,12 @@
                   Slot UNAVAILABLE: This time is already booked and confirmed.
                 </div>
 
+                <!-- Invalid Range Message -->
+                <div v-if="bookingForm.startTime && bookingForm.endTime && bookingForm.startTime >= bookingForm.endTime" class="alert alert-danger">
+                  <i class="bi bi-clock me-2"></i>
+                  Invalid Time: End time must be after start time.
+                </div>
+
                 <!-- Email Input -->
                 <div class="mb-3">
                   <label for="email" class="form-label">
@@ -498,7 +504,7 @@
                 <button 
                   type="submit" 
                   class="btn btn-success w-100"
-                  :disabled="isCreatingBooking || isResourceUnavailable || isBookingConflict"
+                  :disabled="isCreatingBooking || isResourceUnavailable || isBookingConflict || (bookingForm.startTime >= bookingForm.endTime)"
                 >
                   <span v-if="isCreatingBooking" class="spinner-border spinner-border-sm me-2"></span>
                   <i class="bi bi-send-check me-2"></i>
@@ -833,7 +839,8 @@ const formatDateTime = (dateString: string): string => {
 const calculateDuration = (startTime: string, endTime: string): string => {
   const start = new Date(`2000-01-01T${startTime}`);
   const end = new Date(`2000-01-01T${endTime}`);
-  const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+  const diff = end.getTime() - start.getTime();
+  const hours = diff > 0 ? diff / (1000 * 60 * 60) : 0;
   return hours.toFixed(1);
 };
 
@@ -990,7 +997,8 @@ const calculatedCost = computed(() => {
   
   const start = new Date(`2000-01-01T${bookingForm.value.startTime}`);
   const end = new Date(`2000-01-01T${bookingForm.value.endTime}`);
-  const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+  const diff = end.getTime() - start.getTime();
+  const hours = diff > 0 ? diff / (1000 * 60 * 60) : 0;
   
   return Math.round(hours * resource.value.base_price);
 });
@@ -1334,7 +1342,8 @@ const calculateBookingAmount = (booking: Booking): number => {
   
   const start = new Date(`2000-01-01T${booking.start_time}`);
   const end = new Date(`2000-01-01T${booking.end_time}`);
-  const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+  const diff = end.getTime() - start.getTime();
+  const hours = diff > 0 ? diff / (1000 * 60 * 60) : 0;
   
   return Math.round(hours * (resource.value?.base_price || 0));
 };
