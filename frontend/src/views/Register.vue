@@ -5,6 +5,7 @@
         <img src="../assets/logo.png" alt="University Logo" class="auth-logo mb-3">
         <h2 class="auth-title">FOE</h2>
         <h4 class="auth-title">Resource Booking System</h4>
+        <p class="text-muted">Register as a Departmental User</p>
       </div>
 
       <form @submit.prevent="handleRegister">
@@ -26,16 +27,34 @@
         </div>
 
         <div class="mb-3">
-          <label for="email" class="form-label">Email Address</label>
+          <label for="email" class="form-label">Email Address </label>
           <input
             type="email"
             class="form-control"
             id="email"
             v-model="email"
             required
-            placeholder="Enter your email"
+            placeholder="Enter your university email"
             :disabled="isLoading"
+            title="Please use your email address"
           >
+        </div>
+
+        <div class="mb-3">
+            <label for="department" class="form-label">Department</label>
+            <select
+                class="form-select"
+                id="department"
+                v-model="selectedDepartment"
+                required
+                :disabled="isLoading || isFetchingDepartments"
+            >
+                <option value="" disabled>Select your department</option>
+                <option v-for="dept in departments" :key="dept.id" :value="dept.name">
+                    {{ dept.name }}
+                </option>
+            </select>
+            <div v-if="departmentsError" class="text-danger small mt-1">Failed to load departments.</div>
         </div>
 
         <div class="mb-3">
@@ -109,10 +128,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 
-const API_URL = 'http://localhost:8000/api/users'; 
+const API_URL = 'http://localhost:8000/api/register'; 
 const router = useRouter();
 
 const fullName = ref('');
@@ -120,6 +139,11 @@ const email = ref('');
 const password = ref('');
 const confirmPassword = ref('');
 const acceptTerms = ref(false);
+const selectedDepartment = ref('');
+
+const departments = ref<any[]>([]);
+const isFetchingDepartments = ref(false);
+const departmentsError = ref(false);
 
 const isLoading = ref(false);
 const error = ref<string | null>(null);
@@ -127,6 +151,22 @@ const error = ref<string | null>(null);
 // Visibility states for both password fields
 const isPasswordVisible = ref(false);
 const isConfirmPasswordVisible = ref(false);
+
+onMounted(async () => {
+    isFetchingDepartments.value = true;
+    try {
+        const response = await fetch('http://localhost:8000/api/departments');
+        if (response.ok) {
+            departments.value = await response.json();
+        } else {
+            departmentsError.value = true;
+        }
+    } catch (e) {
+        departmentsError.value = true;
+    } finally {
+        isFetchingDepartments.value = false;
+    }
+});
 
 const handleRegister = async () => {
   error.value = null;
@@ -143,6 +183,7 @@ const handleRegister = async () => {
     name: fullName.value,
     email: email.value,
     password: password.value,
+    department: selectedDepartment.value
   };
 
   isLoading.value = true;

@@ -21,7 +21,7 @@ return new class extends Migration
             $table->time('start_time');
             $table->time('end_time');
             $table->decimal('total_amount', 10, 2)->default(0);
-            $table->enum('status', ['Pending', 'Confirmed', 'Cancelled', 'Completed', 'Pending_for_Verification' ])->default('Pending_for_Verification');
+            $table->enum('status', ['Pending', 'Confirmed', 'Cancelled', 'Completed', 'Pending_for_Verification', 'Requested_by_Guest', 'Rejected' ])->default('Pending_for_Verification');
             $table->text('notes')->nullable();
             $table->timestamps();
             

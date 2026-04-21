@@ -8,10 +8,18 @@ use App\Http\Controllers\UserPermissionController;
 
 // ** Authentication routes
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/guest-login', [AuthController::class, 'guestLogin']);
+Route::post('/register', [AuthController::class, 'register']);
 Route::post('/forgot-password/email', [AuthController::class, 'sendResetOtp']);
 Route::post('/forgot-password/verify-otp', [AuthController::class, 'verifyOtp']);
 Route::post('/forgot-password/reset', [AuthController::class, 'resetPassword']);
 
+// Internal Microservice route (Only accessible internally within docker network)
+Route::get('/internal/users/{id}', function($id) {
+    return \App\Models\User::find($id);
+});
+
+// Protected routes
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
 

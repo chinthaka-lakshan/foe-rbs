@@ -55,9 +55,13 @@
           <router-link to="/forgot-password" class="text-decoration-none">Forgot Password?</router-link>
         </div>
 
-        <button type="submit" class="btn btn-primary w-100 mb-3" :disabled="!email || !password || isLoading">
+        <button type="submit" class="btn btn-primary w-100 mb-2" :disabled="!email || !password || isLoading">
             <span v-if="isLoading" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
             {{ isLoading ? 'Signing In...' : 'Sign In' }}
+        </button>
+
+        <button type="button" @click="handleGuestLogin" class="btn btn-outline-success w-100 mb-3" :disabled="isLoading">
+            Sign In as Guest
         </button>
 
         <div v-if="loginError" class="alert alert-danger text-center" role="alert">
@@ -109,34 +113,7 @@ const handleLogin = async () => {
         const data = response.data;
 
         if (data.token) {
-            // 1. Set authentication state
-            localStorage.setItem('isAuthenticated', 'true');
-            localStorage.setItem('authToken', data.token);
-            localStorage.setItem('userName', data.user.name); 
-            localStorage.setItem('userEmail', data.user.email);
-            localStorage.setItem('userId', data.user.id.toString());
-            const role = data.roles && data.roles.length > 0 ? data.roles[0] : 'user';
-            localStorage.setItem('userRole', role);
-
-            // 2. TRIGGER BACKGROUND DATA SYNC
-            // We do NOT use 'await' here because we want the user to 
-            // redirect to the dashboard immediately while data loads in the background.
-            if (role === 'Master Admin') {
-                // Pre-fetch everything for the Master Admin reports and dashboard
-                systemStore.loadSettings(); 
-                userStore.fetchUsers();
-                resourceStore.fetchAll();
-                reportStore.fetchAllReports(); // This makes your reports instant!
-                
-                router.push('/master-admin/dashboard');
-            } 
-            else if (role === 'Admin') {
-                systemStore.loadSettings();
-                router.push('/admin/dashboard');
-            } 
-            else {
-                router.push('/user/dashboard');
-            }
+            processLoginSuccess(data);
         } else {
             loginError.value = data.message || 'Login failed.';
         }
@@ -144,6 +121,52 @@ const handleLogin = async () => {
         loginError.value = 'Network error or invalid credentials.';
     } finally {
         isLoading.value = false;
+    }
+};
+
+const handleGuestLogin = async () => {
+    loginError.value = '';
+    isLoading.value = true;
+    try {
+        const response = await axios.post('http://localhost:8000/api/guest-login');
+        const data = response.data;
+
+        if (data.token) {
+            processLoginSuccess(data);
+        } else {
+            loginError.value = data.message || 'Guest login failed.';
+        }
+    } catch (error) {
+        loginError.value = 'Network error during guest login.';
+    } finally {
+        isLoading.value = false;
+    }
+};
+
+const processLoginSuccess = (data) => {
+    // 1. Set authentication state
+    localStorage.setItem('isAuthenticated', 'true');
+    localStorage.setItem('authToken', data.token);
+    localStorage.setItem('userName', data.user.name); 
+    localStorage.setItem('userEmail', data.user.email);
+    localStorage.setItem('userId', data.user.id.toString());
+    const role = data.roles && data.roles.length > 0 ? data.roles[0] : 'user';
+    localStorage.setItem('userRole', role);
+
+    // 2. TRIGGER BACKGROUND DATA SYNC
+    if (role === 'Master Admin') {
+        systemStore.loadSettings(); 
+        userStore.fetchUsers();
+        resourceStore.fetchAll();
+        reportStore.fetchAllReports();
+        router.push('/master-admin/dashboard');
+    } 
+    else if (role === 'Admin') {
+        systemStore.loadSettings();
+        router.push('/admin/dashboard');
+    } 
+    else {
+        router.push('/user/dashboard');
     }
 };
 </script>
