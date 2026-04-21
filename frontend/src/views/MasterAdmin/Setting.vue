@@ -158,20 +158,20 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.layout-wrapper { background: #f1f5f9; min-height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+.layout-wrapper { background: #f1f5f9; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
 
 /* Structural separation to prevent overlap with the 260px sidebar */
 .content-body { 
   margin-left: 260px; 
-  padding: 50px 40px; 
+  padding: 30px 40px; 
   margin-top: 2px; 
   height: calc(100vh - 60px);
-  overflow-y: auto;
+  overflow-y: visible;
   transition: all 0.3s ease;
 }
 
-.page-header { margin-bottom: 35px; }
-.section-title { font-weight: 800; color: #1e293b; font-size: 1.75rem; }
+.page-header { margin-bottom: 25px; }
+.section-title { font-weight: 800; color: #1e293b; font-size: 1.5rem; }
 .section-subtitle { color: #64748b; font-size: 0.95rem; }
 
 /* Light card with crisp borders for identification */
@@ -179,7 +179,7 @@ onMounted(async () => {
   background: #fff; 
   border: 1px solid #e2e8f0; 
   border-radius: 16px; 
-  padding: 40px; 
+  padding: 30px 35px; 
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); 
 }
 
@@ -188,7 +188,7 @@ onMounted(async () => {
   justify-content: space-between; 
   align-items: center;
   border-bottom: 1px solid #f1f5f9; 
-  padding-bottom: 20px; 
+  padding-bottom: 15px; 
 }
 
 /* Image Preview Styles */
@@ -241,10 +241,43 @@ onMounted(async () => {
   display: flex; 
   justify-content: flex-end; 
   border-top: 1px solid #f1f5f9; 
-  padding-top: 30px; 
+  padding-top: 20px; 
 }
+
+
+.row.g-4 {
+  --bs-gutter-y: 0.8rem;  
+  --bs-gutter-x: 1.2rem;
+}
+
+
 
 @media (max-width: 768px) { 
   .content-body { margin-left: 80px; padding: 30px 20px; } 
 }
+
+/* අලුතෙන් එකතු කළා - කුඩා තිර සඳහා තවත් spacing අඩු කරනවා */
+@media (max-height: 750px) {
+  .content-body {
+    padding: 20px 35px;
+  }
+  
+  .settings-card {
+    padding: 20px 25px;
+  }
+  
+  .page-header {
+    margin-bottom: 15px;
+  }
+  
+  .form-footer {
+    padding-top: 15px;
+    margin-top: 15px !important;
+  }
+  
+  .row.g-4 {
+    --bs-gutter-y: 0.6rem;
+  }
+}
+
 </style>
