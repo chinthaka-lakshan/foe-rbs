@@ -18,7 +18,8 @@ class User extends Authenticatable
         'email',
         'password',
         'status',
-        'role'
+        'role',
+        'department'
     ];
 
     // Hide sensitive attributes

@@ -18,9 +18,16 @@ class BookingController
 {
     public function index(): JsonResponse
     {
-        $bookings = Cache::tags(['bookings'])->remember('all_bookings', 60 * 60, function () {
-            return Booking::with('details')->orderBy('booking_date', 'desc')->get();
-        });
+        $cacheKey = 'all_bookings';
+        if (Cache::supportsTags()) {
+            $bookings = Cache::tags(['bookings'])->remember($cacheKey, 60 * 60, function () {
+                return Booking::with('details')->orderBy('booking_date', 'desc')->get();
+            });
+        } else {
+            $bookings = Cache::remember($cacheKey, 60 * 60, function () {
+                return Booking::with('details')->orderBy('booking_date', 'desc')->get();
+            });
+        }
         return response()->json($bookings);
     }
 
@@ -106,8 +113,10 @@ class BookingController
         try {
             $otpCode = Booking::generateOTP();
             
+            \Log::info("Booking Creation - Received X-User-Type header: " . ($request->header('X-User-Type') ?? 'NULL'));
             // 1. Get the user type BEFORE creating the record
-            $userType = Booking::getUserType($validated['user_email']);
+            $userType = Booking::getUserType($validated['user_email'], $request->header('X-User-Type'));
+            \Log::info("Resolved User Type: {$userType}");
 
             // 2. Add 'user_type' to the create array
             $booking = Booking::create([
@@ -131,6 +140,8 @@ class BookingController
             ], now()->addMinutes(10));
 
             Mail::to($validated['user_email'])->send(new BookingOTPMail($otpCode, "TEMP", 10));
+
+            \Log::info("OTP '{$otpCode}' generated and cached for booking ID: {$booking->id}");
 
             DB::commit();
 
@@ -158,8 +169,22 @@ class BookingController
         $cacheKey = "booking_otp_{$id}";
         $cachedData = Cache::get($cacheKey);
 
-        if (!$cachedData || $cachedData['otp'] !== $validated['otp_code']) {
-            return response()->json(['message' => 'Invalid or expired OTP'], 422);
+        \Log::info("OTP Verification Attempt - Booking ID: {$id}");
+        \Log::info("Input OTP: '" . $validated['otp_code'] . "'");
+
+        if (!$cachedData) {
+            \Log::warning("Cache miss for key: {$cacheKey}. OTP may have expired.");
+            return response()->json(['message' => 'Invalid or expired OTP (Session timeout)'], 422);
+        }
+
+        $cachedOtp = (string) $cachedData['otp'];
+        $inputOtp = (string) $validated['otp_code'];
+
+        \Log::info("Cached OTP: '{$cachedOtp}'");
+
+        if (trim($cachedOtp) !== trim($inputOtp)) {
+            \Log::warning("OTP Mismatch for booking {$id}. Expected: '{$cachedOtp}', Received: '{$inputOtp}'");
+            return response()->json(['message' => 'Invalid OTP. Please check your email.'], 422);
         }
 
         $booking = Booking::findOrFail($id);
@@ -167,7 +192,9 @@ class BookingController
 
         DB::beginTransaction();
         try {
-            $userType = Booking::getUserType($data['user_email']);
+            \Log::info("Booking OTP Verification - Received X-User-Type header: " . ($request->header('X-User-Type') ?? 'NULL'));
+            $userType = Booking::getUserType($data['user_email'], $request->header('X-User-Type'));
+            \Log::info("Resolved User Type: {$userType}");
             $start = Carbon::parse($data['start_time']);
             $end = Carbon::parse($data['end_time']);
             $hours = $start->diffInMinutes($end) / 60;
@@ -227,8 +254,10 @@ class BookingController
             }
 
             // Update original booking record
+            $status = ($userType === 'external') ? 'Requested_by_Guest' : 'Pending';
+
             $booking->update([
-                'status' => 'Pending', // Change to 'Pending' after verification
+                'status' => $status,
                 'total_amount' => $totalAmount,
                 'is_verified' => true,
                 'confirmed_at' => now(), 
@@ -239,10 +268,34 @@ class BookingController
             
             // Re-load with details for reservation
             $booking->load('details');
-            $this->reserveInventory($booking);
+            
+            if ($status !== 'Requested_by_Guest') {
+                $this->reserveInventory($booking);
+            } else {
+                // It's a guest request: Notify the assigned admin
+                // Get the admin ID from the first resource (assuming 1 resource)
+                $firstResourceDetail = $booking->details->where('item_type', 'resource')->first();
+                if ($firstResourceDetail) {
+                    $resId = $firstResourceDetail->item_id;
+                    $resResp = Http::get("{$resourceServiceUrl}/resources/{$resId}");
+                    if ($resResp->successful()) {
+                        $resData = $resResp->json();
+                        $adminId = $resData['assigned_admin_id'] ?? null;
+                        if ($adminId) {
+                            $adminUserResp = Http::get("http://auth_service/api/internal/users/{$adminId}");
+                            if ($adminUserResp->successful()) {
+                                $adminEmail = $adminUserResp->json()['email'] ?? null;
+                                if ($adminEmail) {
+                                    Mail::to($adminEmail)->send(new \App\Mail\BookingRequestedMail($booking));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
 
             Cache::forget($cacheKey);
-            Cache::tags(['bookings'])->flush();
+            $this->clearBookingCache();
 
             DB::commit();
             return response()->json(['message' => 'Booking success!', 'booking' => $booking], 201);
@@ -274,7 +327,7 @@ class BookingController
     public function updateStatus(Request $request, $id): JsonResponse
     {
         $validated = $request->validate([
-            'status' => 'required|in:Pending,Confirmed,Cancelled,Completed'
+            'status' => 'required|in:Pending,Confirmed,Cancelled,Completed,Requested_by_Guest,Rejected'
         ]);
 
         $booking = Booking::with('details')->findOrFail($id);
@@ -297,8 +350,13 @@ class BookingController
 
             $booking->update(['status' => $validated['status']]);
 
+            // Dispatch status update mail to guest user
+            if (in_array($validated['status'], ['Pending', 'Confirmed', 'Rejected', 'Cancelled'])) {
+                Mail::to($booking->user_email)->send(new \App\Mail\BookingStatusUpdatedMail($booking));
+            }
+
             // CRITICAL: Clear the cache for real-time updates
-            Cache::tags(['bookings'])->flush();
+            $this->clearBookingCache();
 
             DB::commit();
             return response()->json([
@@ -323,7 +381,7 @@ class BookingController
         }
         $booking->update(['status' => 'Cancelled']);
         $this->releaseInventory($booking->id);
-        Cache::tags(['bookings'])->flush();
+        $this->clearBookingCache();
         return response()->json(['message' => 'Booking cancelled', 'booking' => $booking]);
     }
 
@@ -331,7 +389,7 @@ class BookingController
     {
         $validated = $request->validate([
             'admin_id' => 'required|integer',
-            'status' => 'nullable|in:Pending,Confirmed,Cancelled,Completed',
+            'status' => 'nullable|in:Pending,Confirmed,Cancelled,Completed,Requested_by_Guest,Rejected',
         ]);
 
         $resourceServiceUrl = env('RESOURCE_SERVICE_URL', 'http://resource_service/api');
@@ -343,15 +401,17 @@ class BookingController
         $adminResourceIds = $resourcesMap->where('assigned_admin_id', $validated['admin_id'])->pluck('id')->toArray();
 
         $statusStr = $validated['status'] ?? 'all';
-        $bookingsData = Cache::tags(['bookings'])->remember("bookings_admin_{$validated['admin_id']}_{$statusStr}", 60 * 60, function () use ($validated, $adminResourceIds) {
-            $filtered = Booking::with('details')
-                ->when($validated['status'] ?? null, fn($q, $s) => $q->where('status', $s))
-                ->get()
-                ->filter(function ($b) use ($adminResourceIds) {
-                    return $b->details->contains(fn($d) => $d->item_type === 'resource' && in_array($d->item_id, $adminResourceIds));
-                });
-            return ['total' => $filtered->count(), 'bookings' => $filtered->values()];
-        });
+        $cacheKey = "bookings_admin_{$validated['admin_id']}_{$statusStr}";
+
+        if (Cache::supportsTags()) {
+            $bookingsData = Cache::tags(['bookings'])->remember($cacheKey, 60 * 60, function () use ($validated, $adminResourceIds) {
+                return $this->fetchBookingsByAdmin($validated, $adminResourceIds);
+            });
+        } else {
+            $bookingsData = Cache::remember($cacheKey, 60 * 60, function () use ($validated, $adminResourceIds) {
+                return $this->fetchBookingsByAdmin($validated, $adminResourceIds);
+            });
+        }
 
         return response()->json($bookingsData);
     }
@@ -379,7 +439,7 @@ class BookingController
             $booking->details()->delete();
             $booking->delete();
 
-            Cache::tags(['bookings'])->flush();
+            $this->clearBookingCache();
 
             DB::commit();
             return response()->json([
@@ -427,5 +487,33 @@ class BookingController
         Http::post("{$resourceServiceUrl}/items/release", [
             'booking_id' => $bookingId
         ]);
+    }
+
+    /**
+     * Clear all booking related cache safely
+     */
+    private function clearBookingCache(): void
+    {
+        if (Cache::supportsTags()) {
+            Cache::tags(['bookings'])->flush();
+        } else {
+            // Fallback: Clear main keys if tags not supported
+            Cache::forget('all_bookings');
+            // Note: Admin-specific caches might persist until expiration if tags unavailable
+        }
+    }
+
+    /**
+     * Helper to fetch and filter bookings for admin
+     */
+    private function fetchBookingsByAdmin(array $validated, array $adminResourceIds): array
+    {
+        $filtered = Booking::with('details')
+            ->when($validated['status'] ?? null, fn($q, $s) => $q->where('status', $s))
+            ->get()
+            ->filter(function ($b) use ($adminResourceIds) {
+                return $b->details->contains(fn($d) => $d->item_type === 'resource' && in_array($d->item_id, $adminResourceIds));
+            });
+        return ['total' => $filtered->count(), 'bookings' => $filtered->values()];
     }
 }

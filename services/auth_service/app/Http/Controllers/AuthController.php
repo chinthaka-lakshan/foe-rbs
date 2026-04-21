@@ -42,6 +42,42 @@ class AuthController extends Controller
         ]);
     }
 
+    // register
+    public function register(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users',
+            'password' => 'required|string|min:6',
+            'department' => 'nullable|string|max:255',
+        ]);
+
+        $user = User::create([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'password' => Hash::make($validated['password']),
+            'department' => $validated['department'] ?? null,
+            'status' => 'active',
+        ]);
+
+        // Assign role based on email domain
+        $isInternal = \str_ends_with(\strtolower($validated['email']), '@sjp.ac.lk');
+        $roleName = $isInternal ? 'User' : 'Guest';
+        $role = \App\Models\Role::where('name', $roleName)->first();
+        if ($role) {
+            $user->roles()->attach($role);
+        }
+
+        $permissions = $user->getAllPermissions();
+        $token = $user->createToken('auth_token', $permissions)->plainTextToken;
+        
+        return response()->json([
+            'user' => $user->load('roles'),
+            'roles' => $user->roles->pluck('name'),
+            'token' => $token
+        ], 201);
+    }
+
     // sendResetOtp
     public function sendResetOtp(Request $request): JsonResponse
     {
@@ -111,6 +147,31 @@ class AuthController extends Controller
         DB::table('password_resets')->where('email', $validated['email'])->delete();
 
         return response()->json(['message' => 'Password reset successfully.']);
+    }
+
+    // guestLogin
+    public function guestLogin(Request $request)
+    {
+        $guestEmail = 'guest@foe-rbs.lk';
+        $user = User::with('roles')->where('email', $guestEmail)->first();
+
+        if (!$user) {
+            return response()->json(['message' => 'Guest user not found. Please run seeders.'], 404);
+        }
+
+        $permissions = $user->getAllPermissions();
+        
+        // Populate Redis cache for microservices
+        Cache::put("user_permissions_{$user->id}", $permissions, now()->addHours(24));
+
+        $roleNames = $user->roles->pluck('name');
+        $token = $user->createToken('guest_token', $permissions)->plainTextToken;
+
+        return response()->json([
+            'user' => $user,
+            'roles' => $roleNames,
+            'token' => $token
+        ]);
     }
 
     // logout

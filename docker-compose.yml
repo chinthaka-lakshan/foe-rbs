@@ -142,6 +142,10 @@ services:
       DB_PORT: 5432
       DB_DATABASE: booking_db
       RESOURCE_SERVICE_URL: http://resource_service/api
+      CACHE_DRIVER: redis
+      REDIS_HOST: redis_cache
+      REDIS_PORT: 6379
+      REDIS_CLIENT: predis
     networks:
       - foe_rbs_network
     depends_on:
