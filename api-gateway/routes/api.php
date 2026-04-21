@@ -35,6 +35,19 @@ Route::post('/login', function (Request $request) {
     }
 });
 
+//Guest login route
+Route::post('/guest-login', function (Request $request) {
+    try {
+        $response = Http::timeout(30)->post('http://auth_service/api/guest-login', $request->all());
+        return handleProxyResponse($response, 'Guest login failed.');
+    } catch (Exception $e) {
+        return response()->json([
+            'message' => 'Cannot connect to authentication service',
+            'error' => $e->getMessage()
+        ], 503);
+    }
+});
+
 // Password reset routes
 Route::post('/forgot-password/{path}', function ($path, Request $request) {
     try {
@@ -68,6 +81,30 @@ Route::post('/users', function (Request $request) {
     }
 });
 
+//Guest or Public registration route
+Route::post('/register', function (Request $request) {
+    try {
+        $response = Http::timeout(30)->post('http://auth_service/api/register', $request->all());
+        return handleProxyResponse($response, 'Registration failed.');
+    } catch (Exception $e) {
+        return response()->json([
+            'message' => 'Cannot connect to authentication service',
+            'error' => $e->getMessage()
+        ], 503);
+    }
+});
+
+// Public Department Route
+Route::get('/departments', function (Request $request) {
+    try {
+        $response = Http::timeout(30)
+            // No token needed for this public route proxy
+            ->get('http://resource_service/api/departments');
+        return handleProxyResponse($response, 'Failed to fetch departments.');
+    } catch (Exception $e) {
+        return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
+    }
+});
 
 
 // Protected routes
@@ -200,68 +237,55 @@ Route::middleware('auth:sanctum')->group(function () {
         }
     });
 
-    // Resource Service routes
-    // Department Routes
-    Route::get('/departments', function (Request $request) {
-        try {
-            $response = Http::timeout(30)
-                ->withToken($request->bearerToken())
-                ->get('http://resource_service/api/departments');
-            
-            return handleProxyResponse($response, 'Failed to fetch departments.');
-        } catch (Exception $e) {
-            return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
-        }
-    });
-
-    // Create department
+    // Departments Routes (Protected)
     Route::post('/departments', function (Request $request) {
         try {
             $response = Http::timeout(30)
                 ->withToken($request->bearerToken())
                 ->post('http://resource_service/api/departments', $request->all());
-
             return handleProxyResponse($response, 'Failed to create department.');
         } catch (Exception $e) {
+            \Log::error('Department creation gateway error: ' . $e->getMessage());
             return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
         }
     });
-    // Show single department
+
     Route::get('/departments/{department}', function (Request $request, $department) {
         try {
             $response = Http::timeout(30)
                 ->withToken($request->bearerToken())
                 ->get("http://resource_service/api/departments/{$department}");
-            
             return handleProxyResponse($response, 'Failed to fetch department.');
         } catch (Exception $e) {
+            \Log::error('Department fetch gateway error: ' . $e->getMessage());
             return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
         }
     });
-    // Update department
+
     Route::put('/departments/{department}', function (Request $request, $department) {
         try {
             $response = Http::timeout(30)
                 ->withToken($request->bearerToken())
                 ->put("http://resource_service/api/departments/{$department}", $request->all());
-            
-            return handleProxyResponse($response, 'Department update failed.');
+            return handleProxyResponse($response, 'Failed to update department.');
         } catch (Exception $e) {
+            \Log::error('Department update gateway error: ' . $e->getMessage());
             return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
         }
     });
-    // Delete department
+
     Route::delete('/departments/{department}', function (Request $request, $department) {
         try {
             $response = Http::timeout(30)
                 ->withToken($request->bearerToken())
                 ->delete("http://resource_service/api/departments/{$department}");
-            
-            return handleProxyResponse($response, 'Department deletion failed.');
+            return handleProxyResponse($response, 'Failed to delete department.');
         } catch (Exception $e) {
+            \Log::error('Department deletion gateway error: ' . $e->getMessage());
             return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
         }
     });
+
     // List all resources
     Route::get('/resources', function (Request $request) {
         try {
@@ -578,7 +602,19 @@ Route::get('/bookings', function (Request $request) {
 // Create booking
 Route::post('/bookings', function (Request $request) {
     try {
+        $user = $request->user('sanctum');
+        $userType = 'external';
+        if ($user) {
+            $isGuest = \Illuminate\Support\Facades\DB::table('role_user')
+                ->join('roles', 'role_user.role_id', '=', 'roles.id')
+                ->where('role_user.user_id', $user->id)
+                ->where('roles.name', 'Guest')
+                ->exists();
+            $userType = $isGuest ? 'external' : 'internal';
+        }
+
         $response = Http::timeout(60)  // Increased timeout for email
+            ->withHeaders(['X-User-Type' => $userType])
             ->withToken($request->bearerToken())
             ->post('http://booking_service/api/bookings', $request->all());
         return handleProxyResponse($response, 'Booking creation failed.');
@@ -643,7 +679,19 @@ Route::post('/bookings/{id}/cancel', function (Request $request, $id) {
 // Verify OTP
 Route::post('/bookings/{id}/verify-otp', function (Request $request, $id) {
     try {
+        $user = $request->user('sanctum');
+        $userType = 'external';
+        if ($user) {
+            $isGuest = \Illuminate\Support\Facades\DB::table('role_user')
+                ->join('roles', 'role_user.role_id', '=', 'roles.id')
+                ->where('role_user.user_id', $user->id)
+                ->where('roles.name', 'Guest')
+                ->exists();
+            $userType = $isGuest ? 'external' : 'internal';
+        }
+
         $response = Http::timeout(30)
+            ->withHeaders(['X-User-Type' => $userType])
             ->withToken($request->bearerToken())
             ->post("http://booking_service/api/bookings/{$id}/verify-otp", $request->all());
         return handleProxyResponse($response, 'OTP verification failed.');

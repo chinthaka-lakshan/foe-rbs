@@ -1675,8 +1675,11 @@ const verifyOTPAndConfirmBooking = async () => {
     const token = getAuthToken();
     
     // Call backend to verify OTP and confirm booking
+    console.log(`Verifying OTP for Booking ID: ${pendingBookingId.value}`);
+    console.log(`Entered OTP: "${enteredOTP}"`);
+
     const response = await axios.post(`${API_BASE_URL}/bookings/${pendingBookingId.value}/verify-otp`, {
-      otp_code: enteredOTP,
+      otp_code: enteredOTP.trim(),
       email: bookingForm.value.email
     }, {
       headers: {

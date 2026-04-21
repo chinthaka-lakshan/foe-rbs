@@ -78,9 +78,12 @@ class Booking extends Model
         return str_ends_with(strtolower($email), $universityDomain);
     }
 
-    //determine user type based on email
-    public static function getUserType(string $email): string
+    //determine user type based on email or provided override
+    public static function getUserType(string $email, ?string $overrideType = null): string
     {
+        if ($overrideType) {
+            return $overrideType;
+        }
         return self::isUniversityEmail($email) ? 'internal' : 'external';
     }
 

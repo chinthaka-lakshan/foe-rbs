@@ -169,25 +169,25 @@ const routes: Array<RouteRecordRaw> = [
     path: '/user/dashboard',
     name: 'user-dashboard',
     component: User_Dashboard,
-    meta: { requiresAuth: true, role: 'User' }
+    meta: { requiresAuth: true, role: ['User', 'Guest'] }
   },
   {
     path: '/user/resource',
     name: 'user-resource',
     component: User_Resource,
-    meta: { requiresAuth: true, role: 'User' }
+    meta: { requiresAuth: true, role: ['User', 'Guest'] }
   },
   {
     path: '/user/booking',
     name: 'user-booking',
     component: User_Booking,
-    meta: { requiresAuth: true, role: 'User' }
+    meta: { requiresAuth: true, role: ['User', 'Guest'] }
   },
   {
     path: '/user/setting',
     name: 'user-setting',
     component: User_Setting,
-    meta: { requiresAuth: true, role: 'User' }
+    meta: { requiresAuth: true, role: ['User', 'Guest'] }
   },
 
    {
@@ -226,11 +226,6 @@ const routes: Array<RouteRecordRaw> = [
     component: Admin_Users,
     meta: { requiresAuth: true, role: 'Admin' }
   }
-
-
- 
-  
-
 ];
 
 const router = createRouter({
@@ -244,8 +239,13 @@ router.beforeEach((to, _from, next) => {
 
   if (to.meta.requiresAuth && !isAuthenticated) {
     next('/login');
-  } else if (to.meta.role && userRole !== to.meta.role) {
-    next('/login');
+  } else if (to.meta.role) {
+    const roles = Array.isArray(to.meta.role) ? to.meta.role : [to.meta.role];
+    if (!roles.includes(userRole)) {
+      next('/login');
+    } else {
+      next();
+    }
   } else {
     next();
   }
