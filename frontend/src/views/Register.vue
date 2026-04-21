@@ -223,38 +223,51 @@ const handleRegister = async () => {
   display: none;
 }
 
+/* Base layout styles - FIXED SIZE, NO SCROLLING */
 .auth-container {
-  min-height: 100vh;
+  height: 100vh;
+  width: 100vw;
   display: flex;
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #1e4449 0%, #4BB66D 100%);
   padding: 20px;
+  overflow: hidden;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
 }
 
 .auth-card {
   background: white;
   border-radius: 12px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-  padding: 40px;
+  padding: 30px 40px;
   width: 100%;
-  max-width: 450px;
+  max-width: 480px;
+  height: auto;
+  max-height: 95vh;
+  overflow-y: visible;
 }
 
+/* No scrollbar needed - content fits perfectly */
 .auth-title {
   color: #1e4449;
   font-weight: 600;
   margin-bottom: 8px;
+  font-size: 1.8rem;
 }
 
 .btn-primary {
   background-color:#4BB66D;
   border-color: #4BB66D;
   font-weight: 500;
-  padding: 12px;
+  padding: 10px;
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
   background-color: #3f975b;
   border-color: #3f975b;
 }
@@ -266,12 +279,17 @@ const handleRegister = async () => {
   background-color: #fff;
 }
 
-.toggle-password:hover {
+.toggle-password:hover:not(:disabled) {
   background-color: #f8f9fa;
   color: #4BB66D;
 }
 
 .form-control:focus {
+  border-color: #4BB66D;
+  box-shadow: 0 0 0 0.2rem rgba(75, 182, 109, 0.25);
+}
+
+.form-select:focus {
   border-color: #4BB66D;
   box-shadow: 0 0 0 0.2rem rgba(75, 182, 109, 0.25);
 }
@@ -284,14 +302,85 @@ const handleRegister = async () => {
 
 a {
   color: #4BB66D;
+  text-decoration: none;
 }
 
 a:hover {
   color: #26d516;
+  text-decoration: underline;
 }
 
 .auth-logo {
-    max-height: 120px;
-    width: auto;
+  max-height: 100px;
+  width: auto;
+}
+
+.form-label {
+  font-size: 0.9rem;
+  margin-bottom: 0.3rem;
+  font-weight: 500;
+}
+
+.form-control, .form-select {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+}
+
+.mb-3 {
+  margin-bottom: 0.8rem !important;
+}
+
+.mb-4 {
+  margin-bottom: 1rem !important;
+}
+
+.btn {
+  font-size: 0.95rem;
+}
+
+.text-muted {
+  font-size: 0.85rem;
+}
+
+/* Alert message styling */
+.alert-danger {
+  padding: 0.6rem;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+}
+
+/* Responsive for smaller screens - adjust padding */
+@media (max-width: 576px) {
+  .auth-card {
+    padding: 20px 25px;
+    max-width: 95%;
+  }
+  
+  .auth-title {
+    font-size: 1.5rem;
+  }
+  
+  .auth-logo {
+    max-height: 80px;
+  }
+  
+  .form-label {
+    font-size: 0.85rem;
+  }
+}
+
+/* For very small height screens */
+@media (max-height: 700px) {
+  .auth-card {
+    padding: 20px 35px;
+  }
+  
+  .mb-3 {
+    margin-bottom: 0.6rem !important;
+  }
+  
+  .auth-logo {
+    max-height: 70px;
+  }
 }
 </style>
