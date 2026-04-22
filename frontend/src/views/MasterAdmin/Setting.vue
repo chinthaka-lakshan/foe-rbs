@@ -256,7 +256,7 @@ onMounted(async () => {
   .content-body { margin-left: 80px; padding: 30px 20px; } 
 }
 
-/* අලුතෙන් එකතු කළා - කුඩා තිර සඳහා තවත් spacing අඩු කරනවා */
+
 @media (max-height: 750px) {
   .content-body {
     padding: 20px 35px;
