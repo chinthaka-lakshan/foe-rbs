@@ -29,7 +29,7 @@ class AuthController extends Controller
             return response()->json(['message' => 'Unauthorized'], 401);
         }
         $permissions = $user->getAllPermissions();
-        
+
         // Populate Redis cache for microservices
         Cache::put("user_permissions_{$user->id}", $permissions, now()->addHours(24));
 
@@ -61,7 +61,7 @@ class AuthController extends Controller
         ]);
 
         // Assign role based on email domain
-        $isInternal = \str_ends_with(\strtolower($validated['email']), '@sjp.ac.lk');
+        $isInternal = \str_ends_with(\strtolower($validated['email']));
         $roleName = $isInternal ? 'User' : 'Guest';
         $role = \App\Models\Role::where('name', $roleName)->first();
         if ($role) {
@@ -70,7 +70,7 @@ class AuthController extends Controller
 
         $permissions = $user->getAllPermissions();
         $token = $user->createToken('auth_token', $permissions)->plainTextToken;
-        
+
         return response()->json([
             'user' => $user->load('roles'),
             'roles' => $user->roles->pluck('name'),
@@ -84,7 +84,7 @@ class AuthController extends Controller
         // Validate email
         $request->validate(['email' => 'required|email|exists:users,email']);
         $email = $request->email;
-        $token = strval(rand(100000, 999999)); 
+        $token = strval(rand(100000, 999999));
 
         DB::table('password_resets')->updateOrInsert(
             ['email' => $email],
@@ -110,7 +110,8 @@ class AuthController extends Controller
         $resetRecord = DB::table('password_resets')
             ->where('email', $validated['email'])
             ->first();
-        if (!$resetRecord || 
+        if (
+            !$resetRecord ||
             !Hash::check($validated['otp'], $resetRecord->token) ||
             \Carbon\Carbon::parse($resetRecord->created_at)->addMinutes(15)->isPast()
         ) {
@@ -160,7 +161,7 @@ class AuthController extends Controller
         }
 
         $permissions = $user->getAllPermissions();
-        
+
         // Populate Redis cache for microservices
         Cache::put("user_permissions_{$user->id}", $permissions, now()->addHours(24));
 
