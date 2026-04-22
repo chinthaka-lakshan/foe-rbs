@@ -16,6 +16,7 @@ Route::get('/health', function () {
 // Booking routes
 Route::get('/bookings', [BookingController::class, 'index']);
 Route::get('/bookings/my', [BookingController::class, 'myBookings']);
+Route::get('/bookings/guest-lookup', [BookingController::class, 'guestLookup']);
 Route::post('/bookings', [BookingController::class, 'store']);
 Route::get('/bookings/{id}', [BookingController::class, 'show']);
 Route::patch('/bookings/{id}/status', [BookingController::class, 'updateStatus']);

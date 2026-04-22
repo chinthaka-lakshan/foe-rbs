@@ -106,6 +106,15 @@ Route::get('/departments', function (Request $request) {
     }
 });
 
+// Guest Booking Lookup
+Route::get('/bookings/guest-lookup', function (Request $request) {
+    try {
+        $response = Http::timeout(30)->get('http://booking_service/api/bookings/guest-lookup', $request->all());
+        return handleProxyResponse($response, 'Failed to fetch guest bookings.');
+    } catch (Exception $e) {
+        return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
+    }
+});
 
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
