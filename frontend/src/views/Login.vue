@@ -173,6 +173,9 @@ const processLoginSuccess = (data) => {
         systemStore.loadSettings();
         router.push('/admin/dashboard');
     } 
+    else if (role === 'Guest') {
+        router.push('/guest-resources');
+    }
     else {
         router.push('/user/dashboard');
     }

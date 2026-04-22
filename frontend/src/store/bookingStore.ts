@@ -146,6 +146,33 @@ export const bookingStore = reactive({
     }
   },
 
+  async fetchGuestBookings(email: string) {
+    this.isLoading = true;
+    try {
+      const response = await axios.get(`http://localhost:8000/api/bookings/guest-lookup?email=${encodeURIComponent(email)}`, {
+        headers: {
+          'Accept': 'application/json',
+        }
+      });
+
+      let data: Booking[] = [];
+      if (Array.isArray(response.data)) {
+        data = response.data;
+      } else if (response.data.bookings && Array.isArray(response.data.bookings)) {
+        data = response.data.bookings;
+      }
+
+      this.bookings = data;
+      this.isLoaded = true;
+      this.lastFetched = Date.now();
+    } catch (e) {
+      console.error(`Booking Store: Failed to load guest bookings for ${email}`, e);
+      this.bookings = [];
+    } finally {
+      this.isLoading = false;
+    }
+  },
+
   updateBookingLocally(updatedBooking: Booking) {
     const index = this.bookings.findIndex(b => b.id === updatedBooking.id);
     if (index !== -1) {
