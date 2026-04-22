@@ -71,20 +71,18 @@ class Booking extends Model
         return str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
     }
 
-    //check if email is university domain
-    public static function isUniversityEmail(string $email): bool
-    {
-        $universityDomain = '@sjp.ac.lk';
-        return str_ends_with(strtolower($email), $universityDomain);
-    }
-
-    //determine user type based on email or provided override
+    /**
+     * Determine user type based on the provided override (passed from Gateway).
+     * Strictly relies on role-based identification from the Gateway.
+     */
     public static function getUserType(string $email, ?string $overrideType = null): string
     {
         if ($overrideType) {
             return $overrideType;
         }
-        return self::isUniversityEmail($email) ? 'internal' : 'external';
+        
+        // Default to external if no header is provided (e.g. direct service access)
+        return 'external';
     }
 
     //check if OTP is valid
