@@ -614,12 +614,12 @@ Route::post('/bookings', function (Request $request) {
         $user = $request->user('sanctum');
         $userType = 'external';
         if ($user) {
-            $isGuest = \Illuminate\Support\Facades\DB::table('role_user')
+            $isInternal = \Illuminate\Support\Facades\DB::table('role_user')
                 ->join('roles', 'role_user.role_id', '=', 'roles.id')
                 ->where('role_user.user_id', $user->id)
-                ->where('roles.name', 'Guest')
+                ->whereIn('roles.name', ['Master Admin', 'Admin', 'User'])
                 ->exists();
-            $userType = $isGuest ? 'external' : 'internal';
+            $userType = $isInternal ? 'internal' : 'external';
         }
 
         $response = Http::timeout(60)  // Increased timeout for email
@@ -691,12 +691,12 @@ Route::post('/bookings/{id}/verify-otp', function (Request $request, $id) {
         $user = $request->user('sanctum');
         $userType = 'external';
         if ($user) {
-            $isGuest = \Illuminate\Support\Facades\DB::table('role_user')
+            $isInternal = \Illuminate\Support\Facades\DB::table('role_user')
                 ->join('roles', 'role_user.role_id', '=', 'roles.id')
                 ->where('role_user.user_id', $user->id)
-                ->where('roles.name', 'Guest')
+                ->whereIn('roles.name', ['Master Admin', 'Admin', 'User'])
                 ->exists();
-            $userType = $isGuest ? 'external' : 'internal';
+            $userType = $isInternal ? 'internal' : 'external';
         }
 
         $response = Http::timeout(30)
