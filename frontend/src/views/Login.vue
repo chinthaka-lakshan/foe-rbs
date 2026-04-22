@@ -108,6 +108,98 @@ onUnmounted(() => {
 });
 
 const API_URL = 'http://localhost:8000/api/login';
+const GUEST_LOGIN_URL = 'http://localhost:8000/api/guest-login';
+
+// Helper function to extract role ID from user data
+const extractRoleId = (user: any): number => {
+  // Check if user has roles array (from your API response)
+  if (user.roles && Array.isArray(user.roles) && user.roles.length > 0) {
+    return user.roles[0].id;
+  }
+  // Check if user has direct role_id
+  if (user.role_id) {
+    return user.role_id;
+  }
+  // Check if user has role object
+  if (user.role && user.role.id) {
+    return user.role.id;
+  }
+  // Default to Guest (4) if not found
+  return 4;
+};
+
+// Helper function to get role name from user data
+const extractRoleName = (user: any): string => {
+  // Check if user has roles array
+  if (user.roles && Array.isArray(user.roles) && user.roles.length > 0) {
+    return user.roles[0].name;
+  }
+  // Check if user has direct role
+  if (user.role) {
+    return typeof user.role === 'string' ? user.role : user.role.name;
+  }
+  // Default to 'User' if not found
+  return 'User';
+};
+
+// Process login success and save all necessary data
+const processLoginSuccess = (data: any) => {
+  const { user, token } = data;
+  
+  // Extract role information
+  const roleId = extractRoleId(user);
+  const roleName = extractRoleName(user);
+  
+  console.log('========== LOGIN SUCCESS ==========');
+  console.log('User:', user);
+  console.log('Role ID:', roleId);
+  console.log('Role Name:', roleName);
+  console.log('===================================');
+  
+  // 1. Set authentication state
+  localStorage.setItem('isAuthenticated', 'true');
+  localStorage.setItem('authToken', token);
+  localStorage.setItem('token', token);
+  
+  // 2. Save user information
+  localStorage.setItem('user', JSON.stringify(user));
+  localStorage.setItem('userName', user.name);
+  localStorage.setItem('userEmail', user.email);
+  localStorage.setItem('email', user.email);
+  localStorage.setItem('userId', user.id.toString());
+  
+  // 3. 🔥 CRITICAL: Save role information in multiple formats for compatibility
+  localStorage.setItem('userRole', roleName);
+  localStorage.setItem('role', roleName);
+  localStorage.setItem('role_id', roleId.toString());
+  localStorage.setItem('user_role_id', roleId.toString());
+  localStorage.setItem('roleId', roleId.toString());
+  
+  // 4. Save user roles array as string for debugging
+  if (user.roles) {
+    localStorage.setItem('user_roles', JSON.stringify(user.roles));
+  }
+  
+  // 5. TRIGGER BACKGROUND DATA SYNC based on role
+  if (roleName === 'Master Admin' || roleId === 1) {
+    systemStore.loadSettings(); 
+    userStore.fetchUsers();
+    resourceStore.fetchAll();
+    reportStore.fetchAllReports();
+    router.push('/master-admin/dashboard');
+  } 
+  else if (roleName === 'Admin' || roleId === 2) {
+    systemStore.loadSettings();
+    router.push('/admin/dashboard');
+  } 
+  else if (roleName === 'Guest' || roleId === 4) {
+    router.push('/guest-resources');
+  }
+  else {
+    // Internal User (role_id = 3)
+    router.push('/user/dashboard');
+  }
+};
 
 const handleLogin = async () => {
     loginError.value = '';
@@ -120,13 +212,20 @@ const handleLogin = async () => {
         });
         const data = response.data;
 
-        if (data.token) {
+        if (data.token && data.user) {
             processLoginSuccess(data);
         } else {
-            loginError.value = data.message || 'Login failed.';
+            loginError.value = data.message || 'Login failed. Invalid credentials.';
         }
-    } catch (error) {
-        loginError.value = 'Network error or invalid credentials.';
+    } catch (error: any) {
+        console.error('Login error:', error);
+        if (error.response) {
+            loginError.value = error.response.data?.message || 'Invalid email or password.';
+        } else if (error.request) {
+            loginError.value = 'Network error. Please check your connection.';
+        } else {
+            loginError.value = 'An error occurred. Please try again.';
+        }
     } finally {
         isLoading.value = false;
     }
@@ -136,48 +235,25 @@ const handleGuestLogin = async () => {
     loginError.value = '';
     isLoading.value = true;
     try {
-        const response = await axios.post('http://localhost:8000/api/guest-login');
+        const response = await axios.post(GUEST_LOGIN_URL);
         const data = response.data;
 
-        if (data.token) {
+        if (data.token && data.user) {
             processLoginSuccess(data);
         } else {
-            loginError.value = data.message || 'Guest login failed.';
+            loginError.value = data.message || 'Guest login failed. Please try again.';
         }
-    } catch (error) {
-        loginError.value = 'Network error during guest login.';
+    } catch (error: any) {
+        console.error('Guest login error:', error);
+        if (error.response) {
+            loginError.value = error.response.data?.message || 'Guest login failed.';
+        } else if (error.request) {
+            loginError.value = 'Network error. Please check your connection.';
+        } else {
+            loginError.value = 'An error occurred. Please try again.';
+        }
     } finally {
         isLoading.value = false;
-    }
-};
-
-const processLoginSuccess = (data) => {
-    // 1. Set authentication state
-    localStorage.setItem('isAuthenticated', 'true');
-    localStorage.setItem('authToken', data.token);
-    localStorage.setItem('userName', data.user.name); 
-    localStorage.setItem('userEmail', data.user.email);
-    localStorage.setItem('userId', data.user.id.toString());
-    const role = data.roles && data.roles.length > 0 ? data.roles[0] : 'user';
-    localStorage.setItem('userRole', role);
-
-    // 2. TRIGGER BACKGROUND DATA SYNC
-    if (role === 'Master Admin') {
-        systemStore.loadSettings(); 
-        userStore.fetchUsers();
-        resourceStore.fetchAll();
-        reportStore.fetchAllReports();
-        router.push('/master-admin/dashboard');
-    } 
-    else if (role === 'Admin') {
-        systemStore.loadSettings();
-        router.push('/admin/dashboard');
-    } 
-    else if (role === 'Guest') {
-        router.push('/guest-resources');
-    }
-    else {
-        router.push('/user/dashboard');
     }
 };
 </script>
