@@ -150,8 +150,8 @@
                         </div>
                       </td>
                       <td>
-                        <span class="fw-bold text-success">
-                          Rs. {{ calculateBookingAmount(booking) }}
+                        <span class="fw-bold" :class="getAmountColorClassForBooking(booking)">
+                          {{ formatAmountWithUserType(booking) }}
                         </span>
                       </td>
                       <td>
@@ -218,6 +218,14 @@
               <h5 class="mb-0">Book This Resource</h5>
             </div>
             <div class="card-body">
+              <!-- User Type Display -->
+              <div class="alert" :class="isInternalUser ? 'alert-info' : 'alert-warning'">
+                <i class="bi bi-person-badge me-2"></i>
+                <strong>{{ isInternalUser ? 'Internal User' : 'External User (Guest)' }}</strong>
+                <span v-if="isInternalUser" class="ms-2">(Free Booking - No Charges Applied)</span>
+                <span v-else class="ms-2">(Standard Charges Apply)</span>
+              </div>
+
               <form @submit.prevent="createBookingAndSendOTP">
                 <!-- Resource Unavailable Message -->
                 <div v-if="isResourceUnavailable" class="alert alert-warning">
@@ -301,10 +309,14 @@
                   <div class="mt-3">
                     <p class="mb-1">
                       <strong>Resource Cost:</strong> 
-                      <span v-if="calculatedCost">Rs. {{ calculatedCost }}</span>
+                      <span v-if="isInternalUser" class="text-success fw-bold">FREE for Internal Users</span>
+                      <span v-else-if="calculatedCost">Rs. {{ calculatedCost }}</span>
                       <span v-else class="text-muted">--</span>
                     </p>
                     <small class="text-muted">Base Price: Rs. {{ resource.base_price }}/hour</small>
+                    <div v-if="isInternalUser" class="text-success small mt-1">
+                      <i class="bi bi-gift-fill me-1"></i> Internal users get free booking!
+                    </div>
                   </div>
                 </div>
 
@@ -415,8 +427,8 @@
                           </div>
                           <div class="col-6 text-end">
                             <div class="small text-muted mb-1">Max: {{ item.available_quantity }}</div>
-                            <div class="fw-bold text-success">
-                              Rs. {{ calculateEquipmentItemCost(item) }}
+                            <div class="fw-bold" :class="isInternalUser ? 'text-muted' : 'text-success'">
+                              {{ isInternalUser ? 'FREE' : 'Rs. ' + calculateEquipmentItemCost(item) }}
                             </div>
                           </div>
                         </div>
@@ -427,7 +439,9 @@
                     <div class="mt-3 p-2 bg-light rounded">
                       <div class="d-flex justify-content-between align-items-center">
                         <span class="fw-medium">Equipment Total:</span>
-                        <span class="fw-bold text-primary">Rs. {{ equipmentTotalCost }}</span>
+                        <span class="fw-bold" :class="isInternalUser ? 'text-success' : 'text-primary'">
+                          {{ isInternalUser ? 'FREE for Internal Users' : 'Rs. ' + equipmentTotalCost }}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -445,15 +459,21 @@
                   <div class="cost-breakdown">
                     <div class="d-flex justify-content-between mb-2">
                       <span>Resource Cost:</span>
-                      <span>Rs. {{ calculatedCost || 0 }}</span>
+                      <span :class="isInternalUser ? 'text-success fw-bold' : ''">
+                        {{ isInternalUser ? 'FREE' : 'Rs. ' + (calculatedCost || 0) }}
+                      </span>
                     </div>
                     <div class="d-flex justify-content-between mb-2">
                       <span>Equipment Cost:</span>
-                      <span>Rs. {{ equipmentTotalCost }}</span>
+                      <span :class="isInternalUser ? 'text-success fw-bold' : ''">
+                        {{ isInternalUser ? 'FREE' : 'Rs. ' + equipmentTotalCost }}
+                      </span>
                     </div>
                     <div class="d-flex justify-content-between mb-2 border-top pt-2">
                       <span class="fw-bold">Total Cost:</span>
-                      <span class="fw-bold text-success fs-5">Rs. {{ totalBookingCost }}</span>
+                      <span class="fw-bold fs-5" :class="isInternalUser ? 'text-success' : 'text-success'">
+                        {{ isInternalUser ? 'FREE (Internal User Benefit)' : 'Rs. ' + totalBookingCost }}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -511,7 +531,7 @@
                 >
                   <span v-if="isCreatingBooking" class="spinner-border spinner-border-sm me-2"></span>
                   <i class="bi bi-send-check me-2"></i>
-                  {{ isCreatingBooking ? 'Creating Booking...' : 'Book Now & Verify OTP' }}
+                  {{ isCreatingBooking ? 'Creating Booking...' : (isInternalUser ? 'Book Now (FREE)' : 'Book Now & Pay') }}
                 </button>
               </form>
             </div>
@@ -638,7 +658,12 @@
               </li>
             </ul>
           </div>
-          <p class="mb-0"><strong>Total Cost:</strong> Rs. {{ totalBookingCost }}</p>
+          <p class="mb-0">
+            <strong>Total Cost:</strong> 
+            <span :class="isInternalUser ? 'text-success' : 'text-success'">
+              {{ isInternalUser ? 'FREE (Internal User Benefit)' : 'Rs. ' + totalBookingCost }}
+            </span>
+          </p>
         </div>
         
         <p class="text-muted small">
@@ -703,8 +728,8 @@
                 </tr>
                 <tr>
                   <th>Amount:</th>
-                  <td class="fw-bold text-success">
-                    Rs. {{ calculateBookingAmount(selectedBooking) }}
+                  <td class="fw-bold" :class="getAmountColorClassForBooking(selectedBooking)">
+                    {{ formatAmountWithUserType(selectedBooking) }}
                   </td>
                 </tr>
               </tbody>
@@ -821,6 +846,93 @@ const getLoggedInUserEmail = () => {
          '';
 };
 
+// Get user role ID from localStorage
+const getUserRoleId = () => {
+  const roleId = localStorage.getItem('role_id') || 
+                 localStorage.getItem('roleId') || 
+                 localStorage.getItem('user_role_id') || 
+                 '4'; // Default to guest (4)
+  return parseInt(roleId as string);
+};
+
+// 🔥 CRITICAL FIX: Check if user is internal based on email domain or role
+// Internal users: role_id = 1 (Master Admin), 2 (Admin), 3 (User)
+// External users: role_id = 4 (Guest)
+const isInternalUser = computed(() => {
+  const roleId = getUserRoleId();
+  // role_id 1, 2, 3 are internal users
+  const isInternalByRole = roleId === 1 || roleId === 2 || roleId === 3;
+  
+  // Also check by email domain as fallback
+  const email = getLoggedInUserEmail().toLowerCase();
+  const isInternalByEmail = email.includes('@university.edu') || 
+                            email.includes('@staff.edu') || 
+                            email.includes('@student.edu');
+  
+  console.log('User Role ID:', roleId);
+  console.log('User Email:', email);
+  console.log('Is Internal User (by role):', isInternalByRole);
+  console.log('Is Internal User (by email):', isInternalByEmail);
+  
+  // If role_id is not set properly, use email domain as fallback
+  // But primary method is role_id
+  if (roleId === 4) {
+    return isInternalByEmail; // If guest but has internal email, treat as internal
+  }
+  
+  return isInternalByRole;
+});
+
+// Get user type string for display
+const getUserType = computed(() => {
+  const roleId = getUserRoleId();
+  if (roleId === 1) return 'Master Admin';
+  if (roleId === 2) return 'Admin';
+  if (roleId === 3) return 'Internal User';
+  return 'External User (Guest)';
+});
+
+// Calculate amount based on user type - INTERNAL USERS GET 0, GUESTS PAY
+const calculateAmountWithUserType = (baseAmount: number): number => {
+  if (isInternalUser.value) {
+    return 0; // Internal users (role_id 1,2,3) get free booking
+  }
+  return baseAmount; // External users (role_id 4) pay full amount
+};
+
+// Format amount with user type
+const formatAmountWithUserType = (booking: any): string => {
+  const roleId = booking.user?.role_id || getUserRoleId();
+  
+  // Internal users (role_id 1,2,3) get free booking
+  if (roleId === 1 || roleId === 2 || roleId === 3) {
+    return 'Rs. 0.00 (Internal User - Free)';
+  }
+  
+  const amount = calculateBookingAmountForBooking(booking);
+  return `Rs. ${amount}`;
+};
+
+// Calculate booking amount for a booking object
+const calculateBookingAmountForBooking = (booking: any): number => {
+  if (booking.total_amount !== undefined && booking.total_amount !== null) {
+    return booking.total_amount;
+  }
+  
+  if (booking.details && booking.details.length > 0) {
+    return booking.details.reduce((sum: number, detail: any) => sum + (detail.subtotal || 0), 0);
+  }
+  
+  if (!resource.value) return 0;
+  
+  const start = new Date(`2000-01-01T${booking.start_time}`);
+  const end = new Date(`2000-01-01T${booking.end_time}`);
+  const diff = end.getTime() - start.getTime();
+  const hours = diff > 0 ? diff / (1000 * 60 * 60) : 0;
+  
+  return Math.round(hours * resource.value.base_price);
+};
+
 // Formatting Functions
 const formatTime = (time: string | null): string => {
     if (!time) return '00:00';
@@ -934,6 +1046,7 @@ interface Booking {
     name: string;
     email: string;
     phone?: string;
+    role_id?: number;
   };
 }
 
@@ -1010,14 +1123,16 @@ const calculatedCost = computed(() => {
   const diff = end.getTime() - start.getTime();
   const hours = diff > 0 ? diff / (1000 * 60 * 60) : 0;
   
-  return Math.round(hours * resource.value.base_price);
+  const baseAmount = Math.round(hours * resource.value.base_price);
+  return calculateAmountWithUserType(baseAmount);
 });
 
 const equipmentTotalCost = computed(() => {
-  return selectedEquipment.value.reduce((total, item) => {
+  const total = selectedEquipment.value.reduce((total, item) => {
     const hours = calculateBookingDuration();
     return total + (item.price_per_hour * item.quantity * hours);
   }, 0);
+  return calculateAmountWithUserType(total);
 });
 
 const totalBookingCost = computed(() => {
@@ -1104,6 +1219,15 @@ const startMin = ref('00');
 const endHour = ref('10');
 const endMin = ref('00');
 
+// Color class for amount based on user type
+const getAmountColorClassForBooking = (booking: any) => {
+  const roleId = booking.user?.role_id || getUserRoleId();
+  if (roleId === 1 || roleId === 2 || roleId === 3) {
+    return 'text-success';
+  }
+  return 'text-success';
+};
+
 watch([startHour, startMin], () => {
   bookingForm.value.startTime = `${startHour.value}:${startMin.value}`;
 });
@@ -1175,7 +1299,8 @@ const calculateBookingDuration = (): number => {
 
 const calculateEquipmentItemCost = (item: SelectedEquipmentItem): number => {
   const hours = calculateBookingDuration();
-  return Math.round(item.price_per_hour * item.quantity * hours);
+  const baseAmount = Math.round(item.price_per_hour * item.quantity * hours);
+  return calculateAmountWithUserType(baseAmount);
 };
 
 const loadAvailableEquipment = async () => {
@@ -1484,14 +1609,23 @@ const createBooking = async () => {
     
     const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
     const userId = currentUser.id || 0;
+    const roleId = getUserRoleId();
+    
+    // Calculate final amount based on user type
+    let finalAmount = totalBookingCost.value;
+    if (isInternalUser.value) {
+      finalAmount = 0;
+    }
     
     const bookingPayload: any = {
       user_id: userId,
       user_email: bookingForm.value.email,
+      user_role_id: roleId,
       booking_date: bookingForm.value.date,
       start_time: bookingForm.value.startTime,
       end_time: bookingForm.value.endTime,
       notes: bookingForm.value.purpose || '',
+      total_amount: finalAmount,
       resources: [
         {
           resource_id: resource.value.id
@@ -1505,7 +1639,8 @@ const createBooking = async () => {
         bookingPayload.booking_items.push({
           item_id: item.id,
           item_type: 'equipment',
-          quantity: item.quantity
+          quantity: item.quantity,
+          price_per_hour: isInternalUser.value ? 0 : item.price_per_hour
         });
       });
     }
@@ -1530,6 +1665,8 @@ const createBooking = async () => {
     }
     
     console.log('Booking created, pending ID:', pendingBookingId.value);
+    console.log('User Type:', isInternalUser.value ? 'Internal' : 'External');
+    console.log('Total Amount:', finalAmount);
     
     return response.data;
     
@@ -1911,7 +2048,13 @@ onMounted(() => {
   // Auto-fill email from localStorage
   const userEmail = getLoggedInUserEmail();
   bookingForm.value.email = userEmail;
+  
+  console.log('========== USER INFO ==========');
   console.log('Auto-filled email:', userEmail);
+  console.log('User Role ID:', getUserRoleId());
+  console.log('Is Internal User:', isInternalUser.value);
+  console.log('User Type:', getUserType.value);
+  console.log('================================');
   
   loadResourceDetails();
 });

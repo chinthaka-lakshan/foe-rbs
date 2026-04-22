@@ -95,23 +95,52 @@ import { bookingStore } from '../../store/bookingStore';
 
 const isLoading = ref(true);
 
-onMounted(async () => {
-  try {
-    await Promise.all([
-      resourceStore.fetchAll(),
-      bookingStore.fetchMyBookings()
-    ]);
-  } finally {
-    isLoading.value = false;
-  }
+// Get logged-in user email from localStorage
+const getLoggedInUserEmail = () => {
+  return localStorage.getItem('userEmail') || 
+         localStorage.getItem('email') || 
+         localStorage.getItem('user_email') || 
+         '';
+};
+
+// Filter bookings for current logged-in user only
+const myBookings = computed(() => {
+  const loggedInEmail = getLoggedInUserEmail().toLowerCase();
+  if (!loggedInEmail) return [];
+  
+  // Filter only bookings that belong to the logged-in user
+  return bookingStore.bookings.filter((booking: any) => {
+    const bookingEmail = (booking.user_email || '').toLowerCase();
+    return bookingEmail === loggedInEmail;
+  });
 });
 
-const myBookings = computed(() => bookingStore.bookings || []);
-
 const stats = computed(() => {
-  const pendingCount = myBookings.value.filter(b => b.status === 'Pending_for_Verification' || b.status === 'Pending').length;
-  const approvedCount = myBookings.value.filter(b => b.status === 'Approved' || b.status === 'Confirmed' || b.status === 'Completed').length;
-  const rejectedCount = myBookings.value.filter(b => b.status === 'Cancelled' || b.status === 'Rejected').length;
+  // Count only current user's bookings
+  const pendingCount = myBookings.value.filter((b: any) => {
+    const status = (b.status || '').toLowerCase();
+    return status === 'pending_for_verification' || 
+           status === 'pending' || 
+           status === 'Pending' ||
+           status === 'Pending_for_Verification';
+  }).length;
+  
+  const approvedCount = myBookings.value.filter((b: any) => {
+    const status = (b.status || '').toLowerCase();
+    return status === 'approved' || 
+           status === 'confirmed' || 
+           status === 'Completed' ||
+           status === 'completed' ||
+           status === 'Confirmed';
+  }).length;
+  
+  const rejectedCount = myBookings.value.filter((b: any) => {
+    const status = (b.status || '').toLowerCase();
+    return status === 'cancelled' || 
+           status === 'rejected' ||
+           status === 'Cancelled' ||
+           status === 'Rejected';
+  }).length;
 
   return {
     totalResources: resourceStore.resources.length,
@@ -120,6 +149,24 @@ const stats = computed(() => {
     rejectedBookings: rejectedCount,
     totalBookings: myBookings.value.length
   };
+});
+
+onMounted(async () => {
+  try {
+    await Promise.all([
+      resourceStore.fetchAll(),
+      bookingStore.fetchAll()
+    ]);
+    
+    // Debug logs
+    console.log('Logged-in User Email:', getLoggedInUserEmail());
+    console.log('Total Bookings in Store:', bookingStore.bookings.length);
+    console.log('My Bookings (filtered):', myBookings.value.length);
+    console.log('Stats:', stats.value);
+    
+  } finally {
+    isLoading.value = false;
+  }
 });
 </script>
 
@@ -276,9 +323,9 @@ const stats = computed(() => {
   }
 }
 
-.booking-box.approved { border-top: 4px solid white; }
-.booking-box.pending { border-top: 4px solid white; }
-.booking-box.rejected { border-top: 4px solid white; }
+.booking-box.approved { border-top: 4px solid #4BB66D; }
+.booking-box.pending { border-top: 4px solid #fcc300; }
+.booking-box.rejected { border-top: 4px solid #dc3545; }
 
 /* --- Pie Chart Container --- */
 /* .pie-chart-container {
@@ -287,6 +334,5 @@ const stats = computed(() => {
   justify-content: center;
   padding: 20px 0;
 } */
-
 
 </style>
