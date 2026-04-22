@@ -174,7 +174,7 @@
         </div>
       </div>
 
-      <!-- Selected Day details for Admin -->
+      <!-- Selected Day details for User -->
       <div v-if="focusedDate" class="card mb-4 border-0 shadow-sm animate-fade-in day-details-panel">
         <div class="card-header bg-light-teal py-3 d-flex justify-content-between align-items-center">
             <h5 class="mb-0 text-dark-teal"><i class="bi bi-info-circle-fill me-2"></i>Bookings for {{ formatDateLong(focusedDate) }}</h5>
@@ -197,9 +197,8 @@
                         <div class="time-info small text-muted">
                             <i class="bi bi-clock me-1"></i>{{ b.start_time }} - {{ b.end_time }}
                         </div>
-                        <div class="mt-2 d-flex gap-2">
-                            <button class="btn btn-xs btn-outline-primary py-0 px-2" @click="viewBookingDetails(b.id)" style="font-size: 0.7rem;">View</button>
-                            <button v-if="b.status === 'Pending'" class="btn btn-xs btn-outline-success py-0 px-2" @click="confirmBooking(b.id)" style="font-size: 0.7rem;">Confirm</button>
+                        <div class="mt-2">
+                            <button class="btn btn-xs btn-outline-primary py-0 px-2" @click="viewBookingDetails(b.id)" style="font-size: 0.7rem;">View Details</button>
                         </div>
                     </div>
                 </div>
@@ -268,25 +267,10 @@
                
                 <td>
                   <div class="btn-group btn-group-sm">
-                    <!-- Preview Icon - Always Show -->
+                    <!-- ONLY Preview Icon - View Details -->
                     <button class="btn btn-outline-info" @click="viewBookingDetails(booking.id)" title="View Details">
                       <i class="bi bi-eye"></i>
                     </button>
-                    
-                    <!-- Delete Icon - Always Show -->
-                    <button class="btn btn-outline-danger" @click="openDeleteConfirmation(booking)" title="Delete Permanently">
-                      <i class="bi bi-trash"></i>
-                    </button>
-                    
-                    <!-- Show Confirm and Reject Icons ONLY for Pending Bookings -->
-                    <template v-if="booking.status === 'Pending'">
-                      <button class="btn btn-outline-success" @click="openConfirmConfirmation(booking)" title="Confirm Booking">
-                        <i class="bi bi-check-circle"></i>
-                      </button>
-                      <button class="btn btn-outline-warning" @click="openRejectConfirmation(booking)" title="Reject Booking">
-                        <i class="bi bi-x-circle"></i>
-                      </button>
-                    </template>
                   </div>
                 </td>
               </tr>
@@ -297,115 +281,6 @@
             <i class="bi bi-calendar-x" style="font-size: 3rem;"></i>
             <p class="mt-3">No bookings found</p>
           </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Delete Confirmation Modal (Double Confirmation) -->
-  <div class="modal fade" :class="{ 'show d-block': showDeleteConfirmation }" tabindex="-1" @click.self="handleCancelDeletion" style="background-color: rgba(0,0,0,0.5);" v-if="showDeleteConfirmation">
-    <div class="modal-dialog delete-modal-top"> 
-      <div class="modal-content">
-
-        <template v-if="deleteStep === 'confirm'">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title"><i class="bi bi-question-circle-fill me-2"></i>Permanently Delete</h5>
-                <button type="button" class="btn-close btn-close-white" @click="handleCancelDeletion"></button>
-            </div>
-            <div class="modal-body text-center">
-                <p class="mb-0">
-                  Are you sure you want to delete the booking 
-                  <strong>{{ bookingToDelete?.booking_reference }}</strong> 
-                  for <strong>{{ bookingToDelete?.resource?.name || bookingToDelete?.details?.[0]?.item_name || 'N/A' }}</strong>?
-                </p>
-                <div class="alert alert-danger mt-3" role="alert">
-                  <i class="bi bi-exclamation-triangle me-2"></i>
-                  This action cannot be undone!
-                </div>
-            </div>
-            <div class="modal-footer justify-content-center">
-                <button type="button" class="btn btn-secondary" @click="handleCancelDeletion">Cancel</button>
-                <button type="button" class="btn btn-danger" @click="handleFirstConfirmation" :disabled="isDeleting">
-                  <span v-if="isDeleting" class="spinner-border spinner-border-sm me-2"></span>
-                  Continue to Delete
-                </button>
-            </div>
-        </template>
-
-        <template v-else-if="deleteStep === 'final'">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title"><i class="bi bi-exclamation-triangle-fill me-2"></i>Final Confirmation</h5>
-                <button type="button" class="btn-close btn-close-white" @click="handleCancelDeletion"></button>
-            </div>
-            <div class="modal-body text-center">
-                <p class="mb-0">You are about to <strong>permanently delete</strong> booking <strong>{{ bookingToDelete?.booking_reference }}</strong>.</p>
-                <p class="mt-2 mb-0 text-danger">This action cannot be undone. Are you absolutely sure?</p>
-            </div>
-            <div class="modal-footer justify-content-center">
-                <button type="button" class="btn btn-secondary" @click="handleCancelDeletion">Cancel</button>
-                <button type="button" class="btn btn-danger" @click="handleDeleteBooking" :disabled="isDeleting">
-                  <span v-if="isDeleting" class="spinner-border spinner-border-sm me-2"></span>
-                  Yes, Delete Permanently
-                </button>
-            </div>
-        </template>
-      </div>
-    </div>
-  </div>
-
-  <!-- Confirm Booking Modal (Single Confirmation) -->
-  <div class="modal fade" :class="{ 'show d-block': showConfirmModal }" tabindex="-1" @click.self="closeConfirmModal" style="background-color: rgba(0,0,0,0.5);" v-if="showConfirmModal">
-    <div class="modal-dialog action-modal-top" style="max-width: 400px;">
-      <div class="modal-content">
-        <div class="modal-header bg-success text-white">
-          <h5 class="modal-title"><i class="bi bi-check-circle-fill me-2"></i>Confirm Booking</h5>
-          <button type="button" class="btn-close btn-close-white" @click="closeConfirmModal"></button>
-        </div>
-        <div class="modal-body text-center">
-          <p class="mb-2">
-            Are you sure you want to <strong class="text-success">confirm</strong> this booking?
-          </p>
-          <div class="alert alert-light border mt-3 text-start">
-            <p class="mb-1"><strong>Booking Reference:</strong> {{ bookingToConfirm?.booking_reference }}</p>
-            <p class="mb-1"><strong>Resource:</strong> {{ bookingToConfirm?.resource?.name || bookingToConfirm?.details?.[0]?.item_name || 'N/A' }}</p>
-            <p class="mb-0"><strong>User:</strong> {{ bookingToConfirm?.user_email }}</p>
-          </div>
-        </div>
-        <div class="modal-footer justify-content-center">
-          <button type="button" class="btn btn-secondary" @click="closeConfirmModal">Cancel</button>
-          <button type="button" class="btn btn-success" @click="handleConfirmBooking" :disabled="isConfirming">
-            <span v-if="isConfirming" class="spinner-border spinner-border-sm me-2"></span>
-            Yes, Confirm Booking
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Reject Booking Modal (Single Confirmation) -->
-  <div class="modal fade" :class="{ 'show d-block': showRejectModal }" tabindex="-1" @click.self="closeRejectModal" style="background-color: rgba(0,0,0,0.5);" v-if="showRejectModal">
-    <div class="modal-dialog action-modal-top" style="max-width: 400px;">
-      <div class="modal-content">
-        <div class="modal-header bg-danger text-white">
-          <h5 class="modal-title"><i class="bi bi-exclamation-triangle-fill me-2"></i>Reject Booking</h5>
-          <button type="button" class="btn-close btn-close-white" @click="closeRejectModal"></button>
-        </div>
-        <div class="modal-body text-center">
-          <p class="mb-2">
-            Are you sure you want to <strong class="text-danger">reject</strong> this booking?
-          </p>
-          <div class="alert alert-light border mt-3 text-start">
-            <p class="mb-1"><strong>Booking Reference:</strong> {{ bookingToReject?.booking_reference }}</p>
-            <p class="mb-1"><strong>Resource:</strong> {{ bookingToReject?.resource?.name || bookingToReject?.details?.[0]?.item_name || 'N/A' }}</p>
-            <p class="mb-0"><strong>User:</strong> {{ bookingToReject?.user_email }}</p>
-          </div>
-        </div>
-        <div class="modal-footer justify-content-center">
-          <button type="button" class="btn btn-secondary" @click="closeRejectModal">Cancel</button>
-          <button type="button" class="btn btn-danger" @click="handleRejectBooking" :disabled="isRejecting">
-            <span v-if="isRejecting" class="spinner-border spinner-border-sm me-2"></span>
-            Yes, Reject Booking
-          </button>
         </div>
       </div>
     </div>
@@ -596,12 +471,6 @@ const startDate = ref('');
 const endDate = ref('');   
 const focusedDate = ref(''); 
 
-// Delete Modal State
-const bookingToDelete = ref<any>(null);
-const showDeleteConfirmation = ref(false);
-const deleteStep = ref<'confirm' | 'final'>('confirm');
-const isDeleting = ref(false);
-
 // Booking Preview Modal State
 const bookingToView = ref<any>(null);
 const showDetailsModal = ref(false);
@@ -618,16 +487,6 @@ const closeDetailsModal = () => {
   showDetailsModal.value = false;
   bookingToView.value = null;
 };
-
-// Confirm Modal State
-const bookingToConfirm = ref<any>(null);
-const showConfirmModal = ref(false);
-const isConfirming = ref(false);
-
-// Reject Modal State
-const bookingToReject = ref<any>(null);
-const showRejectModal = ref(false);
-const isRejecting = ref(false);
 
 // Toast State
 const showSuccessToast = ref(false);
@@ -695,202 +554,14 @@ const loadBookings = async () => {
   }
 };
 
-// Confirm Booking Function
-const confirmBooking = async (bookingId: number) => {
-  isConfirming.value = true;
-  
-  try {
-    const token = getAuthToken();
-    
-    await axios.patch(`${API_BASE_URL}/bookings/${bookingId}/status`, {
-      status: 'Confirmed'
-    }, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/json',
-      }
-    });
-    
-    // Update store state
-    const booking = bookings.value.find((b: any) => b.id === bookingId);
-    if (booking) {
-      bookingStore.updateBookingLocally({
-        ...booking,
-        status: 'Confirmed'
-      });
-    }
-    
-    showSuccess('Booking confirmed successfully!');
-    closeConfirmModal();
-    
-    // If the details modal was open, refresh the status there too
-    if (bookingToView.value && bookingToView.value.id === bookingId) {
-       bookingToView.value.status = 'Confirmed';
-    }
-    
-  } catch (error: any) {
-    console.error('Error confirming booking:', error);
-    showError(error.response?.data?.message || 'Failed to confirm booking');
-  } finally {
-    isConfirming.value = false;
-  }
-};
-
-// Reject Booking Function
-const rejectBooking = async (bookingId: number) => {
-  isRejecting.value = true;
-  
-  try {
-    const token = getAuthToken();
-    
-    await axios.patch(`${API_BASE_URL}/bookings/${bookingId}/status`, {
-      status: 'Cancelled'
-    }, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/json',
-      }
-    });
-    
-    // Update store state
-    const booking = bookings.value.find((b: any) => b.id === bookingId);
-    if (booking) {
-      bookingStore.updateBookingLocally({
-        ...booking,
-        status: 'Cancelled'
-      });
-    }
-    
-    showSuccess('Booking rejected successfully!');
-    closeRejectModal();
-    
-    // If the details modal was open, refresh the status there too
-    if (bookingToView.value && bookingToView.value.id === bookingId) {
-       bookingToView.value.status = 'Cancelled';
-    }
-    
-  } catch (error: any) {
-    console.error('Error rejecting booking:', error);
-    showError(error.response?.data?.message || 'Failed to reject booking');
-  } finally {
-    isRejecting.value = false;
-  }
-};
-
-// Delete Booking Function
-const deleteBooking = async (bookingId: number) => {
-  isDeleting.value = true;
-  
-  try {
-    const token = getAuthToken();
-    
-    await axios.delete(`${API_BASE_URL}/bookings/${bookingId}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/json',
-      }
-    });
-    
-    // Remove from local state
-    bookingStore.removeBookingLocally(bookingId);
-    
-    showSuccess('Booking deleted successfully!');
-    handleCancelDeletion();
-    
-  } catch (error: any) {
-    console.error('Error deleting booking:', error);
-    
-    if (error.response) {
-      if (error.response.status === 404) {
-        showError('Booking not found. It may have already been deleted.');
-      } else if (error.response.status === 500) {
-        showError('Server error. Please try again later.');
-      } else if (error.response.data?.message) {
-        showError(error.response.data.message);
-      } else {
-        showError(`Failed to delete booking: ${error.response.statusText}`);
-      }
-    } else if (error.request) {
-      showError('No response from server. Please check your connection.');
-    } else {
-      showError(`Request error: ${error.message}`);
-    }
-    handleCancelDeletion();
-  } finally {
-    isDeleting.value = false;
-  }
-};
-
-
-// --- Confirm Modal Functions ---
-const openConfirmConfirmation = (booking: any) => {
-  bookingToConfirm.value = booking;
-  showConfirmModal.value = true;
-};
-
-const closeConfirmModal = () => {
-  showConfirmModal.value = false;
-  bookingToConfirm.value = null;
-  isConfirming.value = false;
-};
-
-const handleConfirmBooking = () => {
-  if (bookingToConfirm.value) {
-    confirmBooking(bookingToConfirm.value.id);
-  }
-};
-
-// --- Reject Modal Functions ---
-const openRejectConfirmation = (booking: any) => {
-  bookingToReject.value = booking;
-  showRejectModal.value = true;
-};
-
-const closeRejectModal = () => {
-  showRejectModal.value = false;
-  bookingToReject.value = null;
-  isRejecting.value = false;
-};
-
-const handleRejectBooking = () => {
-  if (bookingToReject.value) {
-    rejectBooking(bookingToReject.value.id);
-  }
-};
-
-// --- Delete Modal Functions ---
-const openDeleteConfirmation = (booking: any) => {
-  bookingToDelete.value = booking;
-  deleteStep.value = 'confirm';
-  showDeleteConfirmation.value = true;
-};
-
-const handleFirstConfirmation = () => {
-  deleteStep.value = 'final';
-};
-
-const handleCancelDeletion = () => {
-  showDeleteConfirmation.value = false;
-  bookingToDelete.value = null;
-  deleteStep.value = 'confirm';
-  isDeleting.value = false;
-};
-
-const handleDeleteBooking = async () => {
-  if (!bookingToDelete.value) return;
-  await deleteBooking(bookingToDelete.value.id);
-};
-
 // --- Filtering ---
 const uniqueResources = computed(() => {
   const resources = new Set<string>();
   
   bookings.value.forEach((booking: any) => {
-    // 1. Try to get name from the primary resource object
     if (booking.resource?.name) {
       resources.add(booking.resource.name);
     } 
-    // 2. Otherwise, look through details for the item marked as 'resource'
     else if (booking.details && booking.details.length > 0) {
       booking.details.forEach((detail: any) => {
         if (detail.item_type === 'resource' && detail.item_name) {
@@ -912,7 +583,6 @@ const filteredBookings = computed(() => {
       if (booking.resource?.name) {
         resourceName = booking.resource.name;
       } else if (booking.details && booking.details.length > 0) {
-        // Find the detail that is actually the resource
         const resourceDetail = booking.details.find((d: any) => d.item_type === 'resource');
         resourceName = resourceDetail?.item_name || booking.details[0]?.item_name || '';
       }
@@ -970,7 +640,6 @@ const changeDay = (delta: number) => {
   const dateString = date.toISOString().split('T')[0];
   focusedDate.value = dateString;
   
-  // also update currentDate if month changes to keep calendar sync'd
   if (date.getMonth() !== currentDate.value.getMonth() || date.getFullYear() !== currentDate.value.getFullYear()) {
       currentDate.value = new Date(date.getFullYear(), date.getMonth(), 1);
   }
@@ -998,14 +667,11 @@ const timeToMinutes = (timeStr: string) => {
 const getBookingTimelineStyle = (booking: any) => {
     const startMins = timeToMinutes(booking.start_time);
     const endMins = timeToMinutes(booking.end_time);
-    const durationMins = Math.max(endMins - startMins, 30); // Min 30 mins for visibility
+    const durationMins = Math.max(endMins - startMins, 30);
 
-    const topPosition = (startMins / 60) * 60; // 60px per hour
+    const topPosition = (startMins / 60) * 60;
     const height = (durationMins / 60) * 60;
 
-    // Overlap management (Simplified: calculate offset based on resource frequency)
-    // In a real app, you'd calculate actual collisions. 
-    // Here we use a random shift for aesthetic multiple resources.
     const resourceBookings = focusedDateBookings.value.filter((b: any) => 
         timeToMinutes(b.start_time) < endMins && timeToMinutes(b.end_time) > startMins
     );
@@ -1085,7 +751,6 @@ const daysInMonth = computed(() => {
 
   for (let i = startingDayOfWeekIndex; i > 0; i--) {
     const dayNumber = daysInPreviousMonth - i + 1;
-    // Use a unique dummy date string for keys
     const dummyDate = `prev-${year}-${month}-${dayNumber}`;
     allDays.push({ dayNumber, isOutsideMonth: true, dateString: '', key: dummyDate, hasBooking: false, bookingCount: 0 });
   }
@@ -1309,19 +974,6 @@ onMounted(async () => {
     --bs-btn-hover-border-color: #fcc300;
 }
 
-.detail-modal-top {
-    max-width: 800px;
-    margin-top: 50px;
-}
-
-.hover-light:hover {
-    background-color: #f8f9fa;
-}
-
-.extra-small {
-    font-size: 0.7rem;
-}
-
 .bg-dark-teal {
   background-color: #1e4449;
   color: white;
@@ -1336,16 +988,6 @@ onMounted(async () => {
 .btn-dark-teal:hover {
     background-color: #143236;
     color: white;
-}
-
-.btn-outline-dark-teal {
-  --bs-btn-color: #1e4449;
-  --bs-btn-border-color: #1e4449;
-  --bs-btn-hover-bg: #4BB66D;
-  --bs-btn-hover-color: #ffffff;
-  --bs-btn-hover-border-color: #4BB66D;
- 
- 
 }
 
 .view-switcher .btn.active {
@@ -1369,7 +1011,7 @@ onMounted(async () => {
 
 .timeline-grid {
     position: relative;
-    height: 1440px; /* 24 hours * 60px */
+    height: 1440px;
 }
 
 .hour-row {
@@ -1488,24 +1130,7 @@ onMounted(async () => {
     font-size: 0.8rem;
     margin-right: 2px;
 }
-.btn-outline-success {
-    --bs-btn-color: #4BB66D;
-    --bs-btn-border-color: #4BB66D;
-    --bs-btn-hover-bg: #4BB66D;
-    --bs-btn-hover-color: white;
-}
-.btn-outline-danger {
-    --bs-btn-color: #dc3545;
-    --bs-btn-border-color: #dc3545;
-    --bs-btn-hover-bg: #dc3545;
-    --bs-btn-hover-color: white;
-}
-.btn-outline-warning {
-    --bs-btn-color: #ffc107;
-    --bs-btn-border-color: #ffc107;
-    --bs-btn-hover-bg: #ffc107;
-    --bs-btn-hover-color: #212529;
-}
+
 .btn-outline-info {
     --bs-btn-color: #0dcaf0;
     --bs-btn-border-color: #0dcaf0;
@@ -1513,25 +1138,7 @@ onMounted(async () => {
     --bs-btn-hover-color: white;
 }
 
-/* Modal Styles - FIXED CENTERING */
-.modal {
-    position: fixed; top: 0; left: 0; z-index: 1050; width: 100%; height: 100%; 
-    overflow-x: hidden; overflow-y: auto; outline: 0; opacity: 0; transition: opacity 0.15s linear;
-}
-.modal.show { opacity: 1; }
-.modal-dialog { position: relative; width: auto; margin: 0.5rem; pointer-events: none; transition: transform 0.3s ease-out; transform: translate(0, -50px); }
-.modal.show .modal-dialog { transform: none; }
-.modal-dialog-centered { display: flex; align-items: center; min-height: calc(100% - 1rem); }
-.modal-content { position: relative; display: flex; flex-direction: column; width: 100%; pointer-events: auto; background-color: #ffffff; border: 1px solid rgba(0, 0, 0, 0.2); border-radius: 0.3rem; outline: 0; }
-
-.modal-dialog.delete-modal-top,
-.modal-dialog.action-modal-top { align-items: flex-start; margin-top: 50px; height: auto; }
-@media (min-width: 576px) { 
-    .modal-dialog.delete-modal-top,
-    .modal-dialog.action-modal-top { max-width: 400px; margin: 1.75rem auto; }
-}
-
-/* New styles for centered modal */
+/* Modal Styles - Centered */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -1642,10 +1249,13 @@ onMounted(async () => {
   }
 }
 
-.bg-warning { background-color: #ffc107 !important; }
-.btn-warning { color: #212529 !important; background-color: #ffc107 !important; border-color: #ffc107 !important; }
-.btn-danger { background-color: #dc3545 !important; border-color: #dc3545 !important; }
-.btn-close-white { filter: invert(1); }
+.hover-light:hover {
+    background-color: #f8f9fa;
+}
+
+.extra-small {
+    font-size: 0.7rem;
+}
 
 .toast-container {
     z-index: 1060;
