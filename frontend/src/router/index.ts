@@ -26,9 +26,10 @@ import Admin_Booking from '../views/Admin/Booking.vue';
 import Admin_Reports from '../views/Admin/Reports.vue';
 import Admin_Setting from '../views/Admin/Setting.vue';
 import Admin_Users from '../views/Admin/Users.vue';
-
-
-
+import PublicBookings from '../views/Guest/PublicBookings.vue';
+import GuestResourceGallery from '../views/Guest/GuestResourceGallery.vue';
+import GuestBooking from '../views/Guest/GuestBooking.vue';
+import GuestSingleView from '../views/Guest/GuestSingleView.vue';
 
 
 const routes: Array<RouteRecordRaw> = [
@@ -169,25 +170,49 @@ const routes: Array<RouteRecordRaw> = [
     path: '/user/dashboard',
     name: 'user-dashboard',
     component: User_Dashboard,
-    meta: { requiresAuth: true, role: ['User', 'Guest'] }
+    meta: { requiresAuth: true, role: ['User'] }
   },
   {
     path: '/user/resource',
     name: 'user-resource',
     component: User_Resource,
-    meta: { requiresAuth: true, role: ['User', 'Guest'] }
+    meta: { requiresAuth: true, role: ['User'] }
   },
   {
     path: '/user/booking',
     name: 'user-booking',
     component: User_Booking,
-    meta: { requiresAuth: true, role: ['User', 'Guest'] }
+    meta: { requiresAuth: true, role: ['User'] }
   },
   {
     path: '/user/setting',
     name: 'user-setting',
     component: User_Setting,
-    meta: { requiresAuth: true, role: ['User', 'Guest'] }
+    meta: { requiresAuth: true, role: ['User'] }
+  },
+  {
+    path: '/public-bookings',
+    name: 'public-bookings',
+    component: PublicBookings,
+    meta: { requiresAuth: true, role: ['Guest'] }
+  },
+  {
+    path: '/guest-resources',
+    name: 'guest-resources',
+    component: GuestResourceGallery,
+    meta: { requiresAuth: true, role: ['Guest'] }
+  },
+  {
+    path: '/guest-resources/:id',
+    name: 'guest-single-resource',
+    component: GuestSingleView,
+    meta: { requiresAuth: true, role: ['Guest'] }
+  },
+  {
+    path: '/guest-resources/:id/book',
+    name: 'guest-booking',
+    component: GuestBooking,
+    meta: { requiresAuth: true, role: ['Guest'] }
   },
 
    {

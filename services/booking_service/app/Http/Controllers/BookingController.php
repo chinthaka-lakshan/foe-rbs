@@ -47,6 +47,19 @@ class BookingController
         return response()->json(['bookings' => $bookings]);
     }
 
+    public function guestLookup(Request $request): JsonResponse
+    {
+        $request->validate(['email' => 'required|email']);
+        
+        $bookings = Booking::with('details')
+            ->where('user_email', $request->query('email'))
+            ->whereIn('status', ['Requested_by_Guest', 'Pending', 'Confirmed', 'Approved', 'Rejected'])
+            ->orderBy('booking_date', 'desc')
+            ->get();
+            
+        return response()->json(['bookings' => $bookings]);
+    }
+
     public function show($id): JsonResponse
     {
         $booking = Booking::with('details')->findOrFail($id);
