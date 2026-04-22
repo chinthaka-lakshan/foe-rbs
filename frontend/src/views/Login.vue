@@ -78,7 +78,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
 import { reportStore } from '../store/reportStore';
@@ -98,6 +98,14 @@ const isPasswordVisible = ref(false);
 const togglePasswordVisibility = () => {
   isPasswordVisible.value = !isPasswordVisible.value;
 };
+
+onMounted(() => {
+  document.body.style.overflow = 'hidden';
+});
+
+onUnmounted(() => {
+  document.body.style.overflow = 'auto';
+});
 
 const API_URL = 'http://localhost:8000/api/login';
 
@@ -181,14 +189,21 @@ const processLoginSuccess = (data) => {
   display: none;
 }
 
-/* Base layout styles */
+/* Base layout styles - SCROLL REMOVED */
 .auth-container {
   min-height: 100vh;
+  height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #1e4449 0%, #4BB66D 100%);
   padding: 20px;
+  overflow: hidden;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
 }
 
 .auth-card {
@@ -198,6 +213,27 @@ const processLoginSuccess = (data) => {
   padding: 40px;
   width: 100%;
   max-width: 450px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* Custom scrollbar for card (optional - looks better) */
+.auth-card::-webkit-scrollbar {
+  width: 6px;
+}
+
+.auth-card::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.auth-card::-webkit-scrollbar-thumb {
+  background: #4BB66D;
+  border-radius: 10px;
+}
+
+.auth-card::-webkit-scrollbar-thumb:hover {
+  background: #1e4449;
 }
 
 .auth-title {
@@ -213,25 +249,40 @@ const processLoginSuccess = (data) => {
   padding: 12px;
 }
 
+.btn-primary:hover:not(:disabled) {
+  background-color: #3f975b;
+  border-color: #3f975b;
+}
+
+.btn-outline-success {
+  color: #4BB66D;
+  border-color: #4BB66D;
+}
+
+.btn-outline-success:hover:not(:disabled) {
+  background-color: #4BB66D;
+  color: white;
+}
+
 .toggle-password {
   border-color: #dee2e6;
   color: #6c757d;
   background-color: #fff;
 }
 
-.toggle-password:hover {
+.toggle-password:hover:not(:disabled) {
   background-color: #f8f9fa;
   color: #4BB66D;
 }
 
 .form-control:focus {
-  border-color: #26d516;
-  box-shadow: 0 0 0 0.2rem rgba(38, 213, 22, 0.25);
+  border-color: #4BB66D;
+  box-shadow: 0 0 0 0.2rem rgba(75, 182, 109, 0.25);
 }
 
 .input-group:focus-within .form-control,
 .input-group:focus-within .btn {
-  border-color: #26d516;
+  border-color: #4BB66D;
 }
 
 .auth-logo {
@@ -246,5 +297,13 @@ const processLoginSuccess = (data) => {
   padding: 1rem;
   margin-bottom: 1rem;
   border-radius: 0.25rem;
+}
+
+/* Responsive for mobile */
+@media (max-width: 576px) {
+  .auth-card {
+    padding: 30px 20px;
+    max-height: 95vh;
+  }
 }
 </style>

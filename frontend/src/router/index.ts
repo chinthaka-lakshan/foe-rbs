@@ -26,6 +26,9 @@ import Admin_Booking from '../views/Admin/Booking.vue';
 import Admin_Reports from '../views/Admin/Reports.vue';
 import Admin_Setting from '../views/Admin/Setting.vue';
 import Admin_Users from '../views/Admin/Users.vue';
+
+import User_Single_Resource from '../views/User/Single_Resource.vue';
+import User_Single_Resource_Booking from '../views/User/Single_Resource_Booking.vue';
 import PublicBookings from '../views/Guest/PublicBookings.vue';
 import GuestResourceGallery from '../views/Guest/GuestResourceGallery.vue';
 import GuestBooking from '../views/Guest/GuestBooking.vue';
@@ -112,13 +115,15 @@ const routes: Array<RouteRecordRaw> = [
   {
     path:'/master-admin/resource/:id',
     name:'master-admin-Single-Resource',
-    component:Single_Resource
+    component:Single_Resource,
+    meta: {requiresAuth: true, role: 'Master Admin'}
   },
 
   {
     path:'/master-admin/single-resource-booking',
     name:'master-admin-single-resource-booking',
-    component:Single_Resource_Booking
+    component:Single_Resource_Booking,
+    meta: {requiresAuth: true, role: 'Master Admin'}
   },
 
   {
@@ -213,6 +218,20 @@ const routes: Array<RouteRecordRaw> = [
     name: 'guest-booking',
     component: GuestBooking,
     meta: { requiresAuth: true, role: ['Guest'] }
+  },
+
+   {
+    path:'/user/resource/:id',
+    name: 'user-single-resource',
+    component: User_Single_Resource,
+    meta: { requiresAuth: true, role: ['User', 'Guest'] }
+  },
+
+  {
+    path:'/user/single-resource-booking',
+    name: 'user-single-resource-booking',
+    component: User_Single_Resource_Booking,
+    meta: { requiresAuth: true, role: ['User', 'Guest'] }
   },
 
    {
