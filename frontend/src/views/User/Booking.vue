@@ -212,7 +212,7 @@
 
       <div class="table-card">
         <div class="d-flex justify-content-between align-items-center mb-3">
-          <h5 class="mb-0">All Bookings ({{ filteredBookings.length }})</h5>
+          <h5 class="mb-0">My Bookings ({{ filteredBookings.length }})</h5>
           <div>
             <button class="btn btn-success btn-sm me-2" @click="loadBookings" :disabled="isRefreshing">
               <span v-if="isRefreshing" class="spinner-border spinner-border-sm me-1"></span>
@@ -275,7 +275,7 @@
                 </td>
               </tr>
             </tbody>
-          </table>
+           </table>
           
           <div v-if="filteredBookings.length === 0" class="text-center py-5 text-muted">
             <i class="bi bi-calendar-x" style="font-size: 3rem;"></i>
@@ -354,7 +354,6 @@
                     <i class="bi bi-envelope-at-fill text-muted me-3 fs-5"></i>
                     <div>
                       <div class="fw-bold text-dark">{{ bookingToView?.user_email }}</div>
-                      <div class="extra-small text-muted">ID: {{ bookingToView?.user_id || 'Guest' }}</div>
                     </div>
                   </div>
                 </div>
@@ -379,7 +378,7 @@
                         <th>Type</th>
                         <th class="text-center">Qty</th>
                         <th class="text-end pe-3">Subtotal</th>
-                      </tr>
+                       </tr>
                     </thead>
                     <tbody>
                       <tr v-for="item in bookingToView.details" :key="item.id">
@@ -387,9 +386,9 @@
                         <td class="small text-muted">{{ item.item_type || 'N/A' }}</td>
                         <td class="text-center small">{{ item.quantity }}</td>
                         <td class="text-end pe-3 fw-bold small">Rs. {{ item.subtotal || item.unit_price * item.quantity }}</td>
-                      </tr>
+                       </tr>
                     </tbody>
-                  </table>
+                   </table>
                 </div>
               </div>
             </div>
@@ -458,11 +457,32 @@ const getAuthToken = () => {
          localStorage.getItem('token');
 };
 
+// Get logged-in user email from localStorage
+const getLoggedInUserEmail = () => {
+  // Try to get email from multiple possible storage keys
+  return localStorage.getItem('userEmail') || 
+         localStorage.getItem('email') || 
+         localStorage.getItem('user_email') || 
+         '';
+};
+
 // State
 const isLoading = computed(() => bookingStore.isLoading && !bookingStore.isLoaded);
 const isRefreshing = ref(false);
 const errorMessage = ref('');
-const bookings = computed(() => bookingStore.bookings);
+const allBookings = computed(() => bookingStore.bookings);
+
+// 🔥 CRITICAL: Filter bookings by logged-in user email
+const bookings = computed(() => {
+  const loggedInEmail = getLoggedInUserEmail().toLowerCase();
+  if (!loggedInEmail) return [];
+  
+  // Filter bookings where user_email matches logged-in user
+  return allBookings.value.filter((booking: any) => {
+    const bookingEmail = (booking.user_email || '').toLowerCase();
+    return bookingEmail === loggedInEmail;
+  });
+});
 
 // Filter State
 const selectedResource = ref('');
@@ -554,7 +574,7 @@ const loadBookings = async () => {
   }
 };
 
-// --- Filtering ---
+// --- Filtering - Only shows current user's bookings ---
 const uniqueResources = computed(() => {
   const resources = new Set<string>();
   
@@ -785,6 +805,10 @@ onMounted(async () => {
   if (!bookingStore.isLoaded) {
     await bookingStore.fetchAll();
   }
+  
+  // Debug: Log logged-in user email
+  console.log('Logged-in User Email:', getLoggedInUserEmail());
+  console.log('Total bookings after filter:', bookings.value.length);
 });
 </script>
 
