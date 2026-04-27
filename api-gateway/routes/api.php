@@ -116,7 +116,77 @@ Route::get('/bookings/guest-lookup', function (Request $request) {
     }
 });
 
+
+// PUBLIC RESOURCE ROUTES
+// Category list (needed for filtering)
+Route::get('/categories', function (Request $request) {
+    try {
+        $response = Http::timeout(30)->withToken($request->bearerToken())
+            ->get('http://resource_service/api/categories');
+        return $response->json();
+    } catch (Exception $e) {
+        return response()->json([
+            'message' => 'Cannot connect to resource service',
+            'error' => $e->getMessage()
+        ], 503);
+    }
+});
+
+// List all resources
+Route::get('/resources', function (Request $request) {
+    try {
+        $response = Http::timeout(30)
+            ->withToken($request->bearerToken())
+            ->get('http://resource_service/api/resources');
+        
+        return handleProxyResponse($response, 'Failed to fetch resources.');
+    } catch (Exception $e) {
+        return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
+    }
+});
+
+// Show single resource
+Route::get('/resources/{id}', function (Request $request, $id) {
+    try {
+        $response = Http::timeout(30)
+            ->withToken($request->bearerToken())
+            ->get("http://resource_service/api/resources/{$id}");
+        
+        return handleProxyResponse($response, 'Failed to fetch resource.');
+    } catch (Exception $e) {
+        return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
+    }
+});
+
+// GET equipment availability
+Route::get('/booking-items/availability', function (Request $request) {
+    try {
+        $response = Http::timeout(30)
+            ->withToken($request->bearerToken())
+            ->get('http://resource_service/api/booking-items/availability', $request->all());
+        
+        return $response->json();
+    } catch (Exception $e) {
+        return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
+    }
+});
+
+// GET all booking items (equipment)
+Route::get('/booking-items', function (Request $request) {
+    try {
+        $response = Http::timeout(30)
+            ->withToken($request->bearerToken())
+            ->get('http://resource_service/api/booking-items');
+        
+        return $response->json();
+    } catch (Exception $e) {
+        return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
+    }
+});
+
 // Protected routes
+
+
 Route::middleware('auth:sanctum')->group(function () {
     // Get authenticated user's own profile
     Route::get('/user', function (Request $request) {
@@ -191,19 +261,7 @@ Route::middleware('auth:sanctum')->group(function () {
         return $response->json();
     });
 
-    // Category CRUD routes proxying to resource service
-    Route::get('/categories', function (Request $request) {
-        try {
-            $response = Http::timeout(30)->withToken($request->bearerToken())
-                ->get('http://resource_service/api/categories');
-            return $response->json();
-        } catch (Exception $e) {
-            return response()->json([
-                'message' => 'Cannot connect to resource service',
-                'error' => $e->getMessage()
-            ], 503);
-        }
-    });
+
         // Create category 
     Route::post('/categories', function (Request $request) {
         try {
@@ -295,30 +353,7 @@ Route::middleware('auth:sanctum')->group(function () {
         }
     });
 
-    // List all resources
-    Route::get('/resources', function (Request $request) {
-        try {
-            $response = Http::timeout(30)
-                ->withToken($request->bearerToken())
-                ->get('http://resource_service/api/resources');
-            
-            return handleProxyResponse($response, 'Failed to fetch resources.');
-        } catch (Exception $e) {
-            return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
-        }
-    });
-    // Show single resource
-    Route::get('/resources/{id}', function (Request $request, $id) {
-        try {
-            $response = Http::timeout(30)
-                ->withToken($request->bearerToken())
-                ->get("http://resource_service/api/resources/{$id}");
-            
-            return handleProxyResponse($response, 'Failed to fetch resource.');
-        } catch (Exception $e) {
-            return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
-        }
-    });
+
     // post a new resource
     Route::post('/resources', function (Request $request) {
         try {
@@ -488,41 +523,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Booking Service routes
     // Booking Items Routes
-    Route::get('/booking-items', function (Request $request) {
-        try {
-            $response = Http::timeout(30)
-                ->withToken($request->bearerToken())
-                ->get('http://resource_service/api/booking-items');
-            
-            return handleProxyResponse($response, 'Failed to fetch booking items.');
-        } catch (Exception $e) {
-            return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
-        }
-    });
-    Route::get('/booking-items/available', function (Request $request) {
-        try {
-            $response = Http::timeout(30)
-                ->withToken($request->bearerToken())
-                ->get('http://resource_service/api/booking-items/available');
-            
-            return handleProxyResponse($response, 'Failed to fetch available booking items.');
-        } catch (Exception $e) {
-            return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
-        }
-    });
 
-    // Dynamic equipment availability count
-    Route::get('/booking-items/availability', function (Request $request) {
-        try {
-            $response = Http::timeout(30)
-                ->withToken($request->bearerToken())
-                ->get('http://resource_service/api/booking-items/availability', $request->all());
-            
-            return handleProxyResponse($response, 'Failed to fetch dynamic equipment availability.');
-        } catch (Exception $e) {
-            return response()->json(['message' => 'Gateway error', 'error' => $e->getMessage()], 500);
-        }
-    });
     // Create booking item
     Route::post('/booking-items', function (Request $request) {
         try {
@@ -623,7 +624,10 @@ Route::post('/bookings', function (Request $request) {
         }
 
         $response = Http::timeout(60)  // Increased timeout for email
-            ->withHeaders(['X-User-Type' => $userType])
+            ->withHeaders([
+                'X-User-Type' => $userType,
+                'Accept' => 'application/json'
+            ])
             ->withToken($request->bearerToken())
             ->post('http://booking_service/api/bookings', $request->all());
         return handleProxyResponse($response, 'Booking creation failed.');
@@ -700,7 +704,10 @@ Route::post('/bookings/{id}/verify-otp', function (Request $request, $id) {
         }
 
         $response = Http::timeout(30)
-            ->withHeaders(['X-User-Type' => $userType])
+            ->withHeaders([
+                'X-User-Type' => $userType,
+                'Accept' => 'application/json'
+            ])
             ->withToken($request->bearerToken())
             ->post("http://booking_service/api/bookings/{$id}/verify-otp", $request->all());
         return handleProxyResponse($response, 'OTP verification failed.');

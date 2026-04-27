@@ -335,7 +335,7 @@
                     <button type="submit" class="btn btn-teal-modern py-3 shadow-sm rounded-3" :disabled="isCreatingBooking || isResourceUnavailable || isBookingConflict || (bookingForm.startTime >= bookingForm.endTime) || !bookingForm.email">
                       <span v-if="isCreatingBooking" class="spinner-border spinner-border-sm me-2"></span>
                       <i v-else class="bi bi-check2-circle me-2"></i>
-                      {{ isCreatingBooking ? 'Creating Booking...' : 'Book Now & Verify OTP' }}
+                      {{ isCreatingBooking ? 'Sending Request...' : 'Request Now & Verify OTP' }}
                     </button>
                   </div>
                 </form>
@@ -345,157 +345,125 @@
         </div>
       </div>
 
-      <!-- OTP Verification Modal -->
-      <div class="modal fade" id="otpModal" tabindex="-1" role="dialog" data-bs-backdrop="static" ref="otpModalRef">
-        <div class="modal-dialog modal-dialog-centered">
-          <div class="modal-content border-0 shadow-lg overflow-hidden rounded-4">
-            <div class="modal-header bg-dark-teal text-white border-0 py-3">
-              <h5 class="modal-title fs-6"><i class="bi bi-shield-lock-fill me-2"></i>OTP Verification</h5>
-              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body p-4 text-center">
-              <div class="mb-4">
-                <div class="otp-pulse-circle mx-auto mb-4">
-                  <i class="bi bi-envelope-check-fill text-teal fs-2"></i>
-                </div>
-                <h4 class="fw-bold text-dark-teal mb-2">Verify Your Email</h4>
-                <p class="text-muted">Enter the 6-digit code sent to<br><span class="fw-bold text-teal">{{ bookingForm.email }}</span></p>
-                <div v-if="otpSentSuccess" class="alert alert-success alert-sm py-2 mt-2">
-                  <i class="bi bi-check-circle me-1"></i>OTP sent successfully!
-                </div>
-              </div>
 
-              <div class="otp-fields d-flex justify-content-center gap-2 mb-4">
-                <input
-                  v-for="n in 6"
-                  :key="n"
-                  type="text"
-                  maxlength="1"
-                  class="form-control otp-digit text-center fw-bold"
-                  v-model="otpDigits[n-1]"
-                  @input="onOtpInput(n-1, $event)"
-                  @keydown="onOtpKeydown(n-1, $event)"
-                  :ref="el => { if (el) otpInputs[n-1] = el as any }"
-                  :disabled="isVerifyingOTP"
-                />
-              </div>
-              <div v-if="otpError" class="text-danger text-center mt-2 small mb-3">
-                <i class="bi bi-exclamation-triangle me-1"></i>{{ otpError }}
-              </div>
-
-              <div class="text-center mb-3">
-                <small class="text-muted">
-                  OTP expires in: 
-                  <span class="fw-bold" :class="otpExpired ? 'text-danger' : 'text-success'">
-                    {{ formatCountdownTimer() }}
-                  </span>
-                </small>
-              </div>
-
-              <div class="d-grid gap-3 px-4">
-                <button @click="verifyOTPAndConfirmBooking" class="btn btn-teal-modern py-2 rounded-pill" :disabled="!isOtpComplete || isVerifyingOTP">
-                  <span v-if="isVerifyingOTP" class="spinner-border spinner-border-sm me-2"></span>
-                  Verify & Confirm Booking
-                </button>
-                <div class="text-center">
-                  <button @click="resendOTP" class="btn btn-link text-teal text-decoration-none small fw-bold" :disabled="!otpExpired || isResendingOTP">
-                    {{ !otpExpired ? `Resend available in ${otpTimer}s` : 'Resend Code' }}
-                  </button>
-                </div>
-              </div>
+    <!-- OTP Verification Modal (Synced with working User view) -->
+    <div v-if="showOTPModal" class="modal-overlay">
+      <div class="modal-content">
+        <div class="modal-header bg-dark-teal text-white py-3 px-4">
+          <h5 class="modal-title mb-0">
+            <i class="bi bi-shield-lock me-2"></i>OTP Verification
+          </h5>
+          <button type="button" class="btn-close btn-close-white" @click="showOTPModal = false"></button>
+        </div>
+        <div class="modal-body p-4">
+          <div class="text-center mb-4">
+            <div class="otp-pulse-circle mx-auto mb-3">
+              <i class="bi bi-envelope-check fs-2 text-teal"></i>
             </div>
-            <div class="modal-footer bg-light border-0 py-2 justify-content-center">
-              <span class="x-small text-muted"><i class="bi bi-info-circle me-1"></i> Check your spam folder if code not received.</span>
+            <h6 class="fw-bold text-dark-teal">Verify Your Email</h6>
+            <p class="text-muted small">
+              We've sent a 6-digit code to:<br>
+              <span class="fw-bold text-teal">{{ bookingForm.email }}</span>
+            </p>
+            <div v-if="otpSentSuccess" class="alert alert-success alert-sm py-2 x-small">
+              <i class="bi bi-check-circle me-1"></i>OTP sent successfully!
             </div>
+          </div>
+
+          <div class="otp-input-container d-flex justify-content-center gap-2 mb-4">
+            <input
+              v-for="n in 6"
+              :key="n"
+              type="text"
+              maxlength="1"
+              class="otp-digit"
+              v-model="otpDigits[n-1]"
+              @input="onOtpInput(n-1, $event)"
+              @keydown="onOtpKeydown(n-1, $event)"
+              :ref="el => { if (el) otpInputs[n-1] = el as any }"
+              :disabled="isVerifyingOTP"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+            />
+          </div>
+
+          <div v-if="otpError" class="text-danger text-center mt-2 small mb-3">
+            <i class="bi bi-exclamation-triangle me-1"></i>{{ otpError }}
+          </div>
+
+          <div class="text-center mb-3">
+            <small class="text-muted">
+              OTP expires in: 
+              <span class="fw-bold" :class="otpExpired ? 'text-danger' : 'text-success'">
+                {{ formatCountdownTimer() }}
+              </span>
+            </small>
+          </div>
+
+          <div class="text-center">
+            <button 
+              class="btn btn-link btn-sm text-decoration-none text-teal fw-bold"
+              @click="resendOTP"
+              :disabled="!otpExpired || isResendingOTP"
+            >
+              <span v-if="isResendingOTP" class="spinner-border spinner-border-sm me-1"></span>
+              <i v-else class="bi bi-arrow-clockwise me-1"></i>
+              Resend OTP
+            </button>
           </div>
         </div>
-      </div>
-
-      <!-- Success Modal -->
-      <div v-if="showSuccessModal" class="modal-overlay-custom" @click.self="closeSuccessModal">
-        <div class="success-modal-content">
-          <div class="success-modal-header bg-teal text-white">
-            <h5 class="mb-0"><i class="bi bi-check-circle-fill me-2"></i>Booking Confirmed!</h5>
-            <button type="button" class="btn-close btn-close-white" @click="closeSuccessModal"></button>
-          </div>
-          <div class="success-modal-body text-center">
-            <i class="bi bi-check-circle" style="font-size: 4rem; color: #4BB66D;"></i>
-            <h6 class="fw-bold mt-3">Your booking has been confirmed!</h6>
-            <div class="booking-details bg-light p-3 rounded mt-3 text-start">
-              <p class="mb-1"><strong>Resource:</strong> {{ resource?.name }}</p>
-              <p class="mb-1"><strong>Date:</strong> {{ bookingForm.date }}</p>
-              <p class="mb-1"><strong>Time:</strong> {{ bookingForm.startTime }} - {{ bookingForm.endTime }}</p>
-              <div v-if="selectedEquipment.length > 0" class="mb-1">
-                <strong>Equipment:</strong>
-                <ul class="mb-0 ps-3 small">
-                  <li v-for="item in selectedEquipment" :key="item.id">{{ item.name }} (Qty: {{ item.quantity }})</li>
-                </ul>
-              </div>
-              <p class="mb-0"><strong>Total Cost:</strong> Rs. {{ totalBookingCost }}</p>
-            </div>
-            <p class="text-muted small mt-3">Confirmation sent to <strong>{{ bookingForm.email }}</strong></p>
-            <div v-if="confirmedBookingReference" class="alert alert-info mt-2">
-              <i class="bi bi-info-circle me-2"></i>
-              Booking Reference: <strong>{{ confirmedBookingReference }}</strong>
-            </div>
-          </div>
-          <div class="success-modal-footer justify-content-center">
-            <button class="btn btn-teal-modern" @click="redirectToResources">Browse More Resources</button>
-            <button class="btn btn-outline-teal-modern" @click="closeSuccessModal">Book Another</button>
-          </div>
+        <div class="modal-footer d-flex gap-2 justify-content-center border-0 pb-4">
+          <button @click="showOTPModal = false" class="btn btn-outline-secondary px-4 rounded-pill" :disabled="isVerifyingOTP">
+            Cancel
+          </button>
+          <button @click="verifyOTPAndConfirmBooking" class="btn btn-teal-modern px-4 rounded-pill" :disabled="!isOtpComplete || isVerifyingOTP">
+            <span v-if="isVerifyingOTP" class="spinner-border spinner-border-sm me-2"></span>
+            Verify & Confirm
+          </button>
         </div>
       </div>
+    </div>
 
-      <!-- Booking Details Modal -->
-      <div v-if="selectedBooking" class="modal-overlay-custom" @click.self="selectedBooking = null">
-        <div class="details-modal-content">
-          <div class="details-modal-header bg-info text-white">
-            <h5 class="mb-0"><i class="bi bi-calendar-check me-2"></i>Booking Details</h5>
-            <button type="button" class="btn-close btn-close-white" @click="selectedBooking = null"></button>
-          </div>
-          <div class="details-modal-body">
-            <div class="row">
-              <div class="col-md-6">
-                <h6 class="fw-bold mb-3">Booking Information</h6>
-                <table class="table table-sm table-borderless">
-                  <tbody>
-                    <tr><th width="40%">Reference:</th><td>{{ selectedBooking.booking_reference || 'N/A' }}</td></tr>
-                    <tr><th>Status:</th><td><span class="badge" :class="getBookingStatusClass(selectedBooking.status)">{{ getBookingStatusText(selectedBooking.status) }}</span></td></tr>
-                    <tr><th>Date:</th><td>{{ formatDate(selectedBooking.booking_date) }}</td></tr>
-                    <tr><th>Time:</th><td>{{ formatTime(selectedBooking.start_time) }} - {{ formatTime(selectedBooking.end_time) }}</td></tr>
-                    <tr><th>Duration:</th><td>{{ calculateDuration(selectedBooking.start_time, selectedBooking.end_time) }} hours</td></tr>
-                    <tr><th>Amount:</th><td class="fw-bold text-success">Rs. {{ calculateBookingAmount(selectedBooking) }}</td></tr>
-                  </tbody>
-                </table>
-              </div>
-              <div class="col-md-6">
-                <h6 class="fw-bold mb-3">Customer Information</h6>
-                <table class="table table-sm table-borderless">
-                  <tbody>
-                    <tr><th width="40%">Name:</th><td>{{ selectedBooking.user?.name || 'N/A' }}</td></tr>
-                    <tr><th>Email:</th><td>{{ selectedBooking.user?.email || selectedBooking.user_email || 'N/A' }}</td></tr>
-                  </tbody>
-                </table>
-                <h6 class="fw-bold mb-3 mt-4">Resource Details</h6>
-                <table class="table table-sm table-borderless">
-                  <tbody>
-                    <tr><th width="40%">Resource:</th><td>{{ resource?.name }}</td></tr>
-                    <tr><th>Category:</th><td>{{ resource?.category?.name || 'N/A' }}</td></tr>
-                    <tr><th>Rate:</th><td>Rs. {{ resource?.base_price }}/hour</td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            <div v-if="selectedBooking.notes" class="mt-3">
-              <h6 class="fw-bold mb-2">Notes</h6>
-              <div class="alert alert-light border">{{ selectedBooking.notes }}</div>
-            </div>
-          </div>
-          <div class="details-modal-footer">
-            <button class="btn btn-secondary" @click="selectedBooking = null">Close</button>
+    <!-- Success Modal -->
+    <div v-if="showSuccessModal" class="modal-overlay">
+      <div class="modal-content text-center p-4">
+        <div class="mb-4">
+          <div class="success-icon-check mx-auto">
+            <i class="bi bi-check-lg"></i>
           </div>
         </div>
+        <h4 class="fw-bold text-dark-teal mb-3">Booking Confirmed!</h4>
+        <p class="text-muted mb-4">Your booking request has been successfully processed and confirmed.</p>
+        
+        <div class="booking-details-box text-start p-3 bg-light rounded mb-4">
+          <div class="mb-2"><small class="text-muted">Reference:</small> <span class="fw-bold text-dark-teal">{{ confirmedBookingReference }}</span></div>
+          <div class="mb-2"><small class="text-muted">Resource:</small> <span class="fw-bold text-dark-teal">{{ resource.name }}</span></div>
+          <div class="mb-0"><small class="text-muted">Date:</small> <span class="fw-bold text-dark-teal">{{ formatDate(bookingForm.date) }}</span></div>
+        </div>
+
+        <button @click="closeSuccessModal" class="btn btn-teal-modern w-100 py-2 rounded-pill">
+          Return to Gallery
+        </button>
       </div>
+    </div>
+
+    <!-- Details Modal -->
+    <div v-if="selectedBooking" class="modal-overlay">
+      <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header bg-dark-teal text-white py-3">
+          <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Booking Details</h5>
+          <button type="button" class="btn-close btn-close-white" @click="selectedBooking = null"></button>
+        </div>
+        <div class="modal-body p-4">
+           <!-- Details info... -->
+           <p>Reference: {{ selectedBooking.booking_reference }}</p>
+           <p>Status: {{ selectedBooking.status }}</p>
+        </div>
+        <div class="modal-footer border-0">
+          <button class="btn btn-secondary px-4" @click="selectedBooking = null">Close</button>
+        </div>
+      </div>
+    </div>
 
     </div>
   </GuestLayout>
@@ -505,7 +473,6 @@
 import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
-import * as bootstrap from 'bootstrap';
 import GuestLayout from '../../layouts/GuestLayout.vue';
 import { bookingStore } from '../../store/bookingStore';
 
@@ -514,541 +481,488 @@ const router = useRouter();
 
 // API Configuration
 const API_BASE_URL = 'http://localhost:8000/api';
-const STORAGE_URL_ROOT = 'http://localhost:8000/api/resources/storage';
 
-// Get auth token
-const getAuthToken = () => {
-  return localStorage.getItem('authToken') || 
-         localStorage.getItem('auth_token') || 
-         localStorage.getItem('token') || 
-         '';
-};
+// Helper to get auth token (Guests might not have one, which is fine)
+const getAuthToken = () => localStorage.getItem('token') || '';
 
-// Formatting Functions
-const formatTime = (time: string | null): string => {
-    if (!time) return '00:00';
-    return time.substring(0, 5); 
-};
-
-const formatDate = (dateString: string): string => {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  });
-};
-
-const formatDateTime = (dateString: string): string => {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-};
-
-const calculateDuration = (startTime: string, endTime: string): string => {
-  const start = new Date(`2000-01-01T${startTime}`);
-  const end = new Date(`2000-01-01T${endTime}`);
-  const diff = end.getTime() - start.getTime();
-  const hours = diff > 0 ? diff / (1000 * 60 * 60) : 0;
-  return hours.toFixed(1);
-};
-
-const formatTimeShort = (time: string) => {
-  if (!time) return '';
-  const [h, m] = time.split(':');
-  const d = new Date();
-  d.setHours(parseInt(h), parseInt(m));
-  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-};
-
-// Interfaces
-interface Resource {
-  id: number;
-  name: string;
-  location_name?: string;
-  category_id: number;
-  category: ResourceCategory;
-  base_price: number;
-  department: string;
-  description?: string;
-  status: 'Active' | 'Inactive' | 'Maintenance';
-  capacity?: number;
-  availability: ResourceAvailability[]; 
-  images?: Array<{ file_path: string; file_name: string; }>;
-}
-
-interface TimeSlot { start_time: string; end_time: string; }
-interface ResourceAvailability { id: number; day_name: string; day_of_week: number; is_available: boolean; slots: TimeSlot[]; }
-interface ResourceCategory { id: number; name: string; }
-interface BookingEquipment { id: number; name: string; description: string; price_per_hour: number; available_quantity: number; status: string; }
-interface SelectedEquipmentItem extends BookingEquipment { quantity: number; }
-interface BookingForm { email: string; date: string; startTime: string; endTime: string; purpose?: string; }
-interface Booking { id: number; booking_reference: string; user_id: number; user_email: string; booking_date: string; start_time: string; end_time: string; total_amount: number; status: string; notes: string; created_at: string; updated_at: string; confirmed_at: string | null; cancelled_at: string | null; details: BookingDetail[]; user?: { id: number; name: string; email: string; phone?: string; }; }
-interface BookingDetail { id: number; item_type: string; item_id: number; quantity: number; unit_price: number; subtotal: number; }
-
-// State
-const resource = ref<Resource | null>(null);
+// Computed Properties for template
 const bookings = computed(() => {
-  if (!resource.value) return [];
-  const currentResourceId = resource.value.id;
-  return bookingStore.bookings.filter((b: any) => {
-    return b.details && b.details.some((detail: any) => 
-      detail.item_type === 'resource' && Number(detail.item_id) === Number(currentResourceId)
-    );
-  });
+    // Filter bookings for this resource only if needed, 
+    // but the store might already be filtered by fetchByResource
+    return bookingStore.bookings.filter(b => b.resources?.some((r: any) => r.id === resource.value?.id) || b.resource_id === resource.value?.id);
 });
-const selectedBooking = ref<Booking | null>(null);
-const isLoading = ref(true);
-const isLoadingBookings = ref(false);
-const errorMessage = ref('');
-
-// Equipment State
-const availableEquipment = ref<BookingEquipment[]>([]);
-const filteredEquipment = ref<BookingEquipment[]>([]);
-const selectedEquipment = ref<SelectedEquipmentItem[]>([]);
-const equipmentSearch = ref('');
-const isLoadingEquipment = ref(false);
-const showEquipmentDropdown = ref(false);
-
-// OTP State
-const showOTPModal = ref(false);
-const showSuccessModal = ref(false);
-const otpDigits = ref<string[]>(Array(6).fill(''));
-const otpInputs = ref<(HTMLInputElement | null)[]>(Array(6).fill(null));
-const otpError = ref('');
-const isVerifyingOTP = ref(false);
-const isCreatingBooking = ref(false);
-const isResendingOTP = ref(false);
-const otpTimer = ref(300);
-const otpTimerInterval = ref<number | null>(null);
-const pendingBookingId = ref<number | null>(null);
-const confirmedBookingReference = ref<string>('');
-const otpSentSuccess = ref(false);
-let modalInstance: bootstrap.Modal | null = null;
-const otpModalRef = ref<HTMLElement | null>(null);
-
-// Booking Form
-const bookingForm = ref<BookingForm>({
-  email: localStorage.getItem('userEmail') || '',
-  date: new Date().toISOString().split('T')[0],
-  startTime: '08:00',
-  endTime: '12:00',
-  purpose: ''
-});
-
-// Computed Properties
-const minDate = computed(() => new Date().toISOString().split('T')[0]);
-
-const hourOptions = computed(() => Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0')));
-const minuteOptions = computed(() => Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0')));
-
-const startHour = ref('08');
-const startMin = ref('00');
-const endHour = ref('12');
-const endMin = ref('00');
-
-watch([startHour, startMin], () => { bookingForm.value.startTime = `${startHour.value}:${startMin.value}`; });
-watch([endHour, endMin], () => { bookingForm.value.endTime = `${endHour.value}:${endMin.value}`; });
-
-watch(() => bookingForm.value.startTime, (newVal: string) => {
-  if (newVal && newVal.includes(':')) { const [h, m] = newVal.split(':'); startHour.value = h.padStart(2, '0'); startMin.value = m.padStart(2, '0'); }
-}, { immediate: true });
-
-watch(() => bookingForm.value.endTime, (newVal: string) => {
-  if (newVal && newVal.includes(':')) { const [h, m] = newVal.split(':'); endHour.value = h.padStart(2, '0'); endMin.value = m.padStart(2, '0'); }
-}, { immediate: true });
-
-const calculatedCost = computed(() => {
-  if (!resource.value || !bookingForm.value.startTime || !bookingForm.value.endTime) return 0;
-  const start = new Date(`2000-01-01T${bookingForm.value.startTime}`);
-  const end = new Date(`2000-01-01T${bookingForm.value.endTime}`);
-  const diff = end.getTime() - start.getTime();
-  const hours = diff > 0 ? diff / (1000 * 60 * 60) : 0;
-  return Math.round(hours * resource.value.base_price);
-});
-
-const equipmentTotalCost = computed(() => {
-  return selectedEquipment.value.reduce((total, item) => {
-    const hours = calculateBookingDuration();
-    return total + (item.price_per_hour * item.quantity * hours);
-  }, 0);
-});
-
-const totalBookingCost = computed(() => calculatedCost.value + equipmentTotalCost.value);
 
 const sortedAvailability = computed(() => {
   if (!resource.value?.availability) return [];
   const daysOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-  return [...resource.value.availability].sort((a, b) => daysOrder.indexOf(a.day_name) - daysOrder.indexOf(b.day_name));
+  return [...resource.value.availability].sort((a, b) => 
+    daysOrder.indexOf(a.day_name) - daysOrder.indexOf(b.day_name)
+  );
 });
 
+const minDate = computed(() => new Date().toISOString().split('T')[0]);
+
 const isResourceUnavailable = computed(() => {
-  if (!resource.value || !bookingForm.value.date || !bookingForm.value.startTime || !bookingForm.value.endTime) return false;
-  const selectedDate = new Date(bookingForm.value.date);
-  const selectedDayName = selectedDate.toLocaleDateString('en-US', { weekday: 'long' });
-  const dayAvailability = resource.value.availability?.find(day => day.day_name.toLowerCase() === selectedDayName.toLowerCase());
-  if (!dayAvailability || !dayAvailability.is_available) return true;
-  if (dayAvailability.slots && dayAvailability.slots.length > 0) {
-    const selectedStart = bookingForm.value.startTime.substring(0, 5);
-    const selectedEnd = bookingForm.value.endTime.substring(0, 5);
-    return !dayAvailability.slots.some(slot => {
-      const slotStart = slot.start_time.substring(0, 5);
-      const slotEnd = slot.end_time.substring(0, 5);
-      return selectedStart >= slotStart && selectedEnd <= slotEnd;
-    });
-  }
-  return false;
+  if (!resource.value || !bookingForm.value.date) return false;
+  const dayName = new Date(bookingForm.value.date).toLocaleDateString('en-US', { weekday: 'long' });
+  const dayAvail = resource.value.availability?.find((a: any) => a.day_name === dayName);
+  return dayAvail ? !dayAvail.is_available : true;
 });
 
 const isBookingConflict = computed(() => {
-  if (!resource.value || !bookingForm.value.date || !bookingForm.value.startTime || !bookingForm.value.endTime) return false;
-  const selectedDateStr = bookingForm.value.date;
-  const selectedStart = bookingForm.value.startTime.substring(0, 5);
-  const selectedEnd = bookingForm.value.endTime.substring(0, 5);
-  return bookings.value.some((b: any) => {
-    const status = (b.status || '').toLowerCase();
-    if (status !== 'confirmed' && status !== 'approved') return false;
-    let bDateStr = '';
-    if (b.booking_date) { const bDate = new Date(b.booking_date); bDateStr = bDate.toISOString().split('T')[0]; }
-    if (bDateStr !== selectedDateStr) return false;
-    const bStart = (b.start_time || '').substring(0, 5);
-    const bEnd = (b.end_time || '').substring(0, 5);
-    if (!bStart || !bEnd) return false;
-    return (selectedStart < bEnd) && (bStart < selectedEnd);
+  if (!bookings.value || !bookingForm.value.date || !bookingForm.value.startTime || !bookingForm.value.endTime) return false;
+  
+  const selectedDate = bookingForm.value.date;
+  const selectedStart = bookingForm.value.startTime;
+  const selectedEnd = bookingForm.value.endTime;
+
+  return bookings.value.some(b => {
+    if (b.booking_date !== selectedDate || b.status === 'cancelled') return false;
+    return (selectedStart < b.end_time && selectedEnd > b.start_time);
   });
 });
 
-const isOtpComplete = computed(() => otpDigits.value.every(digit => digit.length === 1));
 const otpExpired = computed(() => otpTimer.value <= 0);
+const isOtpComplete = computed(() => otpDigits.value.join('').length === 6);
 
-// Helper Functions
-const processAvailabilityData = (availabilityData: any[]) => {
-  if (!availabilityData || !Array.isArray(availabilityData)) return [];
-  return availabilityData.map(day => {
-    if (day.slots && Array.isArray(day.slots)) {
-      return { ...day, slots: day.slots.map((slot: any) => ({ start_time: slot.start_time || '', end_time: slot.end_time || '' })) };
-    }
-    const slots = [];
-    if (day.start_time && day.end_time) slots.push({ start_time: day.start_time, end_time: day.end_time });
-    return { ...day, slots };
-  });
-};
 
 const calculateBookingDuration = (): number => {
   if (!bookingForm.value.startTime || !bookingForm.value.endTime) return 0;
   const start = new Date(`2000-01-01T${bookingForm.value.startTime}`);
   const end = new Date(`2000-01-01T${bookingForm.value.endTime}`);
-  return (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-};
-
-const getImageUrl = (res: any) => {
-  if (res.images && res.images.length > 0) return `${API_BASE_URL}/resources/storage/${res.images[0].file_path}`;
-  return 'https://via.placeholder.com/600x400?text=No+Resource+Image';
-};
-
-const getStatusClass = (status: string): string => {
-  switch (status) { case 'Active': return 'bg-success'; case 'Inactive': return 'bg-secondary'; case 'Maintenance': return 'bg-warning'; default: return 'bg-secondary'; }
-};
-
-const getBookingStatusClass = (status: string): string => {
-  switch (status) { case 'pending': return 'status-pending'; case 'confirmed': return 'status-confirmed'; case 'cancelled': return 'status-cancelled'; case 'completed': return 'status-completed'; default: return 'bg-secondary'; }
-};
-
-const getBookingStatusText = (status: string): string => {
-  switch (status) { case 'pending': return 'Pending'; case 'confirmed': return 'Confirmed'; case 'cancelled': return 'Cancelled'; case 'completed': return 'Completed'; default: return status.charAt(0).toUpperCase() + status.slice(1); }
-};
-
-const calculateBookingAmount = (booking: Booking): number => {
-  if (booking.total_amount) return booking.total_amount;
-  if (booking.details && booking.details.length > 0) return booking.details.reduce((sum, detail) => sum + detail.subtotal, 0);
-  const start = new Date(`2000-01-01T${booking.start_time}`);
-  const end = new Date(`2000-01-01T${booking.end_time}`);
   const diff = end.getTime() - start.getTime();
   const hours = diff > 0 ? diff / (1000 * 60 * 60) : 0;
-  return Math.round(hours * (resource.value?.base_price || 0));
+  return hours;
 };
 
-const formatCountdownTimer = () => {
-  const minutes = Math.floor(otpTimer.value / 60);
-  const seconds = otpTimer.value % 60;
-  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+const calculateAmountWithUserType = (baseAmount: number): number => {
+  // Guests always pay full amount
+  return baseAmount;
 };
 
-// API Functions
+const calculatedCost = computed(() => {
+  if (!resource.value || !bookingForm.value.startTime || !bookingForm.value.endTime) return 0;
+  try {
+    const hours = calculateBookingDuration();
+    const baseAmount = Math.round(hours * (resource.value.base_price || 0));
+    return calculateAmountWithUserType(baseAmount) || 0;
+  } catch (e) {
+    return 0;
+  }
+});
+
+const equipmentTotalCost = computed(() => {
+  if (!selectedEquipment.value.length) return 0;
+  try {
+    const hours = calculateBookingDuration();
+    const total = selectedEquipment.value.reduce((total, item) => {
+      return total + ((item.price_per_hour || 0) * (item.quantity || 0) * hours);
+    }, 0);
+    return calculateAmountWithUserType(total) || 0;
+  } catch (e) {
+    return 0;
+  }
+});
+
+const totalBookingCost = computed(() => {
+  return (Number(calculatedCost.value) || 0) + (Number(equipmentTotalCost.value) || 0);
+});
+
+
+
+
+// State
+const resource = ref<any>(null);
+const isLoading = ref(true);
+const isLoadingBookings = ref(false);
+const isLoadingEquipment = ref(false);
+const errorMessage = ref('');
+
+
+// Equipment & Search
+const availableEquipment = ref<any[]>([]);
+const filteredEquipment = ref<any[]>([]);
+const selectedEquipment = ref<any[]>([]);
+const equipmentSearch = ref('');
+const showEquipmentDropdown = ref(false);
+
+// OTP & Modals
+const showOTPModal = ref(false);
+const showSuccessModal = ref(false);
+const otpDigits = ref<string[]>(Array(6).fill(''));
+const otpInputs = ref<HTMLInputElement[]>([]);
+const otpError = ref('');
+const isVerifyingOTP = ref(false);
+const isCreatingBooking = ref(false);
+const isResendingOTP = ref(false);
+const otpTimer = ref(300);
+const otpTimerInterval = ref<any>(null);
+const pendingBookingId = ref<number | null>(null);
+const confirmedBookingReference = ref<string>('');
+const otpSentSuccess = ref(false);
+
+// Booking Form
+const bookingForm = ref({
+  email: '',
+  date: new Date().toISOString().split('T')[0],
+  startTime: '08:00',
+  endTime: '09:00',
+  purpose: ''
+});
+
+// Time Helpers
+const hourOptions = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
+const minuteOptions = ['00', '15', '30', '45'];
+const startHour = ref('08');
+const startMin = ref('00');
+const endHour = ref('09');
+const endMin = ref('00');
+
+// Sync time selects with bookingForm
+watch([startHour, startMin], () => { bookingForm.value.startTime = `${startHour.value}:${startMin.value}`; });
+watch([endHour, endMin], () => { bookingForm.value.endTime = `${endHour.value}:${endMin.value}`; });
+
+// --- CORE FIX: Create Booking Logic ---
+const createBookingAndSendOTP = async () => {
+  if (!bookingForm.value.email) {
+    errorMessage.value = "Email is required for Guest verification.";
+    return;
+  }
+
+  isCreatingBooking.value = true;
+  errorMessage.value = '';
+  
+  try {
+    const payload = {
+      user_id: 0, // Guest marker
+      user_email: bookingForm.value.email,
+      booking_date: bookingForm.value.date,
+      start_time: bookingForm.value.startTime,
+      end_time: bookingForm.value.endTime,
+      notes: bookingForm.value.purpose || 'Guest Reservation',
+      resources: [{ resource_id: Number(route.params.id) }],
+      booking_items: selectedEquipment.value.map(item => ({
+        item_id: item.id,
+        quantity: item.quantity
+      }))
+    };
+
+    // Note the X-User-Type header to match your backend resolution
+    const token = getAuthToken();
+    const headers: any = { 
+        'Accept': 'application/json',
+        'X-User-Type': 'external' 
+    };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const response = await axios.post(`${API_BASE_URL}/bookings`, payload, { headers });
+
+    // FIX: Match the backend response key 'booking_id'
+    if (response.data.booking_id) {
+      pendingBookingId.value = response.data.booking_id;
+      showOTPModal.value = true; // This will trigger the v-if in template
+      startOTPTimer();
+      otpSentSuccess.value = true;
+      
+      // Auto-focus first digit
+      await nextTick();
+      if (otpInputs.value[0]) otpInputs.value[0].focus();
+    }
+  } catch (error: any) {
+    errorMessage.value = error.response?.data?.message || 'Failed to initiate booking.';
+  } finally {
+    isCreatingBooking.value = false;
+  }
+
+};
+
+const verifyOTPAndConfirmBooking = async () => {
+  const code = otpDigits.value.join('');
+  if (code.length < 6) return;
+
+  isVerifyingOTP.value = true;
+  otpError.value = '';
+
+  try {
+    const token = getAuthToken();
+    const headers: any = { 
+        'Accept': 'application/json',
+        'X-User-Type': 'external' 
+    };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const response = await axios.post(`${API_BASE_URL}/bookings/${pendingBookingId.value}/verify-otp`, 
+      { otp_code: code },
+      { headers }
+    );
+
+
+    confirmedBookingReference.value = response.data.booking?.booking_reference || 'REF-GUEST';
+    showOTPModal.value = false;
+    showSuccessModal.value = true;
+  } catch (error: any) {
+    otpError.value = error.response?.data?.message || 'Invalid OTP';
+    otpDigits.value = Array(6).fill('');
+    if (otpInputs.value[0]) otpInputs.value[0].focus();
+  } finally {
+    isVerifyingOTP.value = false;
+  }
+};
+
+// --- OTP Input Management ---
+const onOtpInput = (index: number, event: any) => {
+  const val = event.target.value;
+  if (val.length > 1) {
+    otpDigits.value[index] = val.slice(-1);
+  }
+  if (val && index < 5) {
+    otpInputs.value[index + 1]?.focus();
+  }
+};
+
+const onOtpKeydown = (index: number, event: KeyboardEvent) => {
+  if (event.key === 'Backspace' && !otpDigits.value[index] && index > 0) {
+    otpInputs.value[index - 1]?.focus();
+  }
+};
+
+// --- Lifecycle & Load ---
 const loadResourceDetails = async () => {
   isLoading.value = true;
-  errorMessage.value = '';
   try {
-    const id = route.params.id;
     const token = getAuthToken();
-    const response = await axios.get(`${API_BASE_URL}/resources/${id}`, {
-      headers: token ? { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' } : { 'Accept': 'application/json' }
-    });
-    let resourceData = response.data.resource || response.data;
-    if (resourceData) {
-      if (resourceData.availability) resourceData.availability = processAvailabilityData(resourceData.availability);
-      else resourceData.availability = [];
-      resource.value = resourceData;
-      await loadBookings();
-      await loadAvailableEquipment();
-    }
-    bookingForm.value.date = minDate.value;
-  } catch (err: any) {
-    console.error('Error loading resource details:', err);
-    errorMessage.value = err.response?.data?.message || 'Failed to load resource details.';
+    const headers: any = { 'Accept': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await axios.get(`${API_BASE_URL}/resources/${route.params.id}`, { headers });
+    resource.value = res.data.resource || res.data;
+    // Fetch bookings for this resource to show in history
+    await bookingStore.fetchByResource(resource.value.id);
+  } catch (e) {
+    errorMessage.value = "Could not load resource details.";
   } finally {
     isLoading.value = false;
   }
 };
 
-const loadBookings = async () => {
-  if (!resource.value) return;
-  isLoadingBookings.value = true;
-  try {
-    await bookingStore.fetchByResource(resource.value.id);
-  } catch (error: any) { console.error('Error loading bookings:', error); }
-  finally { isLoadingBookings.value = false; }
+
+const startOTPTimer = () => {
+  otpTimer.value = 300;
+  if (otpTimerInterval.value) clearInterval(otpTimerInterval.value);
+  otpTimerInterval.value = setInterval(() => {
+    if (otpTimer.value > 0) otpTimer.value--;
+  }, 1000);
 };
 
-const loadAvailableEquipment = async () => {
-  if (!bookingForm.value.date || !bookingForm.value.startTime || !bookingForm.value.endTime) {
-    try {
-      const token = getAuthToken();
-      const response = await axios.get(`${API_BASE_URL}/booking-items`, {
-        headers: token ? { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' } : { 'Accept': 'application/json' }
-      });
-      let equipmentData = response.data.items || response.data.data || response.data;
-      availableEquipment.value = equipmentData.filter((item: any) => item.status === 'Available');
-    } catch (error) { console.error('Error loading static equipment:', error); }
-    return;
+const formatCountdownTimer = () => {
+  const m = Math.floor(otpTimer.value / 60);
+  const s = otpTimer.value % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+};
+
+onMounted(loadResourceDetails);
+
+// Equipment Watchers
+watch(() => bookingForm.value.date, () => {
+  if (bookingForm.value.date && bookingForm.value.startTime && bookingForm.value.endTime) {
+    loadAvailableEquipment();
   }
+});
+
+watch([() => bookingForm.value.startTime, () => bookingForm.value.endTime], () => {
+  if (bookingForm.value.date && bookingForm.value.startTime && bookingForm.value.endTime) {
+    loadAvailableEquipment();
+  }
+});
+
+const loadAvailableEquipment = async () => {
   isLoadingEquipment.value = true;
   try {
     const token = getAuthToken();
-    const params = { date: bookingForm.value.date, start_time: bookingForm.value.startTime, end_time: bookingForm.value.endTime };
+    const params = {
+      date: bookingForm.value.date,
+      start_time: bookingForm.value.startTime,
+      end_time: bookingForm.value.endTime
+    };
+    
+    const headers: any = { 'Accept': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
     const response = await axios.get(`${API_BASE_URL}/booking-items/availability`, {
-      params, headers: token ? { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' } : { 'Accept': 'application/json' }
+      params,
+      headers
     });
+    
     const equipmentData = response.data;
     if (Array.isArray(equipmentData)) {
-      availableEquipment.value = equipmentData.filter((item: any) => item.status === 'Available' && item.available_quantity > 0);
-    } else { availableEquipment.value = []; }
-    selectedEquipment.value.forEach(selectedItem => {
-      const liveData = equipmentData.find((item: any) => item.id === selectedItem.id);
-      if (liveData) {
-        selectedItem.available_quantity = liveData.available_quantity;
-        if (selectedItem.quantity > liveData.available_quantity) selectedItem.quantity = liveData.available_quantity;
-      }
-    });
-  } catch (error: any) { console.error('Error loading dynamic equipment:', error); }
-  finally { isLoadingEquipment.value = false; }
+      availableEquipment.value = equipmentData.filter((item: any) => 
+        item.status === 'Available' && item.available_quantity > 0
+      );
+    }
+  } catch (error) {
+    console.error('Error loading equipment:', error);
+  } finally {
+    isLoadingEquipment.value = false;
+  }
 };
 
 const searchEquipment = () => {
   const searchTerm = equipmentSearch.value.toLowerCase().trim();
   filteredEquipment.value = availableEquipment.value.filter(item => {
     const nameMatch = item.name.toLowerCase().includes(searchTerm);
-    const descMatch = item.description?.toLowerCase().includes(searchTerm) || false;
-    return (nameMatch || descMatch) && item.status === 'Available' && item.available_quantity > 0;
+    return !searchTerm || nameMatch;
   });
-  showEquipmentDropdown.value = filteredEquipment.value.length > 0;
+  showEquipmentDropdown.value = true;
 };
 
-const clearEquipmentSearch = () => { equipmentSearch.value = ''; filteredEquipment.value = []; showEquipmentDropdown.value = false; };
+const clearEquipmentSearch = () => {
+  equipmentSearch.value = '';
+  filteredEquipment.value = [];
+  showEquipmentDropdown.value = false;
+};
 
-const addEquipmentItem = (item: BookingEquipment) => {
+const addEquipmentItem = (item: any) => {
   const existingIndex = selectedEquipment.value.findIndex(selected => selected.id === item.id);
   if (existingIndex !== -1) {
-    if (selectedEquipment.value[existingIndex].quantity < item.available_quantity) selectedEquipment.value[existingIndex].quantity++;
-    else alert(`Maximum available quantity is ${item.available_quantity}`);
+    if (selectedEquipment.value[existingIndex].quantity < item.available_quantity) {
+      selectedEquipment.value[existingIndex].quantity++;
+    }
   } else {
     selectedEquipment.value.push({ ...item, quantity: 1 });
   }
   clearEquipmentSearch();
 };
 
-const removeEquipmentItem = (index: number) => { selectedEquipment.value.splice(index, 1); };
-const increaseQuantity = (index: number) => { if (selectedEquipment.value[index].quantity < selectedEquipment.value[index].available_quantity) selectedEquipment.value[index].quantity++; };
-const decreaseQuantity = (index: number) => { if (selectedEquipment.value[index].quantity > 1) selectedEquipment.value[index].quantity--; };
+const removeEquipmentItem = (index: number) => {
+  selectedEquipment.value.splice(index, 1);
+};
 
-const createBooking = async () => {
-  if (!resource.value) throw new Error('Resource not loaded');
+const increaseQuantity = (index: number) => {
+  const item = selectedEquipment.value[index];
+  if (item.quantity < item.available_quantity) {
+    selectedEquipment.value[index].quantity++;
+  }
+};
+
+const decreaseQuantity = (index: number) => {
+  if (selectedEquipment.value[index].quantity > 1) {
+    selectedEquipment.value[index].quantity--;
+  }
+};
+
+
+// --- Helpers ---
+const getImageUrl = (res: any) => {
+  if (res?.images && res.images.length > 0) {
+    return `${API_BASE_URL}/resources/storage/${res.images[0].file_path}`;
+  }
+  return 'https://via.placeholder.com/600x400?text=No+Image';
+};
+
+const getStatusClass = (status: string) => {
+  switch (status) {
+    case 'Active': return 'bg-success';
+    case 'Maintenance': return 'bg-warning text-dark';
+    default: return 'bg-secondary';
+  }
+};
+
+const formatDate = (dateString: string) => {
+  if (!dateString) return 'N/A';
+  return new Date(dateString).toLocaleDateString('en-US', {
+    year: 'numeric', month: 'short', day: 'numeric'
+  });
+};
+
+const formatTime = (time: string) => {
+  if (!time) return '00:00';
+  return time.substring(0, 5);
+};
+
+const formatTimeShort = (time: string) => formatTime(time);
+
+const formatDateTime = (dateTimeString: string) => {
+  if (!dateTimeString) return 'N/A';
+  return new Date(dateTimeString).toLocaleString('en-US', {
+    year: 'numeric', month: 'short', day: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  });
+};
+
+const calculateBookingAmount = (booking: any) => {
+  return booking.total_amount || 0;
+};
+
+const getBookingStatusClass = (status: string) => {
+  switch (status?.toLowerCase()) {
+    case 'pending': return 'status-pending';
+    case 'confirmed': return 'status-confirmed';
+    case 'cancelled': return 'status-cancelled';
+    case 'requested_by_guest': return 'bg-info text-white';
+    default: return 'bg-secondary';
+  }
+};
+
+const getBookingStatusText = (status: string) => {
+  if (!status) return 'Unknown';
+  return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+};
+
+const viewBookingDetails = (booking: any) => {
+  alert(`Booking Reference: ${booking.booking_reference}\nDate: ${formatDate(booking.booking_date)}\nStatus: ${getBookingStatusText(booking.status)}`);
+};
+
+const cancelBooking = async (booking: any) => {
+  if (!confirm('Are you sure you want to cancel this booking?')) return;
   try {
     const token = getAuthToken();
-    const bookingPayload: any = {
-      user_email: bookingForm.value.email,
-      booking_date: bookingForm.value.date,
-      start_time: bookingForm.value.startTime,
-      end_time: bookingForm.value.endTime,
-      notes: bookingForm.value.purpose || '',
-      total_amount: totalBookingCost.value,
-      resources: [{ resource_id: resource.value.id }],
-      booking_items: selectedEquipment.value.map(item => ({ item_id: item.id, item_type: 'equipment', quantity: item.quantity }))
-    };
-    const response = await axios.post(`${API_BASE_URL}/bookings`, bookingPayload, {
-      headers: token ? { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json', 'Content-Type': 'application/json' } : { 'Accept': 'application/json', 'Content-Type': 'application/json' }
+    await axios.post(`${API_BASE_URL}/bookings/${booking.id}/cancel`, {}, {
+      headers: { Authorization: `Bearer ${token}` }
     });
-    const data = response.data;
-    if (data.booking) { pendingBookingId.value = data.booking.id; bookingStore.updateBookingLocally(data.booking); }
-    else if (data.id) { pendingBookingId.value = data.id; bookingStore.updateBookingLocally(data); }
-    return response.data;
-  } catch (error: any) {
-    if (error.response?.status === 422) {
-      const errors = error.response.data.errors;
-      throw new Error(errors ? Object.values(errors).flat().join(', ') : error.response.data.message);
-    }
-    throw error;
+    alert('Booking cancelled successfully');
+    loadResourceDetails();
+  } catch (e) {
+    alert('Failed to cancel booking');
   }
 };
 
-const createBookingAndSendOTP = async () => {
-  if (!resource.value) { errorMessage.value = 'Resource not loaded.'; return; }
-  if (!bookingForm.value.email || !bookingForm.value.date || !bookingForm.value.startTime || !bookingForm.value.endTime) { errorMessage.value = 'Please fill all required fields'; return; }
-  if (!bookingForm.value.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) { errorMessage.value = 'Please enter a valid email address'; return; }
-  if (bookingForm.value.startTime >= bookingForm.value.endTime) { errorMessage.value = 'End time must be after start time'; return; }
-  if (isBookingConflict.value) { alert("This time slot is already booked. Please choose another time."); return; }
-  
-  const selectedDate = new Date(bookingForm.value.date);
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  if (selectedDate < today) { errorMessage.value = 'Cannot book for past dates'; return; }
-  
-  const selectedDayName = selectedDate.toLocaleDateString('en-US', { weekday: 'long' });
-  const dayAvailability = resource.value.availability?.find(day => day.day_name.toLowerCase() === selectedDayName.toLowerCase());
-  if (!dayAvailability || !dayAvailability.is_available) { errorMessage.value = `Resource is not available on ${selectedDayName}`; return; }
-  if (isResourceUnavailable.value) { errorMessage.value = `Resource not available during selected time on ${selectedDayName}`; return; }
-  
-  for (const item of selectedEquipment.value) {
-    if (item.quantity > item.available_quantity) { errorMessage.value = `Quantity for ${item.name} exceeds available quantity (${item.available_quantity})`; return; }
-  }
-  
-  isCreatingBooking.value = true;
-  errorMessage.value = '';
-  try {
-    await createBooking();
-    if (pendingBookingId.value) {
-      otpSentSuccess.value = true;
-      if (otpModalRef.value) modalInstance = new bootstrap.Modal(otpModalRef.value);
-      modalInstance?.show();
-      startOTPTimer();
-      otpDigits.value = Array(6).fill('');
-      nextTick(() => { const firstInput = otpInputs.value[0]; if (firstInput) { firstInput.focus(); firstInput.value = ''; } });
-    }
-  } catch (error: any) { errorMessage.value = error.message || 'Failed to create booking.'; }
-  finally { isCreatingBooking.value = false; }
-};
-
-const verifyOTPAndConfirmBooking = async () => {
-  const enteredOTP = otpDigits.value.join('');
-  if (enteredOTP.length !== 6) { otpError.value = 'Please enter complete 6-digit OTP'; return; }
-  isVerifyingOTP.value = true;
-  otpError.value = '';
-  try {
-    const token = getAuthToken();
-    const response = await axios.post(`${API_BASE_URL}/bookings/${pendingBookingId.value}/verify-otp`, {
-      otp_code: enteredOTP.trim(), email: bookingForm.value.email
-    }, { headers: token ? { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' } : { 'Accept': 'application/json' } });
-    const confirmedBooking = response.data.booking || response.data;
-    confirmedBookingReference.value = confirmedBooking.booking_reference;
-    bookingStore.updateBookingLocally(confirmedBooking);
-    modalInstance?.hide();
-    showSuccessModal.value = true;
-    await loadBookings();
-  } catch (error: any) {
-    otpError.value = error.response?.data?.message || 'Invalid OTP. Please try again.';
-    otpDigits.value = Array(6).fill('');
-    nextTick(() => { const firstInput = otpInputs.value[0]; if (firstInput) { firstInput.focus(); firstInput.value = ''; } });
-  } finally { isVerifyingOTP.value = false; }
+const closeOTPModal = () => {
+  showOTPModal.value = false;
 };
 
 const resendOTP = async () => {
-  if (!pendingBookingId.value) { otpError.value = 'No pending booking found'; return; }
+  if (!pendingBookingId.value) return;
   isResendingOTP.value = true;
   otpError.value = '';
   try {
     const token = getAuthToken();
-    await axios.post(`${API_BASE_URL}/bookings/${pendingBookingId.value}/resend-otp`, { email: bookingForm.value.email }, {
-      headers: token ? { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' } : { 'Accept': 'application/json' }
-    });
+    const headers: any = { 'Accept': 'application/json', 'X-User-Type': 'external' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    await axios.post(`${API_BASE_URL}/bookings/${pendingBookingId.value}/resend-otp`, {
+        email: bookingForm.value.email
+    }, { headers });
+    
     startOTPTimer();
     otpDigits.value = Array(6).fill('');
     otpSentSuccess.value = true;
     otpError.value = 'New OTP sent successfully!';
-    nextTick(() => { const firstInput = otpInputs.value[0]; if (firstInput) { firstInput.focus(); firstInput.value = ''; } });
-  } catch (error: any) { otpError.value = error.response?.data?.message || 'Failed to resend OTP.'; }
-  finally { isResendingOTP.value = false; }
-};
-
-const startOTPTimer = () => {
-  otpTimer.value = 300;
-  if (otpTimerInterval.value) clearInterval(otpTimerInterval.value);
-  otpTimerInterval.value = window.setInterval(() => {
-    if (otpTimer.value > 0) otpTimer.value--;
-    else if (otpTimerInterval.value) clearInterval(otpTimerInterval.value);
-  }, 1000);
-};
-
-const onOtpInput = (index: number, event: Event) => {
-  const input = event.target as HTMLInputElement;
-  const value = input.value;
-  if (value && !/^\d$/.test(value)) { otpDigits.value[index] = ''; return; }
-  otpDigits.value[index] = value;
-  if (value && index < 5) { nextTick(() => { const nextInput = otpInputs.value[index + 1]; if (nextInput) nextInput.focus(); }); }
-};
-
-const onOtpKeydown = (index: number, event: KeyboardEvent) => {
-  if (event.key === 'Backspace' && !otpDigits.value[index] && index > 0) {
-    nextTick(() => { const prevInput = otpInputs.value[index - 1]; if (prevInput) prevInput.focus(); });
+    
+    await nextTick();
+    if (otpInputs.value[0]) otpInputs.value[0].focus();
+  } catch (error: any) {
+    otpError.value = error.response?.data?.message || 'Failed to resend OTP';
+  } finally {
+    isResendingOTP.value = false;
   }
 };
 
 const closeSuccessModal = () => {
   showSuccessModal.value = false;
-  bookingForm.value.email = '';
-  bookingForm.value.date = minDate.value;
-  bookingForm.value.startTime = '08:00';
-  bookingForm.value.endTime = '12:00';
-  selectedEquipment.value = [];
-  equipmentSearch.value = '';
-  pendingBookingId.value = null;
-  confirmedBookingReference.value = '';
-};
-
-const redirectToResources = () => {
-  closeSuccessModal();
   router.push('/guest-resources');
 };
 
-const viewBookingDetails = (booking: Booking) => { selectedBooking.value = booking; };
 
-const cancelBooking = async (booking: Booking) => {
-  if (!confirm('Are you sure you want to cancel this booking?')) return;
-  try {
-    const token = getAuthToken();
-    const response = await axios.put(`${API_BASE_URL}/bookings/${booking.id}/cancel`, {}, {
-      headers: token ? { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' } : { 'Accept': 'application/json' }
-    });
-    bookingStore.updateBookingLocally(response.data.booking || response.data);
-    if (selectedBooking.value && selectedBooking.value.id === booking.id) selectedBooking.value = response.data.booking || response.data;
-    alert('Booking cancelled successfully!');
-    await loadBookings();
-  } catch (error: any) { alert(error.response?.data?.message || 'Failed to cancel booking'); }
-};
-
-watch([() => bookingForm.value.date, () => bookingForm.value.startTime, () => bookingForm.value.endTime], () => {
-  if (bookingForm.value.date && bookingForm.value.startTime && bookingForm.value.endTime && bookingForm.value.startTime < bookingForm.value.endTime) {
-    loadAvailableEquipment();
-  }
-});
-
-onMounted(() => {
-  loadResourceDetails();
-  if (otpModalRef.value) modalInstance = new bootstrap.Modal(otpModalRef.value);
-});
 </script>
 
 <style scoped>
@@ -1140,26 +1054,7 @@ onMounted(() => {
     animation: pulse 2s infinite;
 }
 
-.otp-digit {
-    width: 50px;
-    height: 55px;
-    text-align: center;
-    font-size: 1.5rem;
-    font-weight: 600;
-    border: 2px solid #e5f4de;
-    border-radius: 10px;
-}
-
-.otp-digit:focus {
-    border-color: #1e4449;
-    box-shadow: 0 0 0 0.25rem rgba(30, 68, 73, 0.1);
-}
-
-.x-small { font-size: 0.75rem; }
-.extra-small { font-size: 0.7rem; }
-
-/* Modal Overlay Styles */
-.modal-overlay-custom {
+.modal-overlay {
     position: fixed;
     top: 0;
     left: 0;
@@ -1167,20 +1062,35 @@ onMounted(() => {
     height: 100%;
     background-color: rgba(0, 0, 0, 0.5);
     display: flex;
-    align-items: center;
     justify-content: center;
+    align-items: center;
     z-index: 9999;
-    animation: fadeIn 0.2s ease;
+    padding: 20px;
 }
 
-.success-modal-content, .details-modal-content {
+.modal-content {
     background: white;
-    border-radius: 16px;
-    width: 90%;
-    max-width: 500px;
-    max-height: 90vh;
-    overflow-y: auto;
-    animation: modalFadeIn 0.3s ease;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    width: 100%;
+    max-width: 450px;
+}
+
+.otp-digit {
+    width: 45px;
+    height: 55px;
+    text-align: center;
+    font-size: 1.5rem;
+    font-weight: 600;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+
+.otp-digit:focus {
+    border-color: #1e4449;
+    box-shadow: 0 0 0 3px rgba(30, 68, 73, 0.1);
+    outline: none;
 }
 
 .details-modal-content {
