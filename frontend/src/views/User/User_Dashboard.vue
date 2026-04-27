@@ -1,87 +1,101 @@
 <template>
     <Navbar/>
     <UserSidebar/>
-  <div class="section">
+    <div class="section">
   
-    
-    <div class="dashboard-header mb-4">
-       <h2 class="section-title">Welcome User Dashboard</h2>
-    </div>
-   
-
-    <div class="row g-4 mb-4" v-if="!isLoading">
-      <div class="col-sm-6 col-md-3">
-        <StatCard
-          icon="bi bi-box-seam"
-          :value="stats.totalResources"
-          label="Total Resources"
-          color="#1e4449"
-        />
-      </div>
-      <div class="col-sm-6 col-md-3">
-        <StatCard
-          icon="bi bi-journal-text"
-          :value="stats.totalBookings"
-          label="My Total Bookings"
-          color="#26d516"
-        />
-      </div>
-      <div class="col-sm-6 col-md-3">
-        <StatCard
-          icon="bi bi-clock-history"
-          :value="stats.pendingBookings"
-          label="My Pending Bookings"
-          color="#fcc300"
-        />
-      </div>
-      <div class="col-sm-6 col-md-3">
-        <StatCard
-          icon="bi bi-check2-circle"
-          :value="stats.approvedBookings"
-          label="My Approved Bookings"
-          color="#4BB66D"
-        />
-      </div>
-    </div>
-
-    <div v-if="isLoading" class="text-center py-5">
-      <div class="spinner-border text-primary" role="status"></div>
-    </div>
-
-    <div class="row g-4 mb-4" v-if="!isLoading">
-      <div class="col-md-6">
-        <div class="chart-card">
-          <h5 class="mb-3">Bookings Status</h5>
-          <div class="pie-chart-container">
-            <PieChart
-              :approved="stats.approvedBookings"
-              :pending="stats.pendingBookings"
-              :rejected="stats.rejectedBookings"
-            />
+      <!-- Modern Dashboard Header - Same as Guest Booking Page -->
+      <div class="dashboard-header-modern mb-4 p-4 rounded shadow-sm bg-white border-start border-5 border-teal">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <nav aria-label="breadcrumb">
+              <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item active" aria-current="page">Dashboard</li>
+              </ol>
+            </nav>
+            <h2 class="mb-0 fw-bold text-dark-teal">Welcome User Dashboard</h2>
+            <p class="text-muted mb-0">Overview of your bookings and resource statistics.</p>
+          </div>
+          <div class="text-end d-none d-md-block">
+             <span class="badge bg-light-teal text-teal p-2 px-3 rounded-pill border border-teal-subtle">
+               <i class="bi bi-shield-lock me-1"></i> My Dashboard
+             </span>
           </div>
         </div>
       </div>
-      <div class="col-md-6">
-        <div class="chart-card">
-          <h5 class="mb-3">My Total Bookings</h5>
-          <div class="total-bookings">
-            <h2>{{ stats.totalBookings }}</h2>
-              <div class="booking-boxes">
-                <div class="booking-box approved"> 
-                  <span class="badge bg-success">{{ stats.totalBookings ? Math.round((stats.approvedBookings / stats.totalBookings) * 100) : 0 }}%</span> <p>Approved</p>
-                </div>
-                <div class="booking-box pending">
-                  <span class="badge bg-warning text-dark">{{ stats.totalBookings ? Math.round((stats.pendingBookings / stats.totalBookings) * 100) : 0 }}%</span> <p>Pending</p>
-                </div>
-                <div class="booking-box rejected">
-                  <span class="badge bg-danger">{{ stats.totalBookings ? Math.round((stats.rejectedBookings / stats.totalBookings) * 100) : 0 }}%</span> <p>Rejected</p>
-                </div>
-             </div>
+
+      <div class="row g-4 mb-4" v-if="!isLoading">
+        <div class="col-sm-6 col-md-3">
+          <StatCard
+            icon="bi bi-box-seam"
+            :value="stats.totalResources"
+            label="Total Resources"
+            color="#1e4449"
+          />
+        </div>
+        <div class="col-sm-6 col-md-3">
+          <StatCard
+            icon="bi bi-journal-text"
+            :value="stats.totalBookings"
+            label="My Total Bookings"
+            color="#26d516"
+          />
+        </div>
+        <div class="col-sm-6 col-md-3">
+          <StatCard
+            icon="bi bi-clock-history"
+            :value="stats.pendingBookings"
+            label="My Pending Bookings"
+            color="#fcc300"
+          />
+        </div>
+        <div class="col-sm-6 col-md-3">
+          <StatCard
+            icon="bi bi-check2-circle"
+            :value="stats.approvedBookings"
+            label="My Approved Bookings"
+            color="#4BB66D"
+          />
+        </div>
+      </div>
+
+      <div v-if="isLoading" class="text-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+      </div>
+
+      <div class="row g-4 mb-4" v-if="!isLoading">
+        <div class="col-md-6">
+          <div class="chart-card">
+            <h5 class="mb-3">Bookings Status</h5>
+            <div class="pie-chart-container">
+              <PieChart
+                :approved="stats.approvedBookings"
+                :pending="stats.pendingBookings"
+                :rejected="stats.rejectedBookings"
+              />
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="chart-card">
+            <h5 class="mb-3">My Total Bookings</h5>
+            <div class="total-bookings">
+              <h2>{{ stats.totalBookings }}</h2>
+                <div class="booking-boxes">
+                  <div class="booking-box approved"> 
+                    <span class="badge bg-success">{{ stats.totalBookings ? Math.round((stats.approvedBookings / stats.totalBookings) * 100) : 0 }}%</span> <p>Approved</p>
+                  </div>
+                  <div class="booking-box pending">
+                    <span class="badge bg-warning text-dark">{{ stats.totalBookings ? Math.round((stats.pendingBookings / stats.totalBookings) * 100) : 0 }}%</span> <p>Pending</p>
+                  </div>
+                  <div class="booking-box rejected">
+                    <span class="badge bg-danger">{{ stats.totalBookings ? Math.round((stats.rejectedBookings / stats.totalBookings) * 100) : 0 }}%</span> <p>Rejected</p>
+                  </div>
+               </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
 </template>
 
 <script setup lang="ts">
@@ -171,6 +185,20 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* ========== MODERN DASHBOARD HEADER STYLES (from Guest Booking Page) ========== */
+.text-dark-teal { color: #1a3a3d; }
+.text-teal { color: #1e4449; }
+.bg-light-teal { background-color: #e5f4de; }
+.border-teal { border-color: #1e4449 !important; }
+.border-teal-subtle { border-color: #d1e7dd !important; }
+
+.dashboard-header-modern {
+    background: linear-gradient(to right, #ffffff, #f7fdf4);
+    border-radius: 12px;
+}
+
+/* ========== END OF MODERN HEADER STYLES ========== */
+
 /* ================================================= */
 /* FIX: ADJUSTED .section FOR FIXED SIDEBAR          */
 /* ================================================= */
@@ -202,29 +230,6 @@ onMounted(async () => {
   to {
     opacity: 1;
     transform: translateY(0);
-  }
-}
-
-/* --- Dashboard Header --- */
-.dashboard-header {
-  background-color: #e5f4de; 
-  color: #1e4449; 
-  text-align: center;
-  padding: 30px 15px; 
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-}
-
-.dashboard-header .section-title {
-  margin: 0;
-  font-weight: 600;
-  color: #1e4449;
-  font-size: 24px; 
-}
-
-@media (min-width: 768px) {
-  .dashboard-header .section-title {
-    font-size: 32px; 
   }
 }
 
@@ -335,4 +340,10 @@ onMounted(async () => {
   padding: 20px 0;
 } */
 
+/* Responsive adjustments for header */
+@media (max-width: 768px) {
+  .dashboard-header-modern {
+    padding: 1rem !important;
+  }
+}
 </style>

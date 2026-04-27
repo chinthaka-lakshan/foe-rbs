@@ -2,15 +2,33 @@
   <navbar/>
   <user-sidebar/>
   <div class="section">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-      <h2 class="section-title mb-0">Bookings</h2>
-      <button
-        class="btn btn-outline-dark-teal btn-sm"
-        @click="navigatetoresource"
-      >
+    <!-- Modern Header -->
+    <div class="dashboard-header-modern mb-4 p-4 rounded shadow-sm bg-white" style="border-left: 5px solid #1e4449;">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+              <li class="breadcrumb-item active" aria-current="page">Bookings</li>
+            </ol>
+          </nav>
+          <h2 class="mb-0 fw-bold text-dark-teal">My Bookings</h2>
+          <p class="text-muted mb-0">Overview of your booking history and reservations.</p>
+        </div>
+        <div class="text-end d-none d-md-block">
+          <span class="badge bg-light-teal text-teal p-2 px-3 rounded-pill border border-teal-subtle">
+            <i class="bi bi-shield-lock me-1"></i> My Reservations
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Book Resource Button -->
+    <div class="text-end mb-4">
+      <button class="btn btn-outline-dark-teal btn-sm" @click="navigatetoresource">
         <i class="bi bi-list-ul me-1"></i>Book Resource
       </button>
     </div>
+
     <div v-if="isLoading" class="text-center py-5">
       <div class="spinner-border text-primary" role="status">
         <span class="visually-hidden">Loading...</span>
@@ -146,13 +164,11 @@
 
             <div class="timeline-scroll-area">
                 <div class="timeline-grid">
-                    <!-- Hour Labels and Grid Lines -->
                     <div v-for="hour in 24" :key="hour-1" class="hour-row">
                         <div class="hour-label">{{ formatHour(hour-1) }}</div>
                         <div class="hour-line"></div>
                     </div>
 
-                    <!-- Bookings on Timeline -->
                     <div class="booking-layer">
                         <div 
                             v-for="b in focusedDateBookings" 
@@ -174,7 +190,6 @@
         </div>
       </div>
 
-      <!-- Selected Day details for User -->
       <div v-if="focusedDate" class="card mb-4 border-0 shadow-sm animate-fade-in day-details-panel">
         <div class="card-header bg-light-teal py-3 d-flex justify-content-between align-items-center">
             <h5 class="mb-0 text-dark-teal"><i class="bi bi-info-circle-fill me-2"></i>Bookings for {{ formatDateLong(focusedDate) }}</h5>
@@ -242,7 +257,6 @@
                   <span class="badge bg-light text-dark">{{ booking.booking_reference }}</span>
                 </td>
                 <td>{{ booking.user_email }}</td>
-                
                 <td>
                   <template v-if="booking.resource && booking.resource.name">
                     {{ booking.resource.name }}
@@ -254,7 +268,6 @@
                     <span class="text-muted">N/A</span>
                   </template>
                 </td>
-
                 <td>{{ formatDate(booking.booking_date) }}</td>
                 <td>{{ booking.start_time }}</td>
                 <td>{{ booking.end_time }}</td>
@@ -264,10 +277,8 @@
                     {{ booking.status }}
                   </span>
                 </td>
-               
                 <td>
                   <div class="btn-group btn-group-sm">
-                    <!-- ONLY Preview Icon - View Details -->
                     <button class="btn btn-outline-info" @click="viewBookingDetails(booking.id)" title="View Details">
                       <i class="bi bi-eye"></i>
                     </button>
@@ -275,7 +286,7 @@
                 </td>
               </tr>
             </tbody>
-           </table>
+          </table>
           
           <div v-if="filteredBookings.length === 0" class="text-center py-5 text-muted">
             <i class="bi bi-calendar-x" style="font-size: 3rem;"></i>
@@ -286,7 +297,7 @@
     </div>
   </div>
 
-  <!-- Booking Preview Modal - Centered on Page -->
+  <!-- Booking Preview Modal -->
   <teleport to="body">
     <div v-if="showDetailsModal" class="modal-overlay" @click.self="closeDetailsModal">
       <div class="modal-container modal-container-lg">
@@ -300,7 +311,6 @@
           </div>
           <div class="modal-body-custom">
             <div class="row g-4">
-              <!-- Left Info Column -->
               <div class="col-md-6 border-end">
                 <div class="d-flex justify-content-between align-items-center mb-4">
                   <span class="badge bg-light text-dark-teal border py-2 px-3 fs-6">
@@ -336,7 +346,6 @@
                 </div>
               </div>
 
-              <!-- Right Info Column -->
               <div class="col-md-6">
                 <div class="info-group mb-4">
                   <label class="text-muted small fw-bold text-uppercase mb-1 d-block">Resource Requested</label>
@@ -366,7 +375,6 @@
                 </div>
               </div>
 
-              <!-- Items & Accessories Row (Full Width) -->
               <div class="col-12" v-if="bookingToView?.details && bookingToView.details.length > 0">
                 <hr class="my-2">
                 <label class="text-muted small fw-bold text-uppercase mb-2 d-block">Included Items & Equipment</label>
@@ -378,7 +386,7 @@
                         <th>Type</th>
                         <th class="text-center">Qty</th>
                         <th class="text-end pe-3">Subtotal</th>
-                       </tr>
+                      </tr>
                     </thead>
                     <tbody>
                       <tr v-for="item in bookingToView.details" :key="item.id">
@@ -386,9 +394,9 @@
                         <td class="small text-muted">{{ item.item_type || 'N/A' }}</td>
                         <td class="text-center small">{{ item.quantity }}</td>
                         <td class="text-end pe-3 fw-bold small">Rs. {{ item.subtotal || item.unit_price * item.quantity }}</td>
-                       </tr>
+                      </tr>
                     </tbody>
-                   </table>
+                  </table>
                 </div>
               </div>
             </div>
@@ -459,7 +467,6 @@ const getAuthToken = () => {
 
 // Get logged-in user email from localStorage
 const getLoggedInUserEmail = () => {
-  // Try to get email from multiple possible storage keys
   return localStorage.getItem('userEmail') || 
          localStorage.getItem('email') || 
          localStorage.getItem('user_email') || 
@@ -472,12 +479,11 @@ const isRefreshing = ref(false);
 const errorMessage = ref('');
 const allBookings = computed(() => bookingStore.bookings);
 
-// 🔥 CRITICAL: Filter bookings by logged-in user email
+// Filter bookings by logged-in user email
 const bookings = computed(() => {
   const loggedInEmail = getLoggedInUserEmail().toLowerCase();
   if (!loggedInEmail) return [];
   
-  // Filter bookings where user_email matches logged-in user
   return allBookings.value.filter((booking: any) => {
     const bookingEmail = (booking.user_email || '').toLowerCase();
     return bookingEmail === loggedInEmail;
@@ -522,7 +528,7 @@ const navigatetoresource = () => {
     router.push('/user/resource');
 };
 
-// --- Helper Functions ---
+// Helper Functions
 const formatDate = (dateString: string) => {
   if (!dateString) return '';
   const date = new Date(dateString);
@@ -559,7 +565,7 @@ const showError = (message: string) => {
   }, 3000);
 };
 
-// --- API Functions ---
+// API Functions
 const loadBookings = async () => {
   isRefreshing.value = true;
   errorMessage.value = '';
@@ -574,7 +580,7 @@ const loadBookings = async () => {
   }
 };
 
-// --- Filtering - Only shows current user's bookings ---
+// Filtering - Only shows current user's bookings
 const uniqueResources = computed(() => {
   const resources = new Set<string>();
   
@@ -643,7 +649,7 @@ const formatDateLong = (dateStr: string) => {
   return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
 };
 
-// --- Calendar Functions ---
+// Calendar Functions
 const currentMonthName = computed(() => 
   currentDate.value.toLocaleString('default', { month: 'long' })
 );
@@ -673,7 +679,7 @@ const navigateCalendar = (delta: number) => {
     }
 };
 
-// --- Day View Helpers ---
+// Day View Helpers
 const formatHour = (hour: number) => {
     return `${hour.toString().padStart(2, '0')}:00`;
 };
@@ -800,13 +806,12 @@ const daysInMonth = computed(() => {
   return allDays;
 });
 
-// --- Initialize ---
+// Initialize
 onMounted(async () => {
   if (!bookingStore.isLoaded) {
     await bookingStore.fetchAll();
   }
   
-  // Debug: Log logged-in user email
   console.log('Logged-in User Email:', getLoggedInUserEmail());
   console.log('Total bookings after filter:', bookings.value.length);
 });
@@ -1286,5 +1291,22 @@ onMounted(async () => {
 }
 .toast {
     min-width: 300px;
+}
+
+/* ========== MODERN DASHBOARD HEADER STYLES ========== */
+.text-dark-teal { color: #1a3a3d; }
+.text-teal { color: #1e4449; }
+.bg-light-teal { background-color: #e5f4de; }
+.border-teal-subtle { border-color: #d1e7dd !important; }
+
+.dashboard-header-modern {
+    background: linear-gradient(to right, #ffffff, #f7fdf4);
+    border-radius: 12px;
+}
+
+@media (max-width: 768px) {
+  .dashboard-header-modern {
+    padding: 1rem !important;
+  }
 }
 </style>
