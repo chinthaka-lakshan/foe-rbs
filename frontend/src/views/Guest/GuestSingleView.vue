@@ -29,7 +29,6 @@
               <h2 class="mb-0 fw-bold text-dark-teal">{{ resource.name }}</h2>
             </div>
             <div class="d-flex gap-2">
-              <span class="badge" :class="getStatusClass(resource.status)">{{ resource.status }}</span>
               <button @click="navigateToBooking" class="btn btn-teal-modern btn-sm px-4 rounded-pill shadow-sm">
                 <i class="bi bi-calendar-check me-2"></i>Reserve Now
               </button>
@@ -68,8 +67,44 @@
                    <div class="d-flex align-items-center p-3 bg-light rounded-3 border-start border-3 border-teal">
                       <div class="me-3 fs-3 text-teal"><i class="bi bi-people"></i></div>
                       <div>
-                        <div class="x-small text-muted text-uppercase fw-bold">Capacity</div>
-                        <div class="fw-bold text-dark-teal">{{ resource.capacity || 'Not Specified' }} Persons</div>
+                        <div class="x-small text-muted text-uppercase fw-bold">Assigned Admin</div>
+                        <div class="fw-bold text-dark-teal">Amin ID:{{ resource.assigned_admin_id || 'Not Specified' }} </div>
+                      </div>
+                   </div>
+                </div>
+                <div class="col-sm-6">
+                   <div class="d-flex align-items-center p-3 bg-light rounded-3 border-start border-3 border-teal">
+                      <div class="me-3 fs-3 text-teal"><i class="bi bi-tag"></i></div>
+                      <div>
+                        <div class="x-small text-muted text-uppercase fw-bold">Category</div>
+                        <div class="fw-bold text-dark-teal">{{ resource.category?.name || 'Not category' }} </div>
+                      </div>
+                   </div>
+                </div>
+                 <div class="col-sm-6">
+                   <div class="d-flex align-items-center p-3 bg-light rounded-3 border-start border-3 border-teal">
+                      <div class="me-3 fs-3 text-teal"><i class="bi bi-tag"></i></div>
+                      <div>
+                        <div class="x-small text-muted text-uppercase fw-bold">Department</div>
+                        <div class="fw-bold text-dark-teal">{{ resource.department || 'Not department' }} </div>
+                      </div>
+                   </div>
+                </div>
+                 <div class="col-sm-6">
+                   <div class="d-flex align-items-center p-3 bg-light rounded-3 border-start border-3 border-teal">
+                      <div class="me-3 fs-3 text-teal"><i class="bi bi-info-circle"></i></div>
+                      <div>
+                        <div class="x-small text-muted text-uppercase fw-bold">Status</div>
+                        <div class="fw-bold text-dark-teal">{{ resource.status || 'Not Allowed' }} </div>
+                      </div>
+                   </div>
+                </div>
+                 <div class="col-sm-6">
+                   <div class="d-flex align-items-center p-3 bg-light rounded-3 border-start border-3 border-teal">
+                      <div class="me-3 fs-3 text-teal"><i class="bi bi-currency-rupee"></i></div>
+                      <div>
+                        <div class="x-small text-muted text-uppercase fw-bold">Base Price</div>
+                        <div class="fw-bold text-dark-teal">Rs:{{ resource.base_price}}/Hour </div>
                       </div>
                    </div>
                 </div>
