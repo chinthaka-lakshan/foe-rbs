@@ -15,7 +15,9 @@ export const resourceStore = reactive({
     this.isLoading = true;
     try {
       const token = localStorage.getItem('authToken');
-      const headers = { Authorization: `Bearer ${token}`, Accept: 'application/json' };
+      const headers: any = { Accept: 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       
       const [resResources, resCategories, resDepartments] = await Promise.all([
         axios.get('http://localhost:8000/api/resources', { headers }),

@@ -34,7 +34,6 @@
         <div class="avatar mb-2 bg-secondary">G</div>
         <div class="user-meta">
           <span class="u-name">Guest Visior</span>
-          <span class="u-status text-muted">Unauthenticated</span>
         </div>
       </div>
     </div>
