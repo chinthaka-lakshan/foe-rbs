@@ -93,7 +93,7 @@
               <h5 class="mb-0">Booking History</h5>
               <div>
                 <button 
-                  class="btn btn-sm btn-outline-primary"
+                  class="btn btn-success btn-sm me-2"
                   @click="loadBookings"
                   :disabled="isLoadingBookings"
                 >
@@ -2162,6 +2162,14 @@ onMounted(() => {
 /* Extra small text */
 .extra-small {
   font-size: 0.75rem;
+}
+.table {
+  font-size: 0.85rem;
+}
+
+.table th, .table td {
+  padding: 0.6rem 0.5rem;
+  vertical-align: middle;
 }
 
 /* Small text */
