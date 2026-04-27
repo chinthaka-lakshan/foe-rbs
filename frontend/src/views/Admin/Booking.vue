@@ -390,6 +390,7 @@ const getStatusClass = (status: string) => {
     case 'Pending': return 'bg-warning text-dark';
     case 'Cancelled': return 'bg-danger';
     case 'Completed': return 'bg-info';
+    case 'Requested_by_Guest': return 'bg-requested-guest text-white';
     default: return 'bg-secondary';
   }
 };
@@ -608,6 +609,12 @@ const uniqueResources = computed(() => {
 
 const filteredBookings = computed(() => {
   return bookings.value.filter(booking => {
+    // Exclude bookings pending for verification
+    const status = (booking.status || '').toLowerCase();
+    if (status === 'pending_for_verification') {
+      return false;
+    }
+
     // Resource filter
     if (selectedResource.value) {
       let resourceName = '';
@@ -797,6 +804,19 @@ onMounted(async () => {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.table {
+  font-size: 0.85rem;
+}
+
+.table th, .table td {
+  padding: 0.6rem 0.5rem;
+  vertical-align: middle;
+}
+
+.bg-requested-guest {
+    background-color: #6f42c1 !important; /* Purple color */
 }
 
 .section-title {

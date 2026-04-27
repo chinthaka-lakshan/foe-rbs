@@ -279,7 +279,7 @@
                     </button>
                     
                     <!-- Show Confirm and Reject Icons ONLY for Pending Bookings -->
-                    <template v-if="booking.status === 'Pending'">
+                    <template v-if="booking.status === 'Pending' || booking.status === 'Requested_by_Guest'">
                       <button class="btn btn-outline-success" @click="openConfirmConfirmation(booking)" title="Confirm Booking">
                         <i class="bi bi-check-circle"></i>
                       </button>
@@ -660,6 +660,7 @@ const getStatusClass = (status: string) => {
     case 'Pending': return 'bg-warning text-dark';
     case 'Cancelled': return 'bg-danger';
     case 'Completed': return 'bg-info';
+    case 'Requested_by_Guest': return 'bg-requested-guest text-white';
     default: return 'bg-secondary';
   }
 };
@@ -905,6 +906,12 @@ const uniqueResources = computed(() => {
 
 const filteredBookings = computed(() => {
   return bookings.value.filter((booking: any) => {
+    // Exclude bookings pending for verification
+    const status = (booking.status || '').toLowerCase();
+    if (status === 'pending_for_verification') {
+      return false;
+    }
+
     // Resource filter
     if (selectedResource.value) {
       let resourceName = '';
@@ -1301,6 +1308,15 @@ onMounted(async () => {
   background: #f8f9fa;
 }
 
+.table {
+  font-size: 0.85rem;
+}
+
+.table th, .table td {
+  padding: 0.6rem 0.5rem;
+  vertical-align: middle;
+}
+
 .btn-outline-dark-teal {
     --bs-btn-color: #1e4449;
     --bs-btn-border-color: #1e4449;
@@ -1481,6 +1497,10 @@ onMounted(async () => {
 }
 .text-dark { 
     color: #212529 !important;
+}
+
+.bg-requested-guest {
+    background-color: #6f42c1 !important; /* Purple color */
 }
 
 .btn-group-sm .btn {
