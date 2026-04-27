@@ -166,6 +166,7 @@ class BookingController
 
         } catch (Exception $e) {
             DB::rollBack();
+            \Log::error('Booking store failed: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
             return response()->json(['message' => 'Failed to initiate booking', 'error' => $e->getMessage()], 500);
         }
     }

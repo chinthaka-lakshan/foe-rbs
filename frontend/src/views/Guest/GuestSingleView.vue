@@ -178,9 +178,11 @@ const loadResourceDetails = async () => {
     try {
         const id = route.params.id;
         const token = localStorage.getItem('authToken');
-        const response = await axios.get(`${API_BASE_URL}/resources/${id}`, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
+        const headers: any = { 'Accept': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const response = await axios.get(`${API_BASE_URL}/resources/${id}`, { headers });
+
         resource.value = response.data.resource || response.data;
     } catch (err: any) {
         console.error('Error loading resource details:', err);
