@@ -17,22 +17,21 @@
       <!-- Main Content -->
       <div v-else-if="resource" class="container-fluid">
         <!-- Modern Header -->
-        <div class="dashboard-header-modern mb-4 p-4 rounded shadow-sm bg-white border-start border-5 border-teal">
-          <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
-            <div>
-              <nav aria-label="breadcrumb">
-                <ol class="breadcrumb mb-1">
-                  <li class="breadcrumb-item"><router-link to="/guest-resources" class="text-teal text-decoration-none">Resources</router-link></li>
-                  <li class="breadcrumb-item active" aria-current="page">Details</li>
-                </ol>
-              </nav>
-              <h2 class="mb-0 fw-bold text-dark-teal">{{ resource.name }}</h2>
-            </div>
-            <div class="d-flex gap-2">
-              <button @click="navigateToBooking" class="btn btn-teal-modern btn-sm px-4 rounded-pill shadow-sm">
-                <i class="bi bi-calendar-check me-2"></i>Reserve Now
-              </button>
-            </div>
+       <div class="dashboard-header-modern mb-4 p-4 rounded shadow-sm bg-white" style="border-left: 5px solid #1e4449;">
+          <div>
+            <nav aria-label="breadcrumb">
+              <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><router-link to="/guest-resources" class="text-teal text-decoration-none">Resources</router-link></li>
+                <li class="breadcrumb-item active" aria-current="page">{{ resource.name }}</li>
+              </ol>
+            </nav>
+            <h2 class="mb-0 fw-bold text-dark-teal">Resource Details</h2>
+            <p class="text-muted mb-0">Complete information about {{ resource.name }} facility.</p>
+          </div>
+          <div class="text-end d-none d-md-block mt-3">
+            <button @click="navigateToBooking" class="btn btn-teal-modern btn-sm px-4 rounded-pill shadow-sm">
+              <i class="bi bi-calendar-check me-2"></i>Reserve Now
+            </button>
           </div>
         </div>
 
@@ -271,6 +270,24 @@ const navigateToBooking = () => {
 
 .dashboard-header-modern {
     background: linear-gradient(to right, #ffffff, #f7fdf4);
+    border-radius: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+@media (max-width: 768px) {
+  .dashboard-header-modern {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .dashboard-header-modern .text-end {
+    text-align: left !important;
+    width: 100%;
+  }
 }
 
 .resource-main-image-container {
