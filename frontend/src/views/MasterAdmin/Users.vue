@@ -60,6 +60,7 @@
             <option value="Master Admin">Master Admin</option>
             <option value="Admin">Admin</option>
             <option value="User">User</option>
+            <option value="Guest">Guest</option>
           </select>
         </div>
       </div>
@@ -435,7 +436,7 @@ const validationErrors = ref<ValidationErrors>({});
 const userToDelete = ref<User | null>(null);
 const deleteStep = ref<'confirm' | 'final'>('confirm');
 
-const availableRoles = ref(['Admin', 'User']);
+const availableRoles = ref(['Admin', 'User' , 'Guest']);
 
 // Role modal state
 const isRoleUpdating = ref(false);
