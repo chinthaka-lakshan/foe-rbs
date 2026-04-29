@@ -362,6 +362,17 @@ const handleGuestLogin = async () => {
   border-color: #4BB66D;
 }
 
+a {
+  color: #0d6efd;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+a:hover {
+  color: #0a58ca;
+  text-decoration: underline;
+}
+
 .auth-logo {
   max-height: 120px; 
   width: auto;
