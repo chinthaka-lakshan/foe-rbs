@@ -5,10 +5,23 @@
     
     <main class="content-body">
       <div class="container-fluid">
-        <header class="page-header">
-          <h2 class="section-title">System Configuration</h2>
-          <p class="section-subtitle">Manage university branding and global operational parameters.</p>
-        </header>
+        <!-- Modern Header Card -->
+        <div class="dashboard-header-modern mb-4 p-4 rounded shadow-sm bg-white">
+          <div>
+            <nav aria-label="breadcrumb">
+              <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item active" aria-current="page">Settings</li>
+              </ol>
+            </nav>
+            <h2 class="mb-0 fw-bold text-dark-teal">System Configuration</h2>
+            <p class="text-muted mb-0">Manage university branding, logos, and global operational parameters.</p>
+          </div>
+          <div class="text-end d-none d-md-block">
+            <span class="badge bg-light-teal text-teal p-2 px-3 rounded-pill border border-teal-subtle">
+              <i class="bi bi-gear-wide-connected me-1"></i> Global Settings
+            </span>
+          </div>
+        </div>
 
         <div class="settings-card">
           <div class="card-header-flex">
