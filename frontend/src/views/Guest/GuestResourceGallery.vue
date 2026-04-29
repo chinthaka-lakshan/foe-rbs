@@ -168,14 +168,18 @@ const bookResource = (id: number) => {
 .resource-image {
   height: 200px;
   overflow: hidden;
+  background-color: #f8f9fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-
-.resource-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.5s ease;
-}
+ 
+ .resource-image img {
+   width: 100%;
+   height: 100%;
+   object-fit: contain;
+   transition: transform 0.5s ease;
+ }
 
 .resource-card:hover .resource-image img {
   transform: scale(1.05);
