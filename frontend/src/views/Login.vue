@@ -2,8 +2,8 @@
   <div class="auth-container">
     <div class="auth-card">
       <div class="text-center mb-4">
-        <img src="../assets/logo.png" alt="University Logo" class="auth-logo mb-3">
-        <h2 class="auth-title">FOE</h2>
+        <img :src="systemStore.logo || defaultLogoUrl" alt="University Logo" class="auth-logo mb-3">
+        <h2 class="auth-title">{{ systemStore.name || 'FOE' }}</h2>
         <h4 class="auth-title">Resource Booking System</h4>
         <p class="text-muted">Sign in to your account</p>
       </div>
@@ -85,6 +85,7 @@ import { reportStore } from '../store/reportStore';
 import { resourceStore } from '../store/resourceStore';
 import { userStore } from '../store/userStore';
 import { systemStore } from '../store/systemSettings';
+import defaultLogoUrl from '../assets/logo.png';
 
 const router = useRouter();
 const email = ref('');
@@ -359,6 +360,17 @@ const handleGuestLogin = async () => {
 .input-group:focus-within .form-control,
 .input-group:focus-within .btn {
   border-color: #4BB66D;
+}
+
+a {
+  color: #0d6efd;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+a:hover {
+  color: #0a58ca;
+  text-decoration: underline;
 }
 
 .auth-logo {

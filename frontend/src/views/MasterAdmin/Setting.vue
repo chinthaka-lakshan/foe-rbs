@@ -132,8 +132,12 @@ const saveSettings = async () => {
   }
 
   try {
+    const token = localStorage.getItem('authToken');
     const response = await axios.post('http://localhost:8000/api/settings', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
+      headers: { 
+        'Content-Type': 'multipart/form-data',
+        'Authorization': `Bearer ${token}`
+      }
     });
     
     // Push the new data to the Global Store memory immediately

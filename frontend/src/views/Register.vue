@@ -2,8 +2,8 @@
   <div class="auth-container">
     <div class="auth-card">
       <div class="text-center mb-4">
-        <img src="../assets/logo.png" alt="University Logo" class="auth-logo mb-3">
-        <h2 class="auth-title">FOE</h2>
+        <img :src="systemStore.logo || defaultLogoUrl" alt="University Logo" class="auth-logo mb-3">
+        <h2 class="auth-title">{{ systemStore.name || 'FOE' }}</h2>
         <h4 class="auth-title">Resource Booking System</h4>
         <p class="text-muted">Register as a Departmental User</p>
       </div>
@@ -118,9 +118,9 @@
             {{ isLoading ? 'Registering...' : 'Create Account' }}
         </button>
 
-        <div class="text-center">
-          <span class="text-muted">Already have an account? </span>
-          <router-link to="/login" class="text-decoration-none">Sign In</router-link>
+        <div class="login-prompt py-3 px-2 mt-4 text-center rounded bg-light">
+          <span class="text-muted small">Already have an account? </span>
+          <router-link to="/login" class="fw-bold text-decoration-none ms-1">Sign In Now</router-link>
         </div>
       </form>
     </div>
@@ -130,6 +130,8 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import defaultLogoUrl from '../assets/logo.png';
+import { systemStore } from '../store/systemSettings';
 
 const API_URL = 'http://localhost:8000/api/register'; 
 const router = useRouter();
@@ -153,6 +155,7 @@ const isPasswordVisible = ref(false);
 const isConfirmPasswordVisible = ref(false);
 
 onMounted(async () => {
+    systemStore.loadSettings();
     isFetchingDepartments.value = true;
     try {
         const response = await fetch('http://localhost:8000/api/departments');
@@ -242,22 +245,22 @@ const handleRegister = async () => {
 
 .auth-card {
   background: white;
-  border-radius: 12px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-  padding: 30px 40px;
+  border-radius: 16px;
+  box-shadow: 0 15px 50px rgba(0, 0, 0, 0.15);
+  padding: 25px 35px;
   width: 100%;
-  max-width: 480px;
+  max-width: 450px;
   height: auto;
-  max-height: 95vh;
-  overflow-y: visible;
+  max-height: 98vh;
+  overflow-y: auto;
 }
 
 /* No scrollbar needed - content fits perfectly */
 .auth-title {
   color: #1e4449;
   font-weight: 600;
-  margin-bottom: 8px;
-  font-size: 1.8rem;
+  margin-bottom: 4px;
+  font-size: 1.5rem;
 }
 
 .btn-primary {
@@ -301,17 +304,18 @@ const handleRegister = async () => {
 }
 
 a {
-  color: #4BB66D;
+  color: #0d6efd;
   text-decoration: none;
+  transition: color 0.2s;
 }
 
 a:hover {
-  color: #26d516;
+  color: #0a58ca;
   text-decoration: underline;
 }
 
 .auth-logo {
-  max-height: 100px;
+  max-height: 70px;
   width: auto;
 }
 
@@ -335,11 +339,16 @@ a:hover {
 }
 
 .btn {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
+  padding: 8px 12px;
 }
 
 .text-muted {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
+}
+
+.login-prompt {
+  border: 1px solid #eef2f5;
 }
 
 /* Alert message styling */
