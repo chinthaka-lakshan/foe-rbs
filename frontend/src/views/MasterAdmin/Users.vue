@@ -117,7 +117,7 @@
               <td>
                 <div class="btn-group btn-group-sm">
                   <button
-                    v-if="user.primaryRole.toLowerCase() !== 'master admin'"
+                    v-if="user.primaryRole.toLowerCase() !== 'master admin' && user.primaryRole.toLowerCase() !== 'guest'"
                     @click="openDeleteConfirmation(user)"
                     class="btn btn-outline-danger"
                     title="Delete"
@@ -145,7 +145,7 @@
                   </button>
                   <!-- Only show role update button if NOT Master Admin -->
                   <button 
-                    v-if="user.primaryRole.toLowerCase() !== 'master admin'"
+                    v-if="user.primaryRole.toLowerCase() !== 'master admin' && user.primaryRole.toLowerCase() !== 'guest'"
                     class="btn btn-outline-warning" 
                     @click="openRoleModal(user)"
                     title="Change Role"
@@ -436,7 +436,7 @@ const validationErrors = ref<ValidationErrors>({});
 const userToDelete = ref<User | null>(null);
 const deleteStep = ref<'confirm' | 'final'>('confirm');
 
-const availableRoles = ref(['Admin', 'User' , 'Guest']);
+const availableRoles = ref(['Admin', 'User']);
 
 // Role modal state
 const isRoleUpdating = ref(false);
