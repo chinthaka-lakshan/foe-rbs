@@ -2,7 +2,7 @@
   <aside class="sidebar">
      <div class="brand-section">
       <div class="logo-box">
-        <img :src="systemStore.logo || '/default-logo.png'" :alt="systemStore.name" class="logo-img fixed-logo" />
+        <img :src="systemStore.logo || '/logo.png'" :alt="systemStore.name" class="logo-img fixed-logo" />
       </div>
       <div class="brand-info">
         <h1 class="brand-name">{{ systemStore.name }}</h1>

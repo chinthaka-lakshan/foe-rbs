@@ -409,10 +409,16 @@ class BookingController
         $resourceServiceUrl = env('RESOURCE_SERVICE_URL', 'http://resource_service/api');
         $resourcesResp = Http::get("{$resourceServiceUrl}/resources");
         
-        if (!$resourcesResp->successful()) return response()->json(['message' => 'Service error'], 500);
+        if (!$resourcesResp->successful()) {
+            return response()->json(['message' => 'Service error'], 500);
+        }
 
-        $resourcesMap = collect($resourcesResp->json())->keyBy('id');
-        $adminResourceIds = $resourcesMap->where('assigned_admin_id', $validated['admin_id'])->pluck('id')->toArray();
+        $resourcesMap = collect($resourcesResp->json());
+        
+        // Ensure comparison is safe by casting to integer
+        $adminResourceIds = $resourcesMap->filter(function($r) use ($validated) {
+            return isset($r['assigned_admin_id']) && (int)$r['assigned_admin_id'] === (int)$validated['admin_id'];
+        })->pluck('id')->toArray();
 
         $statusStr = $validated['status'] ?? 'all';
         $cacheKey = "bookings_admin_{$validated['admin_id']}_{$statusStr}";

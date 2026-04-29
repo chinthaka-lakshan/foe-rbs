@@ -3,8 +3,26 @@
   <master-admin-sidebar />
   
   <div class="section">
+    <!-- Modern Header Card -->
+    <div class="dashboard-header-modern mb-4 p-4 rounded shadow-sm bg-white no-print">
+      <div>
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb mb-1">
+            <li class="breadcrumb-item active" aria-current="page">Reports</li>
+          </ol>
+        </nav>
+        <h2 class="mb-0 fw-bold text-dark-teal">Analytics & Reports</h2>
+        <p class="text-muted mb-0">Gain insights into resource usage, revenue, and system activity.</p>
+      </div>
+      <div class="text-end d-none d-md-block">
+        <span class="badge bg-light-teal text-teal p-2 px-3 rounded-pill border border-teal-subtle">
+          <i class="bi bi-graph-up-arrow me-1"></i> {{ bookings.length }} Bookings
+        </span>
+      </div>
+    </div>
+
     <div class="d-flex justify-content-between align-items-center mb-4 no-print">
-      <h2 class="section-title mb-0">Reports Dashboard</h2>
+      <div></div>
       <button class="btn btn-dark-teal btn-sm" @click="handlePrint">
         <i class="bi bi-printer me-1"></i>Print Page
       </button>

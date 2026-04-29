@@ -2,8 +2,26 @@
   <navbar/>
   <master-admin-sidebar/>
   <div class="section">
+    <!-- Modern Header Card -->
+    <div class="dashboard-header-modern mb-4 p-4 rounded shadow-sm bg-white">
+      <div>
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb mb-1">
+            <li class="breadcrumb-item active" aria-current="page">Users</li>
+          </ol>
+        </nav>
+        <h2 class="mb-0 fw-bold text-dark-teal">User Management</h2>
+        <p class="text-muted mb-0">Manage system access, roles, and permissions for all users.</p>
+      </div>
+      <div class="text-end d-none d-md-block">
+        <span class="badge bg-light-teal text-teal p-2 px-3 rounded-pill border border-teal-subtle">
+          <i class="bi bi-people me-1"></i> {{ userStore.users.length }} Total
+        </span>
+      </div>
+    </div>
+
     <div class="d-flex justify-content-between align-items-center mb-4">
-      <h2 class="section-title mb-0">Users</h2>
+      <div></div>
       <button class="btn btn-success btn-sm" @click="openAddModal" :disabled="isLoading">
         <i class="bi bi-plus-circle me-1"></i>Add New 
       </button>
@@ -117,7 +135,7 @@
               <td>
                 <div class="btn-group btn-group-sm">
                   <button
-                    v-if="user.primaryRole.toLowerCase() !== 'master admin'"
+                    v-if="user.primaryRole.toLowerCase() !== 'master admin' && user.primaryRole.toLowerCase() !== 'guest'"
                     @click="openDeleteConfirmation(user)"
                     class="btn btn-outline-danger"
                     title="Delete"
@@ -145,7 +163,7 @@
                   </button>
                   <!-- Only show role update button if NOT Master Admin -->
                   <button 
-                    v-if="user.primaryRole.toLowerCase() !== 'master admin'"
+                    v-if="user.primaryRole.toLowerCase() !== 'master admin' && user.primaryRole.toLowerCase() !== 'guest'"
                     class="btn btn-outline-warning" 
                     @click="openRoleModal(user)"
                     title="Change Role"
@@ -436,7 +454,7 @@ const validationErrors = ref<ValidationErrors>({});
 const userToDelete = ref<User | null>(null);
 const deleteStep = ref<'confirm' | 'final'>('confirm');
 
-const availableRoles = ref(['Admin', 'User' , 'Guest']);
+const availableRoles = ref(['Admin', 'User']);
 
 // Role modal state
 const isRoleUpdating = ref(false);

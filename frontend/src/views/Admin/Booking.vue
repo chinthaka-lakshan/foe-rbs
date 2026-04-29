@@ -213,7 +213,7 @@
                     </button>
                     
                     <!-- SHOW CONFIRM AND REJECT ICONS ONLY FOR PENDING BOOKINGS THAT HAVEN'T BEEN ACTIONED -->
-                    <template v-if="booking.status === 'Pending' && !booking.actionTaken">
+                    <template v-if="(booking.status === 'Pending' || booking.status === 'Requested_by_Guest') && !booking.actionTaken">
                       <button class="btn btn-outline-success" @click="confirmBooking(booking.id)" title="Confirm">
                         <i class="bi bi-check-circle"></i>
                       </button>
@@ -223,7 +223,7 @@
                     </template>
                     
                     <!-- SHOW ONLY PREVIEW AND DELETE AFTER ACTION IS TAKEN -->
-                    <template v-else-if="booking.status === 'Pending' && booking.actionTaken">
+                    <template v-else-if="(booking.status === 'Pending' || booking.status === 'Requested_by_Guest') && booking.actionTaken">
                       <!-- Preview and Delete already shown above -->
                     </template>
                   </div>
@@ -329,6 +329,7 @@ import axios from 'axios';
 import Navbar from '../../components/Navbar.vue';
 import AdminSidebar from '../../components/Sidebar/Admin_Sidebar.vue';
 import { bookingStore } from '../../store/bookingStore';
+import { resourceStore } from '../../store/resourceStore';
 
 const router = useRouter();
 
@@ -372,6 +373,40 @@ const successMessage = ref('');
 // Calendar State
 const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const currentDate = ref(new Date());
+
+// Get current user ID
+const getCurrentUserId = () => {
+  const userStr = localStorage.getItem('user');
+  if (userStr) {
+    try {
+      const user = JSON.parse(userStr);
+      if (user && user.id) return user.id;
+      if (user && user.user_id) return user.user_id;
+    } catch (e) {
+      console.error('Error parsing user from localStorage', e);
+    }
+  }
+  return localStorage.getItem('userId') || 
+         localStorage.getItem('user_id') || 
+         localStorage.getItem('adminId') || 
+         localStorage.getItem('admin_id') ||
+         localStorage.getItem('id');
+};
+
+const isMasterAdmin = computed(() => {
+  const roleId = localStorage.getItem('role_id') || 
+                 localStorage.getItem('roleId') || 
+                 localStorage.getItem('user_role_id');
+  return parseInt(roleId || '0') === 1;
+});
+
+// Filter bookings by assigned admin
+// Note: We now rely on the specialized backend endpoint (fetchAssignedBookings) 
+// to provide pre-filtered data for Admins, while Master Admins get the full list.
+const roleFilteredBookings = computed(() => {
+  if (!bookingStore.bookings || bookingStore.bookings.length === 0) return [];
+  return bookingStore.bookings;
+});
 
 // --- Helper Functions ---
 const formatDate = (dateString: string) => {
@@ -417,14 +452,23 @@ const loadBookings = async () => {
   errorMessage.value = '';
   
   try {
-    await bookingStore.fetchAll(true); // Force refresh toggle
+    const adminId = getCurrentUserId();
+    // Refresh both stores to ensure filtering is based on latest assignments
+    const promises: Promise<any>[] = [resourceStore.fetchAll(true)];
     
-    // Process local state flags if needed
+    if (isMasterAdmin.value) {
+      promises.push(bookingStore.fetchAll(true));
+    } else if (adminId) {
+      promises.push(bookingStore.fetchAssignedBookings(adminId, true));
+    }
+    
+    await Promise.all(promises);
+    
+    // Normalize resources for filtering consistency
     bookings.value.forEach(booking => {
       booking.actionTaken = actionedBookings.value.has(booking.id);
       booking.resource = booking.resource || booking.item || booking.details?.[0] || null;
     });
-    
   } catch (error: any) {
     console.error('Error loading bookings:', error);
     errorMessage.value = 'Failed to load bookings. Please try again.';
@@ -585,18 +629,15 @@ const handleDeleteBooking = async () => {
 // --- Filtering ---
 const uniqueResources = computed(() => {
   const resources = new Set<string>();
-  
-  bookings.value.forEach(booking => {
-    // Try different possible locations for resource name
+  roleFilteredBookings.value.forEach(booking => {
     if (booking.resource?.name) {
       resources.add(booking.resource.name);
-    } else if (booking.item?.name) {
+    } 
+    else if (booking.item?.name) {
       resources.add(booking.item.name);
-    } else if (booking.details && booking.details.length > 0) {
+    }
+    else if (booking.details && booking.details.length > 0) {
       booking.details.forEach((detail: any) => {
-        if (detail.item_name) {
-          resources.add(detail.item_name);
-        }
         if (detail.name) {
           resources.add(detail.name);
         }
@@ -608,53 +649,54 @@ const uniqueResources = computed(() => {
 });
 
 const filteredBookings = computed(() => {
-  return bookings.value.filter(booking => {
-    // Exclude bookings pending for verification
-    const status = (booking.status || '').toLowerCase();
-    if (status === 'pending_for_verification') {
-      return false;
-    }
+  let filtered = roleFilteredBookings.value || [];
+  
+  // 1. Status Filter
+  if (selectedStatus.value) {
+    filtered = filtered.filter(booking => booking.status === selectedStatus.value);
+  } else {
+    // Default: Exclude only pending_for_verification IF the user requested so, 
+    // but let's keep it visible if it's the only thing there or if we are debugging.
+    // Based on user request: "pending for verification status do not want to view booking list"
+    filtered = filtered.filter(booking => (booking.status || '').toLowerCase() !== 'pending_for_verification');
+  }
 
-    // Resource filter
-    if (selectedResource.value) {
-      let resourceName = '';
-      
-      // Check all possible locations for resource name
-      if (booking.resource?.name) {
-        resourceName = booking.resource.name;
-      } else if (booking.item?.name) {
-        resourceName = booking.item.name;
-      } else if (booking.details && booking.details.length > 0) {
-        resourceName = booking.details[0]?.item_name || booking.details[0]?.name || '';
-      }
-      
-      if (resourceName !== selectedResource.value) {
+  // 2. Resource filter
+  if (selectedResource.value) {
+    filtered = filtered.filter(booking => {
+      const resourceName = booking.resource?.name || 
+                          booking.item?.name || 
+                          (booking.details && booking.details[0]?.item_name) || '';
+      return resourceName === selectedResource.value;
+    });
+  }
+  
+  // 3. Date range filter
+  if (startDate.value && endDate.value) {
+    filtered = filtered.filter(booking => {
+      if (!booking.booking_date) return false;
+      try {
+        const bDate = booking.booking_date.split(' ')[0]; // Handle possible time suffix
+        return bDate >= startDate.value && bDate <= endDate.value;
+      } catch (e) {
         return false;
       }
-    }
-    
-    // Status filter
-    if (selectedStatus.value && booking.status !== selectedStatus.value) {
-      return false;
-    }
-    
-    // Date range filter
-    if (startDate.value && endDate.value) {
-      const bookingDate = new Date(booking.booking_date).toISOString().split('T')[0];
-      if (bookingDate < startDate.value || bookingDate > endDate.value) {
-        return false;
-      }
-    }
-    
-    return true;
-  });
+    });
+  }
+  
+  return filtered;
 });
 
 const focusedDateBookings = computed(() => {
   if (!focusedDate.value) return [];
-  return bookings.value.filter(booking => {
-    const bookingDate = new Date(booking.booking_date).toISOString().split('T')[0];
-    return bookingDate === focusedDate.value;
+  return roleFilteredBookings.value.filter(booking => {
+    if (!booking.booking_date) return false;
+    try {
+      const bookingDate = new Date(booking.booking_date).toISOString().split('T')[0];
+      return bookingDate === focusedDate.value;
+    } catch (e) {
+      return false;
+    }
   });
 });
 
@@ -728,15 +770,23 @@ const daysInMonth = computed(() => {
   const monthEnd = new Date(year, month + 1, 0).toISOString().split('T')[0];
   
   const monthBookings = filteredBookings.value.filter(booking => {
-    const bookingDate = new Date(booking.booking_date).toISOString().split('T')[0];
-    return bookingDate >= monthStart && bookingDate <= monthEnd;
+    if (!booking.booking_date) return false;
+    try {
+      const bookingDate = new Date(booking.booking_date).toISOString().split('T')[0];
+      return bookingDate >= monthStart && bookingDate <= monthEnd;
+    } catch (e) {
+      return false;
+    }
   });
 
   // Create booking count map
   const bookingCountMap = new Map();
   monthBookings.forEach(booking => {
-    const bookingDate = new Date(booking.booking_date).toISOString().split('T')[0];
-    bookingCountMap.set(bookingDate, (bookingCountMap.get(bookingDate) || 0) + 1);
+    if (!booking.booking_date) return;
+    try {
+      const bookingDate = new Date(booking.booking_date).toISOString().split('T')[0];
+      bookingCountMap.set(bookingDate, (bookingCountMap.get(bookingDate) || 0) + 1);
+    } catch (e) {}
   });
 
   // Add padding days (from previous month)
@@ -772,11 +822,24 @@ const daysInMonth = computed(() => {
 
 // --- Initialize ---
 onMounted(async () => {
-  if (!bookingStore.isLoaded) {
-    await bookingStore.fetchAll();
+  // Ensure resource store is loaded for filtering
+  if (!resourceStore.isLoaded) {
+    await resourceStore.fetchAll();
   }
+  
+  const adminId = getCurrentUserId();
+  if (isMasterAdmin.value) {
+    await bookingStore.fetchAll(true);
+  } else if (adminId) {
+    await bookingStore.fetchAssignedBookings(adminId, true);
+  } else {
+    console.error("No Admin ID found in localStorage");
+    errorMessage.value = "User session not found. Please log in again.";
+  }
+  
   // Setup local flags for currently loaded bookings
   bookings.value.forEach(booking => {
+    booking.actionTaken = actionedBookings.value.has(booking.id);
     booking.resource = booking.resource || booking.item || booking.details?.[0] || null;
   });
 });

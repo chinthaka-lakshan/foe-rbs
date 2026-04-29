@@ -28,6 +28,10 @@ class AuthController extends Controller
         if (!$user || !\Hash::check($request->password, $user->password)) {
             return response()->json(['message' => 'Unauthorized'], 401);
         }
+
+        if ($user->status !== 'active') {
+            return response()->json(['message' => 'Your account is inactive. Please contact an administrator.'], 403);
+        }
         $permissions = $user->getAllPermissions();
 
         // Populate Redis cache for microservices
@@ -158,6 +162,10 @@ class AuthController extends Controller
 
         if (!$user) {
             return response()->json(['message' => 'Guest user not found. Please run seeders.'], 404);
+        }
+
+        if ($user->status !== 'active') {
+            return response()->json(['message' => 'Guest access is currently disabled. Please contact an administrator.'], 403);
         }
 
         $permissions = $user->getAllPermissions();

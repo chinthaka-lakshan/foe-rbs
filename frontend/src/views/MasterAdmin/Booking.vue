@@ -2,8 +2,26 @@
   <navbar/>
   <master-admin-sidebar/>
   <div class="section">
+    <!-- Modern Header Card -->
+    <div class="dashboard-header-modern mb-4 p-4 rounded shadow-sm bg-white">
+      <div>
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb mb-1">
+            <li class="breadcrumb-item active" aria-current="page">Bookings</li>
+          </ol>
+        </nav>
+        <h2 class="mb-0 fw-bold text-dark-teal">Booking Management</h2>
+        <p class="text-muted mb-0">Monitor and manage all resource reservations across the campus.</p>
+      </div>
+      <div class="text-end d-none d-md-block">
+        <span class="badge bg-light-teal text-teal p-2 px-3 rounded-pill border border-teal-subtle">
+          <i class="bi bi-calendar-event me-1"></i> {{ bookingStore.bookings.length }} Total
+        </span>
+      </div>
+    </div>
+
     <div class="d-flex justify-content-between align-items-center mb-4">
-      <h2 class="section-title mb-0">Bookings</h2>
+      <div></div>
       <button
         class="btn btn-outline-dark-teal btn-sm"
         @click="navigatetoresource"
@@ -688,6 +706,10 @@ const loadBookings = async () => {
   
   try {
     await bookingStore.fetchAll(true);
+    // Normalize resources for filtering consistency
+    bookings.value.forEach((booking: any) => {
+      booking.resource = booking.resource || booking.item || booking.details?.[0] || null;
+    });
   } catch (error: any) {
     console.error('Error loading bookings:', error);
     errorMessage.value = 'Failed to load bookings. Please try again.';
@@ -906,12 +928,6 @@ const uniqueResources = computed(() => {
 
 const filteredBookings = computed(() => {
   return bookings.value.filter((booking: any) => {
-    // Exclude bookings pending for verification
-    const status = (booking.status || '').toLowerCase();
-    if (status === 'pending_for_verification') {
-      return false;
-    }
-
     // Resource filter
     if (selectedResource.value) {
       let resourceName = '';
@@ -936,8 +952,13 @@ const filteredBookings = computed(() => {
     
     // Date range filter
     if (startDate.value && endDate.value) {
-      const bookingDate = new Date(booking.booking_date).toISOString().split('T')[0];
-      if (bookingDate < startDate.value || bookingDate > endDate.value) {
+      if (!booking.booking_date) return false;
+      try {
+        const bookingDate = new Date(booking.booking_date).toISOString().split('T')[0];
+        if (bookingDate < startDate.value || bookingDate > endDate.value) {
+          return false;
+        }
+      } catch (e) {
         return false;
       }
     }
@@ -949,8 +970,13 @@ const filteredBookings = computed(() => {
 const focusedDateBookings = computed(() => {
   if (!focusedDate.value) return [];
   return bookings.value.filter((booking: any) => {
-    const bookingDate = new Date(booking.booking_date).toISOString().split('T')[0];
-    return bookingDate === focusedDate.value;
+    if (!booking.booking_date) return false;
+    try {
+      const bookingDate = new Date(booking.booking_date).toISOString().split('T')[0];
+      return bookingDate === focusedDate.value;
+    } catch (e) {
+      return false;
+    }
   });
 });
 
@@ -1080,14 +1106,22 @@ const daysInMonth = computed(() => {
   const monthEnd = new Date(year, month + 1, 0).toISOString().split('T')[0];
   
   const monthBookings = filteredBookings.value.filter((booking: any) => {
-    const bookingDate = new Date(booking.booking_date).toISOString().split('T')[0];
-    return bookingDate >= monthStart && bookingDate <= monthEnd;
+    if (!booking.booking_date) return false;
+    try {
+      const bookingDate = new Date(booking.booking_date).toISOString().split('T')[0];
+      return bookingDate >= monthStart && bookingDate <= monthEnd;
+    } catch (e) {
+      return false;
+    }
   });
 
   const bookingCountMap = new Map();
   monthBookings.forEach((booking: any) => {
-    const bookingDate = new Date(booking.booking_date).toISOString().split('T')[0];
-    bookingCountMap.set(bookingDate, (bookingCountMap.get(bookingDate) || 0) + 1);
+    if (!booking.booking_date) return;
+    try {
+      const bookingDate = new Date(booking.booking_date).toISOString().split('T')[0];
+      bookingCountMap.set(bookingDate, (bookingCountMap.get(bookingDate) || 0) + 1);
+    } catch (e) {}
   });
 
   for (let i = startingDayOfWeekIndex; i > 0; i--) {
@@ -1124,8 +1158,17 @@ const daysInMonth = computed(() => {
 
 // --- Initialize ---
 onMounted(async () => {
-  if (!bookingStore.isLoaded) {
-    await bookingStore.fetchAll();
+  try {
+    if (!bookingStore.isLoaded) {
+      await bookingStore.fetchAll();
+    }
+    // Normalize resources for filtering consistency
+    bookings.value.forEach((booking: any) => {
+      booking.resource = booking.resource || booking.item || booking.details?.[0] || null;
+    });
+  } catch (error: any) {
+    console.error('Initial load failed:', error);
+    errorMessage.value = 'Failed to load bookings. Please refresh.';
   }
 });
 </script>

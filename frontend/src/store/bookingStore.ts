@@ -146,6 +146,38 @@ export const bookingStore = reactive({
     }
   },
 
+  async fetchAssignedBookings(adminId: number | string, force = false) {
+    const now = Date.now();
+    this.isLoading = true;
+    try {
+      const token = this.getAuthToken();
+      const response = await axios.get(`http://localhost:8000/api/bookings/admin/assigned?admin_id=${adminId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        }
+      });
+
+      let data = [];
+      if (Array.isArray(response.data)) {
+        data = response.data;
+      } else if (response.data.data && Array.isArray(response.data.data)) {
+        data = response.data.data;
+      } else if (response.data.bookings && Array.isArray(response.data.bookings)) {
+        data = response.data.bookings;
+      }
+
+      this.bookings = data;
+      this.isLoaded = true;
+      this.lastFetched = now;
+    } catch (e) {
+      console.error(`Booking Store: Failed to load assigned bookings for admin ${adminId}`, e);
+      this.bookings = [];
+    } finally {
+      this.isLoading = false;
+    }
+  },
+
   async fetchGuestBookings(email: string) {
     this.isLoading = true;
     try {
