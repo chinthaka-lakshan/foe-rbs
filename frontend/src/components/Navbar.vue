@@ -2,7 +2,7 @@
   <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm fixed-top">
     <div class="container-fluid px-4">
       <a class="navbar-brand fw-bold" href="#">
-        <span class="brand-text">University Resources</span>
+        <span class="brand-text">Resource Booking System</span>
       </a>
 
       <div class="d-flex align-items-center">

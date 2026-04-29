@@ -839,13 +839,22 @@ Route::middleware('auth:sanctum')->group(function () {
             if ($request->hasFile('logo')) {
                 $file = $request->file('logo');
 
+                $multipartData = [];
+                $multipartData[] = [
+                    'name' => 'logo',
+                    'contents' => file_get_contents($file->getRealPath()),
+                    'filename' => $file->getClientOriginalName()
+                ];
+
+                foreach ($request->except('logo') as $key => $value) {
+                    $multipartData[] = [
+                        'name' => $key,
+                        'contents' => is_null($value) ? '' : (string) $value
+                    ];
+                }
+
                 $response = $req->asMultipart()
-                    ->attach(
-                        'logo',
-                        file_get_contents($file->getRealPath()),
-                        $file->getClientOriginalName()
-                    )
-                    ->post('http://system_settings_service/api/settings', $request->except('logo'));
+                    ->post('http://system_settings_service/api/settings', $multipartData);
             } else {
                 // Standard JSON POST for text-only updates
                 $response = $req->post('http://system_settings_service/api/settings', $request->all());
