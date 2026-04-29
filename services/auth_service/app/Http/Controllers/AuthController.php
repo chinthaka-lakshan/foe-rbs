@@ -164,6 +164,10 @@ class AuthController extends Controller
             return response()->json(['message' => 'Guest user not found. Please run seeders.'], 404);
         }
 
+        if ($user->status !== 'active') {
+            return response()->json(['message' => 'Guest access is currently disabled. Please contact an administrator.'], 403);
+        }
+
         $permissions = $user->getAllPermissions();
 
         // Populate Redis cache for microservices
