@@ -2,8 +2,8 @@
   <div class="auth-container">
     <div class="auth-card">
       <div class="text-center mb-4">
-        <img src="../assets/logo.png" alt="University Logo" class="auth-logo mb-3">
-        <h2 class="auth-title">FOE</h2>
+        <img :src="systemStore.logo || defaultLogoUrl" alt="University Logo" class="auth-logo mb-3">
+        <h2 class="auth-title">{{ systemStore.name || 'FOE' }}</h2>
         <h4 class="auth-title">Resource Booking System</h4>
         <p class="text-muted">Register as a Departmental User</p>
       </div>
@@ -130,6 +130,8 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import defaultLogoUrl from '../assets/logo.png';
+import { systemStore } from '../store/systemSettings';
 
 const API_URL = 'http://localhost:8000/api/register'; 
 const router = useRouter();
@@ -153,6 +155,7 @@ const isPasswordVisible = ref(false);
 const isConfirmPasswordVisible = ref(false);
 
 onMounted(async () => {
+    systemStore.loadSettings();
     isFetchingDepartments.value = true;
     try {
         const response = await fetch('http://localhost:8000/api/departments');
