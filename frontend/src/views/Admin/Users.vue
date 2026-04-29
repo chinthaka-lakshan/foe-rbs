@@ -81,7 +81,6 @@
               <th>Email</th>
               <th>Role</th>
               <th>Status</th>
-              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -111,47 +110,6 @@
                       {{ user.status }}
                     </span>
                   </label>
-                </div>
-              </td>
-              <td>
-                <div class="btn-group btn-group-sm">
-                  <button
-                    v-if="user.primaryRole.toLowerCase() !== 'master admin'"
-                    @click="openDeleteConfirmation(user)"
-                    class="btn btn-outline-danger"
-                    title="Delete"
-                    :disabled="isDeleting"
-                  >
-                    <i class="bi bi-trash"></i>
-                  </button>
-                  <!-- Permission Matrix Button (Shield) -->
-                  <button 
-                    v-if="user.primaryRole.toLowerCase() === 'admin'"
-                    class="btn btn-outline-info" 
-                    @click="openPermissionModal(user)"
-                    title="Permission Matrix"
-                    :disabled="isPermissionUpdating"
-                  >
-                    <i class="bi bi-shield-lock"></i>
-                  </button>
-                  <button 
-                    v-if="user.primaryRole.toLowerCase() === 'master admin'"
-                    class="btn btn-outline-secondary" 
-                    disabled
-                    title="Master Admin has all permissions"
-                  >
-                    <i class="bi bi-shield-check"></i>
-                  </button>
-                  <!-- Only show role update button if NOT Master Admin -->
-                  <button 
-                    v-if="user.primaryRole.toLowerCase() !== 'master admin'"
-                    class="btn btn-outline-warning" 
-                    @click="openRoleModal(user)"
-                    title="Change Role"
-                    :disabled="isRoleUpdating"
-                  >
-                    <i class="bi bi-person-gear"></i>
-                  </button>
                 </div>
               </td>
             </tr>

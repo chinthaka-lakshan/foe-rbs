@@ -81,22 +81,25 @@ class UserController extends Controller
         if (isset($dataToUpdate['password'])) {
             $dataToUpdate['password'] = Hash::make($dataToUpdate['password']);
         }
-        // Update status if provided
-        if (isset($request['status'])) {
-            $user->update(['status' => $request['status']]);
+        // Update status if provided (handled in dataToUpdate implicitly if passed, but explicit is fine)
+        if (isset($validated['role'])) {
+            unset($dataToUpdate['role']);
         }
+
+        // Apply all updates except role
+        $user->update($dataToUpdate);
+
         // Update role if provided
         if (isset($validated['role'])) {
-            // Remove role from data to update
-            unset($dataToUpdate['role']); 
-            $user->update($dataToUpdate);
-
             if (!$request->user()->tokenCan('*')) {
                 return response()->json(['message' => 'Forbidden. Only Master Admin can update user roles.'], 403);
             }
             $role = Role::where('name', $validated['role'])->first();
-            $user->roles()->sync([$role->id]);
+            if ($role) {
+                $user->roles()->sync([$role->id]);
+            }
         }
+
 
         Cache::put("user_permissions_{$user->id}", $user->getAllPermissions(), now()->addHours(24));
 

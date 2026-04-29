@@ -28,6 +28,10 @@ class AuthController extends Controller
         if (!$user || !\Hash::check($request->password, $user->password)) {
             return response()->json(['message' => 'Unauthorized'], 401);
         }
+
+        if ($user->status !== 'active') {
+            return response()->json(['message' => 'Your account is inactive. Please contact an administrator.'], 403);
+        }
         $permissions = $user->getAllPermissions();
 
         // Populate Redis cache for microservices
