@@ -203,6 +203,24 @@
                 />
                 <small class="text-danger" v-if="validationErrors.name">{{ validationErrors.name[0] }}</small>
               </div>
+
+              
+              <div class="mb-3">
+                  <label for="department" class="form-label fw-bold">Department<span class="text-danger">*</span></label>
+                  <select
+                      class="form-select"
+                      id="department"
+                      v-model="selectedDepartment"
+                      required
+                      :disabled="isLoading || isFetchingDepartments"
+                  >
+                      <option value="" disabled>Select your department</option>
+                      <option v-for="dept in departments" :key="dept.id" :value="dept.name">
+                          {{ dept.name }}
+                      </option>
+                  </select>
+                  <div v-if="departmentsError" class="text-danger small mt-1">Failed to load departments.</div>
+              </div>
               
               <div class="mb-3">
                 <label for="userEmail" class="form-label fw-bold">Email <span class="text-danger">*</span></label>
@@ -429,6 +447,7 @@ interface NewUserForm {
   email: string;
   password: string;
   password_confirmation: string;
+  department:string;
 }
 
 interface ValidationErrors {
@@ -446,6 +465,11 @@ const successMessage = ref('');
 const errorMessage = ref('');
 const modalErrorMessage = ref('');
 const validationErrors = ref<ValidationErrors>({});
+const selectedDepartment = ref('');
+
+const departments = ref<any[]>([]);
+const isFetchingDepartments = ref(false);
+const departmentsError = ref(false);
 
 // Remove redundant local users ref
 // const users = ref<User[]>([]);
@@ -481,6 +505,7 @@ const initialNewUserState: NewUserForm = {
   email: '',
   password: '',
   password_confirmation: '',
+  department: selectedDepartment.value
 };
 const newUser = ref<NewUserForm>({ ...initialNewUserState });
 
@@ -494,6 +519,22 @@ let deleteModalInstance: any = null;
 let permissionModalInstance: any = null;
 
 const permissionModalRef = ref<HTMLElement | null>(null);
+
+onMounted(async () => {
+    isFetchingDepartments.value = true;
+    try {
+        const response = await fetch('http://localhost:8000/api/departments');
+        if (response.ok) {
+            departments.value = await response.json();
+        } else {
+            departmentsError.value = true;
+        }
+    } catch (e) {
+        departmentsError.value = true;
+    } finally {
+        isFetchingDepartments.value = false;
+    }
+});
 
 
 const stats = computed(() => ({
