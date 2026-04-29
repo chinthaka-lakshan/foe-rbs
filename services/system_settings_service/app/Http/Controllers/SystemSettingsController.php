@@ -22,7 +22,7 @@ class SystemSettingsController extends Controller
     public function update(Request $request)
     {
         $data = $request->except('logo');
-        
+
         // Update text settings
         foreach ($data as $k => $v) {
             SystemSetting::updateOrCreate(['key' => $k], ['value' => $v]);
@@ -43,7 +43,7 @@ class SystemSettingsController extends Controller
             SystemSetting::updateOrCreate(['key' => 'logo'], ['value' => $path, 'type' => 'file']);
         }
 
-        return response()->json(['message' => 'Settings finalized and stored.']);
+        return $this->index();
     }
 
     // Perform quick actions like clearing cache or logs
@@ -52,16 +52,16 @@ class SystemSettingsController extends Controller
         // quick actions: clear-cache, backup-db, clear-logs
         if ($action === 'clear-cache') {
             \Artisan::call('cache:clear');
-            return response()->json(['message'=>'Cache cleared']);
+            return response()->json(['message' => 'Cache cleared']);
         }
         if ($action === 'clear-logs') {
             // naive clear logs
             foreach (glob(storage_path('logs') . '/*.log') as $f) {
                 @unlink($f);
             }
-            return response()->json(['message'=>'Logs cleared']);
+            return response()->json(['message' => 'Logs cleared']);
         }
         // implement backup/db depending on your infra
-        return response()->json(['message'=>'Not implemented'], 400);
+        return response()->json(['message' => 'Not implemented'], 400);
     }
 }

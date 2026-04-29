@@ -688,6 +688,10 @@ const loadBookings = async () => {
   
   try {
     await bookingStore.fetchAll(true);
+    // Normalize resources for filtering consistency
+    bookings.value.forEach((booking: any) => {
+      booking.resource = booking.resource || booking.item || booking.details?.[0] || null;
+    });
   } catch (error: any) {
     console.error('Error loading bookings:', error);
     errorMessage.value = 'Failed to load bookings. Please try again.';
@@ -906,12 +910,6 @@ const uniqueResources = computed(() => {
 
 const filteredBookings = computed(() => {
   return bookings.value.filter((booking: any) => {
-    // Exclude bookings pending for verification
-    const status = (booking.status || '').toLowerCase();
-    if (status === 'pending_for_verification') {
-      return false;
-    }
-
     // Resource filter
     if (selectedResource.value) {
       let resourceName = '';
@@ -936,8 +934,13 @@ const filteredBookings = computed(() => {
     
     // Date range filter
     if (startDate.value && endDate.value) {
-      const bookingDate = new Date(booking.booking_date).toISOString().split('T')[0];
-      if (bookingDate < startDate.value || bookingDate > endDate.value) {
+      if (!booking.booking_date) return false;
+      try {
+        const bookingDate = new Date(booking.booking_date).toISOString().split('T')[0];
+        if (bookingDate < startDate.value || bookingDate > endDate.value) {
+          return false;
+        }
+      } catch (e) {
         return false;
       }
     }
@@ -949,8 +952,13 @@ const filteredBookings = computed(() => {
 const focusedDateBookings = computed(() => {
   if (!focusedDate.value) return [];
   return bookings.value.filter((booking: any) => {
-    const bookingDate = new Date(booking.booking_date).toISOString().split('T')[0];
-    return bookingDate === focusedDate.value;
+    if (!booking.booking_date) return false;
+    try {
+      const bookingDate = new Date(booking.booking_date).toISOString().split('T')[0];
+      return bookingDate === focusedDate.value;
+    } catch (e) {
+      return false;
+    }
   });
 });
 
@@ -1080,14 +1088,22 @@ const daysInMonth = computed(() => {
   const monthEnd = new Date(year, month + 1, 0).toISOString().split('T')[0];
   
   const monthBookings = filteredBookings.value.filter((booking: any) => {
-    const bookingDate = new Date(booking.booking_date).toISOString().split('T')[0];
-    return bookingDate >= monthStart && bookingDate <= monthEnd;
+    if (!booking.booking_date) return false;
+    try {
+      const bookingDate = new Date(booking.booking_date).toISOString().split('T')[0];
+      return bookingDate >= monthStart && bookingDate <= monthEnd;
+    } catch (e) {
+      return false;
+    }
   });
 
   const bookingCountMap = new Map();
   monthBookings.forEach((booking: any) => {
-    const bookingDate = new Date(booking.booking_date).toISOString().split('T')[0];
-    bookingCountMap.set(bookingDate, (bookingCountMap.get(bookingDate) || 0) + 1);
+    if (!booking.booking_date) return;
+    try {
+      const bookingDate = new Date(booking.booking_date).toISOString().split('T')[0];
+      bookingCountMap.set(bookingDate, (bookingCountMap.get(bookingDate) || 0) + 1);
+    } catch (e) {}
   });
 
   for (let i = startingDayOfWeekIndex; i > 0; i--) {
@@ -1124,8 +1140,17 @@ const daysInMonth = computed(() => {
 
 // --- Initialize ---
 onMounted(async () => {
-  if (!bookingStore.isLoaded) {
-    await bookingStore.fetchAll();
+  try {
+    if (!bookingStore.isLoaded) {
+      await bookingStore.fetchAll();
+    }
+    // Normalize resources for filtering consistency
+    bookings.value.forEach((booking: any) => {
+      booking.resource = booking.resource || booking.item || booking.details?.[0] || null;
+    });
+  } catch (error: any) {
+    console.error('Initial load failed:', error);
+    errorMessage.value = 'Failed to load bookings. Please refresh.';
   }
 });
 </script>
