@@ -2,12 +2,17 @@
   <GuestLayout>
     <div class="section">
       <div class="guest-gallery">
-        <div class="d-flex justify-content-between align-items-center mb-4 p-4 rounded shadow-sm bg-white border-start border-5 border-teal">
+        <div class="dashboard-header-modern mb-4 p-4 rounded shadow-sm bg-white" style="border-left: 5px solid #1e4449;">
           <div>
-            <h2 class="section-title mb-0 fw-bold text-dark-teal">Public Resource Gallery</h2>
+            <nav aria-label="breadcrumb">
+              <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item active" aria-current="page">Resources</li>
+              </ol>
+            </nav>
+            <h2 class="mb-0 fw-bold text-dark-teal">Public Resource Gallery</h2>
             <p class="text-muted mb-0">Browse and reserve our high-end facilities.</p>
           </div>
-          <div class="d-flex gap-2">
+          <div class="text-end d-none d-md-block">
             <span class="badge bg-light-teal text-teal p-2 px-3 rounded-pill border border-teal-subtle">
               <i class="bi bi-collection me-1"></i> {{ sortedResources.length }} Available
             </span>
@@ -234,5 +239,17 @@ const bookResource = (id: number) => {
 
 .guest-gallery {
   animation: fadeIn 0.4s ease-out;
+}
+
+/* ========== MODERN DASHBOARD HEADER STYLES ========== */
+.dashboard-header-modern {
+    background: linear-gradient(to right, #ffffff, #f7fdf4);
+    border-radius: 12px;
+}
+
+@media (max-width: 768px) {
+  .dashboard-header-modern {
+    padding: 1rem !important;
+  }
 }
 </style>
