@@ -18,14 +18,23 @@ import Booking_Item from '../views/MasterAdmin/Booking_Item.vue';
 import User_Dashboard from '../views/User/User_Dashboard.vue';
 import Admin_Dashboard from '../views/Admin/Admin_Dashboard.vue';
 import Department from '../views/MasterAdmin/Department.vue';
-import Resource from '../views/Admin/Resource.vue';
+
+
 import User_Resource from '../views/User/Resource.vue';
 import User_Booking from '../views/User/Booking.vue';
 import User_Setting from '../views/User/Setting.vue';
+
+
 import Admin_Booking from '../views/Admin/Booking.vue';
 import Admin_Reports from '../views/Admin/Reports.vue';
 import Admin_Setting from '../views/Admin/Setting.vue';
 import Admin_Users from '../views/Admin/Users.vue';
+import Resource from '../views/Admin/Resource.vue';
+import Add_resource from '../views/Admin/Add_resource.vue';
+import Use_template from '../views/Admin/Use_template.vue';
+import Single_resource from '../views/Admin/Single_resource.vue';
+import Single_resource_booking from '../views/Admin/Single_resource_booking.vue';
+
 
 import User_Single_Resource from '../views/User/Single_Resource.vue';
 import User_Single_Resource_Booking from '../views/User/Single_Resource_Booking.vue';
@@ -33,6 +42,8 @@ import PublicBookings from '../views/Guest/PublicBookings.vue';
 import GuestResourceGallery from '../views/Guest/GuestResourceGallery.vue';
 import GuestBooking from '../views/Guest/GuestBooking.vue';
 import GuestSingleView from '../views/Guest/GuestSingleView.vue';
+
+
 
 
 const routes: Array<RouteRecordRaw> = [
@@ -269,7 +280,32 @@ const routes: Array<RouteRecordRaw> = [
     name: 'admin-user',
     component: Admin_Users,
     meta: { requiresAuth: true, role: 'Admin' }
+  },
+   {
+    path: '/admin/add-resource',
+    name: 'admin-add-resource',
+    component: Add_resource,
+    meta: { requiresAuth: true, role: 'Admin' }
+  },
+   {
+    path: '/admin/use-template',
+    name: 'admin-use-template',
+    component: Use_template,
+    meta: { requiresAuth: true, role: 'Admin' }
+  },
+   {
+    path: '/admin/resource/:id',
+    name: 'admin-single-resource',
+    component: Single_resource,
+    meta: { requiresAuth: true, role: 'Admin' }
+  },
+   {
+    path: '/admin/single-resource-booking',
+    name: 'admin-single-resource-booking',
+    component: Single_resource_booking,
+    meta: { requiresAuth: true, role: 'Admin' }
   }
+
 ];
 
 const router = createRouter({

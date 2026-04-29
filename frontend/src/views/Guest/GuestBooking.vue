@@ -1,3 +1,4 @@
+
 <template>
   <GuestLayout>
     <div class="section">
@@ -64,23 +65,25 @@
               </div>
             </div>
 
-            <!-- Booking History Section - FULL FEATURE -->
+            <!-- Booking History Section - FIXED -->
             <div class="card shadow-sm border-0 mb-4">
-              <div class="card-header bg-white py-3 border-bottom border-light d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 text-dark-teal"><i class="bi bi-clock-history me-2"></i>Booking History</h5>
-                <button 
-                  class="btn btn-sm btn-outline-teal"
-                  @click="loadBookings"
-                  :disabled="isLoadingBookings"
-                >
-                  <i class="bi bi-arrow-clockwise" :class="{ 'fa-spin': isLoadingBookings }"></i>
-                  Refresh
-                </button>
+              <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Booking History</h5>
+                <div>
+                  <button 
+                    class="btn btn-sm btn-outline-primary"
+                    @click="loadBookings"
+                    :disabled="isLoadingBookings"
+                  >
+                    <i class="bi bi-arrow-clockwise" :class="{ 'fa-spin': isLoadingBookings }"></i>
+                    Refresh
+                  </button>
+                </div>
               </div>
               <div class="card-body">
                 <!-- Loading State for Bookings -->
                 <div v-if="isLoadingBookings" class="text-center py-4">
-                  <div class="spinner-border spinner-border-sm text-teal" role="status">
+                  <div class="spinner-border spinner-border-sm text-primary" role="status">
                     <span class="visually-hidden">Loading...</span>
                   </div>
                   <p class="mt-2 text-muted small">Loading booking history...</p>
@@ -144,9 +147,8 @@
                             >
                               <i class="bi bi-eye"></i>
                             </button>
-                            <!-- Cancel button only shows for bookings made by the same email -->
                             <button 
-                              v-if="(booking.status === 'pending' || booking.status === 'confirmed') && booking.user_email === bookingForm.email"
+                              v-if="booking.status === 'pending' || booking.status === 'confirmed'"
                               class="btn btn-outline-warning"
                               @click="cancelBooking(booking)"
                               title="Cancel Booking"
@@ -162,7 +164,7 @@
               </div>
             </div>
 
-            <!-- Weekly Availability (Beautiful UI) -->
+            <!-- Weekly Availability -->
             <div class="card shadow-sm border-0 mb-4">
               <div class="card-header bg-white py-3 border-bottom border-light">
                 <h5 class="mb-0 text-dark-teal"><i class="bi bi-calendar3 me-2"></i>Weekly Availability</h5>
@@ -203,7 +205,6 @@
                 <h5 class="mb-0 fw-bold">Book This Resource</h5>
               </div>
               <div class="card-body p-4">
-                <!-- User Type Display - Guest -->
                 <div class="alert alert-warning py-2 mb-3 small d-flex align-items-center">
                   <i class="bi bi-person-badge me-2 fs-5"></i>
                   <span><strong>External User (Guest)</strong> - Standard Charges Apply</span>
@@ -281,7 +282,6 @@
                         <input type="text" class="form-control shadow-none" placeholder="Search equipment..." v-model="equipmentSearch" @input="searchEquipment" @focus="searchEquipment">
                       </div>
 
-                      <!-- Equipment Dropdown -->
                       <div v-if="showEquipmentDropdown && filteredEquipment.length > 0" class="equipment-dropdown shadow-sm rounded border">
                         <div v-for="item in filteredEquipment" :key="item.id" @click="addEquipmentItem(item)" class="p-2 border-bottom hover-bg-teal-light small cursor-pointer">
                           <div class="d-flex justify-content-between">
@@ -292,7 +292,6 @@
                         </div>
                       </div>
 
-                      <!-- Selected Equipment List with Quantity Selector -->
                       <div v-if="selectedEquipment.length > 0" class="mt-2">
                         <div v-for="(item, index) in selectedEquipment" :key="item.id" class="d-flex justify-content-between align-items-center mb-2 small bg-white p-2 rounded shadow-xs">
                           <div class="flex-grow-1">
@@ -335,7 +334,7 @@
                     <button type="submit" class="btn btn-teal-modern py-3 shadow-sm rounded-3" :disabled="isCreatingBooking || isResourceUnavailable || isBookingConflict || (bookingForm.startTime >= bookingForm.endTime) || !bookingForm.email">
                       <span v-if="isCreatingBooking" class="spinner-border spinner-border-sm me-2"></span>
                       <i v-else class="bi bi-check2-circle me-2"></i>
-                      {{ isCreatingBooking ? 'Sending Request...' : 'Request Now & Verify OTP' }}
+                      {{ isCreatingBooking ? 'Creating Booking...' : 'Book Now & Verify OTP' }}
                     </button>
                   </div>
                 </form>
@@ -345,125 +344,269 @@
         </div>
       </div>
 
-
-    <!-- OTP Verification Modal (Synced with working User view) -->
-    <div v-if="showOTPModal" class="modal-overlay">
-      <div class="modal-content">
-        <div class="modal-header bg-dark-teal text-white py-3 px-4">
-          <h5 class="modal-title mb-0">
-            <i class="bi bi-shield-lock me-2"></i>OTP Verification
-          </h5>
-          <button type="button" class="btn-close btn-close-white" @click="showOTPModal = false"></button>
-        </div>
-        <div class="modal-body p-4">
-          <div class="text-center mb-4">
-            <div class="otp-pulse-circle mx-auto mb-3">
-              <i class="bi bi-envelope-check fs-2 text-teal"></i>
+      <!-- OTP Verification Modal -->
+      <div v-if="showOTPModal" class="modal-overlay">
+        <div class="modal-content">
+          <div class="modal-header bg-primary text-white">
+            <h5 class="modal-title">
+              <i class="bi bi-shield-lock me-2"></i>OTP Verification
+            </h5>
+            <button type="button" class="btn-close btn-close-white" @click="closeOTPModal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="text-center mb-4">
+              <div class="otp-icon mb-3">
+                <i class="bi bi-envelope-check" style="font-size: 3rem; color: #4BB66D;"></i>
+              </div>
+              <h6 class="fw-bold">Verify Your Email</h6>
+              <p class="text-muted small">
+                We've sent a 6-digit OTP to:<br>
+                <strong>{{ bookingForm.email }}</strong>
+              </p>
+              <div v-if="otpSentSuccess" class="alert alert-success alert-sm py-2">
+                <i class="bi bi-check-circle me-1"></i>OTP sent successfully! Please check your email.
+              </div>
             </div>
-            <h6 class="fw-bold text-dark-teal">Verify Your Email</h6>
-            <p class="text-muted small">
-              We've sent a 6-digit code to:<br>
-              <span class="fw-bold text-teal">{{ bookingForm.email }}</span>
-            </p>
-            <div v-if="otpSentSuccess" class="alert alert-success alert-sm py-2 x-small">
-              <i class="bi bi-check-circle me-1"></i>OTP sent successfully!
+            
+            <div class="otp-input-container mb-4">
+              <div class="d-flex justify-content-center gap-2">
+                <input
+                  v-for="n in 6"
+                  :key="n"
+                  type="text"
+                  maxlength="1"
+                  class="otp-digit"
+                  v-model="otpDigits[n-1]"
+                  @input="onOtpInput(n-1, $event)"
+                  @keydown="onOtpKeydown(n-1, $event)"
+                  :ref="el => { if (el) otpInputs[n-1] = el as any }"
+                  :disabled="isVerifyingOTP"
+                />
+              </div>
+              <div v-if="otpError" class="text-danger text-center mt-2 small">
+                <i class="bi bi-exclamation-triangle me-1"></i>{{ otpError }}
+              </div>
+            </div>
+            
+            <div class="text-center mb-3">
+              <small class="text-muted">
+                OTP expires in: 
+                <span class="fw-bold" :class="otpExpired ? 'text-danger' : 'text-success'">
+                  {{ formatCountdownTimer() }}
+                </span>
+              </small>
+            </div>
+            
+            <div class="text-center">
+              <button 
+                class="btn btn-link btn-sm text-decoration-none"
+                @click="resendOTP"
+                :disabled="!otpExpired || isResendingOTP"
+              >
+                <span v-if="isResendingOTP" class="spinner-border spinner-border-sm me-1"></span>
+                <span v-else><i class="bi bi-arrow-clockwise me-1"></i></span>
+                Resend OTP
+              </button>
             </div>
           </div>
-
-          <div class="otp-input-container d-flex justify-content-center gap-2 mb-4">
-            <input
-              v-for="n in 6"
-              :key="n"
-              type="text"
-              maxlength="1"
-              class="otp-digit"
-              v-model="otpDigits[n-1]"
-              @input="onOtpInput(n-1, $event)"
-              @keydown="onOtpKeydown(n-1, $event)"
-              :ref="el => { if (el) otpInputs[n-1] = el as any }"
-              :disabled="isVerifyingOTP"
-              inputmode="numeric"
-              autocomplete="one-time-code"
-            />
-          </div>
-
-          <div v-if="otpError" class="text-danger text-center mt-2 small mb-3">
-            <i class="bi bi-exclamation-triangle me-1"></i>{{ otpError }}
-          </div>
-
-          <div class="text-center mb-3">
-            <small class="text-muted">
-              OTP expires in: 
-              <span class="fw-bold" :class="otpExpired ? 'text-danger' : 'text-success'">
-                {{ formatCountdownTimer() }}
-              </span>
-            </small>
-          </div>
-
-          <div class="text-center">
+          <div class="modal-footer">
             <button 
-              class="btn btn-link btn-sm text-decoration-none text-teal fw-bold"
-              @click="resendOTP"
-              :disabled="!otpExpired || isResendingOTP"
+              type="button" 
+              class="btn btn-secondary" 
+              @click="closeOTPModal"
+              :disabled="isVerifyingOTP"
             >
-              <span v-if="isResendingOTP" class="spinner-border spinner-border-sm me-1"></span>
-              <i v-else class="bi bi-arrow-clockwise me-1"></i>
-              Resend OTP
+              Cancel
+            </button>
+            <button 
+              type="button" 
+              class="btn btn-success" 
+              @click="verifyOTPAndConfirmBooking"
+              :disabled="!isOtpComplete || isVerifyingOTP"
+            >
+              <span v-if="isVerifyingOTP" class="spinner-border spinner-border-sm me-2"></span>
+              <i class="bi bi-check-circle me-2"></i>
+              {{ isVerifyingOTP ? 'Verifying...' : 'Verify & Confirm Booking' }}
             </button>
           </div>
         </div>
-        <div class="modal-footer d-flex gap-2 justify-content-center border-0 pb-4">
-          <button @click="showOTPModal = false" class="btn btn-outline-secondary px-4 rounded-pill" :disabled="isVerifyingOTP">
-            Cancel
-          </button>
-          <button @click="verifyOTPAndConfirmBooking" class="btn btn-teal-modern px-4 rounded-pill" :disabled="!isOtpComplete || isVerifyingOTP">
-            <span v-if="isVerifyingOTP" class="spinner-border spinner-border-sm me-2"></span>
-            Verify & Confirm
-          </button>
-        </div>
       </div>
-    </div>
 
-    <!-- Success Modal -->
-    <div v-if="showSuccessModal" class="modal-overlay">
-      <div class="modal-content text-center p-4">
-        <div class="mb-4">
-          <div class="success-icon-check mx-auto">
-            <i class="bi bi-check-lg"></i>
+      <!-- Success Modal -->
+      <div v-if="showSuccessModal" class="modal-overlay">
+        <div class="modal-content">
+          <div class="modal-header bg-success text-white">
+            <h5 class="modal-title">
+              <i class="bi bi-check-circle-fill me-2"></i>Booking Confirmed Successfully!
+            </h5>
+          </div>
+          <div class="modal-body text-center">
+            <div class="success-icon mb-3">
+              <i class="bi bi-check-circle" style="font-size: 4rem; color: #4BB66D;"></i>
+            </div>
+            <h6 class="fw-bold mb-3">Your booking has been confirmed!</h6>
+            
+            <div class="booking-details bg-light p-3 rounded mb-3">
+              <p class="mb-2"><strong>Resource:</strong> {{ resource?.name }}</p>
+              <p class="mb-2"><strong>Date:</strong> {{ bookingForm.date }}</p>
+              <p class="mb-2"><strong>Time:</strong> {{ bookingForm.startTime }} - {{ bookingForm.endTime }}</p>
+              <div v-if="selectedEquipment.length > 0" class="mb-2">
+                <strong>Equipment:</strong>
+                <ul class="mb-0 ps-3 small">
+                  <li v-for="item in selectedEquipment" :key="item.id">
+                    {{ item.name }} (Qty: {{ item.quantity }})
+                  </li>
+                </ul>
+              </div>
+              <p class="mb-0"><strong>Total Cost:</strong> Rs. {{ totalBookingCost }}</p>
+            </div>
+            
+            <p class="text-muted small">
+              A confirmation email has been sent to <strong>{{ bookingForm.email }}</strong>
+            </p>
+            <div v-if="confirmedBookingReference" class="alert alert-info mt-3">
+              <i class="bi bi-info-circle me-2"></i>
+              Booking Reference: <strong>{{ confirmedBookingReference }}</strong>
+              <br>
+              <small>Status: <span class="badge status-confirmed">Confirmed</span></small>
+            </div>
+          </div>
+          <div class="modal-footer justify-content-center">
+            <button type="button" class="btn btn-success" @click="redirectToResources">
+              <i class="bi bi-grid-3x3-gap-fill me-2"></i>Browse More Resources
+            </button>
+            <button type="button" class="btn btn-outline-success" @click="closeSuccessModal">
+              <i class="bi bi-calendar-plus me-2"></i>Book Another
+            </button>
           </div>
         </div>
-        <h4 class="fw-bold text-dark-teal mb-3">Booking Confirmed!</h4>
-        <p class="text-muted mb-4">Your booking request has been successfully processed and confirmed.</p>
-        
-        <div class="booking-details-box text-start p-3 bg-light rounded mb-4">
-          <div class="mb-2"><small class="text-muted">Reference:</small> <span class="fw-bold text-dark-teal">{{ confirmedBookingReference }}</span></div>
-          <div class="mb-2"><small class="text-muted">Resource:</small> <span class="fw-bold text-dark-teal">{{ resource.name }}</span></div>
-          <div class="mb-0"><small class="text-muted">Date:</small> <span class="fw-bold text-dark-teal">{{ formatDate(bookingForm.date) }}</span></div>
-        </div>
-
-        <button @click="closeSuccessModal" class="btn btn-teal-modern w-100 py-2 rounded-pill">
-          Return to Gallery
-        </button>
       </div>
-    </div>
 
-    <!-- Details Modal -->
-    <div v-if="selectedBooking" class="modal-overlay">
-      <div class="modal-content" style="max-width: 600px;">
-        <div class="modal-header bg-dark-teal text-white py-3">
-          <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Booking Details</h5>
-          <button type="button" class="btn-close btn-close-white" @click="selectedBooking = null"></button>
-        </div>
-        <div class="modal-body p-4">
-           <!-- Details info... -->
-           <p>Reference: {{ selectedBooking.booking_reference }}</p>
-           <p>Status: {{ selectedBooking.status }}</p>
-        </div>
-        <div class="modal-footer border-0">
-          <button class="btn btn-secondary px-4" @click="selectedBooking = null">Close</button>
+      <!-- Booking Details Modal -->
+      <div v-if="selectedBooking" class="modal-overlay">
+        <div class="modal-content" style="max-width: 700px;">
+          <div class="modal-header bg-info text-white">
+            <h5 class="modal-title">
+              <i class="bi bi-calendar-check me-2"></i>Booking Details
+            </h5>
+            <button type="button" class="btn-close btn-close-white" @click="selectedBooking = null"></button>
+          </div>
+          <div class="modal-body">
+            <div class="row">
+              <div class="col-md-6">
+                <h6 class="fw-bold mb-3">Booking Information</h6>
+                <table class="table table-sm table-borderless">
+                  <tbody>
+                    <tr>
+                      <th width="40%">Reference:</th>
+                      <td>{{ selectedBooking.booking_reference || 'N/A' }}</td>
+                    </tr>
+                    <tr>
+                      <th>Status:</th>
+                      <td>
+                        <span class="badge" :class="getBookingStatusClass(selectedBooking.status)">
+                          {{ getBookingStatusText(selectedBooking.status) }}
+                        </span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <th>Date:</th>
+                      <td>{{ formatDate(selectedBooking.booking_date) }}</td>
+                    </tr>
+                    <tr>
+                      <th>Time:</th>
+                      <td>{{ formatTime(selectedBooking.start_time) }} - {{ formatTime(selectedBooking.end_time) }}</td>
+                    </tr>
+                    <tr>
+                      <th>Duration:</th>
+                      <td>{{ calculateDuration(selectedBooking.start_time, selectedBooking.end_time) }} hours</td>
+                    </tr>
+                    <tr>
+                      <th>Amount:</th>
+                      <td class="fw-bold text-success">
+                        Rs. {{ calculateBookingAmount(selectedBooking) }}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              
+              <div class="col-md-6">
+                <h6 class="fw-bold mb-3">Customer Information</h6>
+                <table class="table table-sm table-borderless">
+                  <tbody>
+                    <tr>
+                      <th width="40%">Name:</th>
+                      <td>{{ selectedBooking.user?.name || 'N/A' }}</td>
+                    </tr>
+                    <tr>
+                      <th>Email:</th>
+                      <td>{{ selectedBooking.user?.email || selectedBooking.user_email || 'N/A' }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <h6 class="fw-bold mb-3 mt-4">Resource Details</h6>
+                <table class="table table-sm table-borderless">
+                  <tbody>
+                    <tr>
+                      <th width="40%">Resource:</th>
+                      <td>{{ resource?.name }}</td>
+                    </tr>
+                    <tr>
+                      <th>Category:</th>
+                      <td>{{ resource?.category?.name || 'N/A' }}</td>
+                    </tr>
+                    <tr>
+                      <th>Rate:</th>
+                      <td>Rs. {{ resource?.base_price }}/hour</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div v-if="selectedBooking.notes" class="mt-4">
+              <h6 class="fw-bold mb-2">Notes</h6>
+              <div class="alert alert-light border">
+                {{ selectedBooking.notes }}
+              </div>
+            </div>
+
+            <div class="mt-4">
+              <h6 class="fw-bold mb-3">Booking Timeline</h6>
+              <div class="timeline">
+                <div class="timeline-item">
+                  <div class="timeline-marker bg-success"></div>
+                  <div class="timeline-content">
+                    <h6 class="mb-1">Booking Created & Confirmed</h6>
+                    <p class="text-muted small mb-0">{{ formatDateTime(selectedBooking.created_at) }}</p>
+                  </div>
+                </div>
+                <div v-if="selectedBooking.confirmed_at" class="timeline-item">
+                  <div class="timeline-marker bg-primary"></div>
+                  <div class="timeline-content">
+                    <h6 class="mb-1">Booking Confirmed via OTP</h6>
+                    <p class="text-muted small mb-0">{{ formatDateTime(selectedBooking.confirmed_at) }}</p>
+                  </div>
+                </div>
+                <div v-if="selectedBooking.cancelled_at" class="timeline-item">
+                  <div class="timeline-marker bg-danger"></div>
+                  <div class="timeline-content">
+                    <h6 class="mb-1">Booking Cancelled</h6>
+                    <p class="text-muted small mb-0">{{ formatDateTime(selectedBooking.cancelled_at) }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" @click="selectedBooking = null">
+              Close
+            </button>
+          </div>
         </div>
       </div>
-    </div>
 
     </div>
   </GuestLayout>
@@ -482,14 +625,18 @@ const router = useRouter();
 // API Configuration
 const API_BASE_URL = 'http://localhost:8000/api';
 
-// Helper to get auth token (Guests might not have one, which is fine)
+// Helper to get auth token
 const getAuthToken = () => localStorage.getItem('token') || '';
 
-// Computed Properties for template
+// 🔥 FIXED: bookings computed property - Same as Master Admin
 const bookings = computed(() => {
-    // Filter bookings for this resource only if needed, 
-    // but the store might already be filtered by fetchByResource
-    return bookingStore.bookings.filter(b => b.resources?.some((r: any) => r.id === resource.value?.id) || b.resource_id === resource.value?.id);
+  if (!resource.value) return [];
+  const currentResourceId = resource.value.id;
+  return bookingStore.bookings.filter((b: any) => {
+    return b.details && b.details.some((detail: any) => 
+      detail.item_type === 'resource' && Number(detail.item_id) === Number(currentResourceId)
+    );
+  });
 });
 
 const sortedAvailability = computed(() => {
@@ -525,7 +672,6 @@ const isBookingConflict = computed(() => {
 const otpExpired = computed(() => otpTimer.value <= 0);
 const isOtpComplete = computed(() => otpDigits.value.join('').length === 6);
 
-
 const calculateBookingDuration = (): number => {
   if (!bookingForm.value.startTime || !bookingForm.value.endTime) return 0;
   const start = new Date(`2000-01-01T${bookingForm.value.startTime}`);
@@ -536,7 +682,6 @@ const calculateBookingDuration = (): number => {
 };
 
 const calculateAmountWithUserType = (baseAmount: number): number => {
-  // Guests always pay full amount
   return baseAmount;
 };
 
@@ -568,16 +713,13 @@ const totalBookingCost = computed(() => {
   return (Number(calculatedCost.value) || 0) + (Number(equipmentTotalCost.value) || 0);
 });
 
-
-
-
 // State
 const resource = ref<any>(null);
 const isLoading = ref(true);
 const isLoadingBookings = ref(false);
 const isLoadingEquipment = ref(false);
 const errorMessage = ref('');
-
+const selectedBooking = ref<any>(null);
 
 // Equipment & Search
 const availableEquipment = ref<any[]>([]);
@@ -622,10 +764,117 @@ const endMin = ref('00');
 watch([startHour, startMin], () => { bookingForm.value.startTime = `${startHour.value}:${startMin.value}`; });
 watch([endHour, endMin], () => { bookingForm.value.endTime = `${endHour.value}:${endMin.value}`; });
 
-// --- CORE FIX: Create Booking Logic ---
+// Formatting Functions
+const formatTime = (time: string | null): string => {
+  if (!time) return '00:00';
+  return time.substring(0, 5); 
+};
+
+const formatDate = (dateString: string): string => {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  });
+};
+
+const formatDateTime = (dateString: string): string => {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
+
+const formatTimeShort = (time: string) => {
+  if (!time) return '';
+  return time.substring(0, 5);
+};
+
+const calculateDuration = (startTime: string, endTime: string): string => {
+  const start = new Date(`2000-01-01T${startTime}`);
+  const end = new Date(`2000-01-01T${endTime}`);
+  const diff = end.getTime() - start.getTime();
+  const hours = diff > 0 ? diff / (1000 * 60 * 60) : 0;
+  return hours.toFixed(1);
+};
+
+const calculateBookingAmount = (booking: any): number => {
+  if (booking.total_amount) {
+    return booking.total_amount;
+  }
+  
+  if (booking.details && booking.details.length > 0) {
+    return booking.details.reduce((sum: number, detail: any) => sum + detail.subtotal, 0);
+  }
+  
+  return booking.total_amount || 0;
+};
+
+const getBookingStatusClass = (status: string) => {
+  switch (status) {
+    case 'pending': return 'status-pending';
+    case 'confirmed': return 'status-confirmed';
+    case 'cancelled': return 'status-cancelled';
+    case 'completed': return 'status-completed';
+    default: return 'bg-secondary';
+  }
+};
+
+const getBookingStatusText = (status: string) => {
+  switch (status) {
+    case 'pending': return 'Pending';
+    case 'confirmed': return 'Confirmed';
+    case 'cancelled': return 'Cancelled';
+    case 'completed': return 'Completed';
+    default: return status.charAt(0).toUpperCase() + status.slice(1);
+  }
+};
+
+// Main Functions
+const loadResourceDetails = async () => {
+  isLoading.value = true;
+  try {
+    const token = getAuthToken();
+    const headers: any = { 'Accept': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await axios.get(`${API_BASE_URL}/resources/${route.params.id}`, { headers });
+    resource.value = res.data.resource || res.data;
+    
+    // 🔥 Fetch bookings for this resource
+    await bookingStore.fetchByResource(resource.value.id);
+  } catch (e) {
+    errorMessage.value = "Could not load resource details.";
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+const loadBookings = async () => {
+  if (!resource.value) return;
+  
+  isLoadingBookings.value = true;
+  
+  try {
+    if (resource.value) {
+      await bookingStore.fetchByResource(resource.value.id);
+    }
+  } catch (error: any) {
+    console.error('Error loading bookings:', error);
+  } finally {
+    isLoadingBookings.value = false;
+  }
+};
+
+// Create Booking Logic
 const createBookingAndSendOTP = async () => {
   if (!bookingForm.value.email) {
-    errorMessage.value = "Email is required for Guest verification.";
+    errorMessage.value = "Email is required.";
     return;
   }
 
@@ -634,7 +883,7 @@ const createBookingAndSendOTP = async () => {
   
   try {
     const payload = {
-      user_id: 0, // Guest marker
+      user_id: 0,
       user_email: bookingForm.value.email,
       booking_date: bookingForm.value.date,
       start_time: bookingForm.value.startTime,
@@ -647,24 +896,18 @@ const createBookingAndSendOTP = async () => {
       }))
     };
 
-    // Note the X-User-Type header to match your backend resolution
     const token = getAuthToken();
-    const headers: any = { 
-        'Accept': 'application/json',
-        'X-User-Type': 'external' 
-    };
+    const headers: any = { 'Accept': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
     const response = await axios.post(`${API_BASE_URL}/bookings`, payload, { headers });
 
-    // FIX: Match the backend response key 'booking_id'
-    if (response.data.booking_id) {
-      pendingBookingId.value = response.data.booking_id;
-      showOTPModal.value = true; // This will trigger the v-if in template
+    if (response.data.booking_id || response.data.id) {
+      pendingBookingId.value = response.data.booking_id || response.data.id;
+      showOTPModal.value = true;
       startOTPTimer();
       otpSentSuccess.value = true;
       
-      // Auto-focus first digit
       await nextTick();
       if (otpInputs.value[0]) otpInputs.value[0].focus();
     }
@@ -673,7 +916,6 @@ const createBookingAndSendOTP = async () => {
   } finally {
     isCreatingBooking.value = false;
   }
-
 };
 
 const verifyOTPAndConfirmBooking = async () => {
@@ -685,10 +927,7 @@ const verifyOTPAndConfirmBooking = async () => {
 
   try {
     const token = getAuthToken();
-    const headers: any = { 
-        'Accept': 'application/json',
-        'X-User-Type': 'external' 
-    };
+    const headers: any = { 'Accept': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
     const response = await axios.post(`${API_BASE_URL}/bookings/${pendingBookingId.value}/verify-otp`, 
@@ -696,10 +935,11 @@ const verifyOTPAndConfirmBooking = async () => {
       { headers }
     );
 
-
     confirmedBookingReference.value = response.data.booking?.booking_reference || 'REF-GUEST';
     showOTPModal.value = false;
     showSuccessModal.value = true;
+    
+    await loadBookings();
   } catch (error: any) {
     otpError.value = error.response?.data?.message || 'Invalid OTP';
     otpDigits.value = Array(6).fill('');
@@ -709,7 +949,25 @@ const verifyOTPAndConfirmBooking = async () => {
   }
 };
 
-// --- OTP Input Management ---
+const cancelBooking = async (booking: any) => {
+  if (!confirm('Are you sure you want to cancel this booking?')) return;
+  try {
+    const token = getAuthToken();
+    await axios.post(`${API_BASE_URL}/bookings/${booking.id}/cancel`, {}, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    alert('Booking cancelled successfully');
+    await loadBookings();
+  } catch (e) {
+    alert('Failed to cancel booking');
+  }
+};
+
+const viewBookingDetails = (booking: any) => {
+  selectedBooking.value = booking;
+};
+
+// OTP Input Handlers
 const onOtpInput = (index: number, event: any) => {
   const val = event.target.value;
   if (val.length > 1) {
@@ -726,26 +984,6 @@ const onOtpKeydown = (index: number, event: KeyboardEvent) => {
   }
 };
 
-// --- Lifecycle & Load ---
-const loadResourceDetails = async () => {
-  isLoading.value = true;
-  try {
-    const token = getAuthToken();
-    const headers: any = { 'Accept': 'application/json' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-
-    const res = await axios.get(`${API_BASE_URL}/resources/${route.params.id}`, { headers });
-    resource.value = res.data.resource || res.data;
-    // Fetch bookings for this resource to show in history
-    await bookingStore.fetchByResource(resource.value.id);
-  } catch (e) {
-    errorMessage.value = "Could not load resource details.";
-  } finally {
-    isLoading.value = false;
-  }
-};
-
-
 const startOTPTimer = () => {
   otpTimer.value = 300;
   if (otpTimerInterval.value) clearInterval(otpTimerInterval.value);
@@ -760,21 +998,49 @@ const formatCountdownTimer = () => {
   return `${m}:${s.toString().padStart(2, '0')}`;
 };
 
-onMounted(loadResourceDetails);
+const resendOTP = async () => {
+  if (!pendingBookingId.value) return;
+  isResendingOTP.value = true;
+  otpError.value = '';
+  try {
+    const token = getAuthToken();
+    const headers: any = { 'Accept': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
 
-// Equipment Watchers
-watch(() => bookingForm.value.date, () => {
-  if (bookingForm.value.date && bookingForm.value.startTime && bookingForm.value.endTime) {
-    loadAvailableEquipment();
+    await axios.post(`${API_BASE_URL}/bookings/${pendingBookingId.value}/resend-otp`, {
+        email: bookingForm.value.email
+    }, { headers });
+    
+    startOTPTimer();
+    otpDigits.value = Array(6).fill('');
+    otpSentSuccess.value = true;
+    otpError.value = 'New OTP sent successfully!';
+    
+    await nextTick();
+    if (otpInputs.value[0]) otpInputs.value[0].focus();
+  } catch (error: any) {
+    otpError.value = error.response?.data?.message || 'Failed to resend OTP';
+  } finally {
+    isResendingOTP.value = false;
   }
-});
+};
 
-watch([() => bookingForm.value.startTime, () => bookingForm.value.endTime], () => {
-  if (bookingForm.value.date && bookingForm.value.startTime && bookingForm.value.endTime) {
-    loadAvailableEquipment();
-  }
-});
+const closeOTPModal = () => {
+  showOTPModal.value = false;
+  otpError.value = '';
+};
 
+const closeSuccessModal = () => {
+  showSuccessModal.value = false;
+  router.push('/guest-resources');
+};
+
+const redirectToResources = () => {
+  closeSuccessModal();
+  router.push('/guest-resources');
+};
+
+// Equipment Functions
 const loadAvailableEquipment = async () => {
   isLoadingEquipment.value = true;
   try {
@@ -850,8 +1116,7 @@ const decreaseQuantity = (index: number) => {
   }
 };
 
-
-// --- Helpers ---
+// Helper Functions
 const getImageUrl = (res: any) => {
   if (res?.images && res.images.length > 0) {
     return `${API_BASE_URL}/resources/storage/${res.images[0].file_path}`;
@@ -867,102 +1132,16 @@ const getStatusClass = (status: string) => {
   }
 };
 
-const formatDate = (dateString: string) => {
-  if (!dateString) return 'N/A';
-  return new Date(dateString).toLocaleDateString('en-US', {
-    year: 'numeric', month: 'short', day: 'numeric'
-  });
-};
-
-const formatTime = (time: string) => {
-  if (!time) return '00:00';
-  return time.substring(0, 5);
-};
-
-const formatTimeShort = (time: string) => formatTime(time);
-
-const formatDateTime = (dateTimeString: string) => {
-  if (!dateTimeString) return 'N/A';
-  return new Date(dateTimeString).toLocaleString('en-US', {
-    year: 'numeric', month: 'short', day: 'numeric',
-    hour: '2-digit', minute: '2-digit'
-  });
-};
-
-const calculateBookingAmount = (booking: any) => {
-  return booking.total_amount || 0;
-};
-
-const getBookingStatusClass = (status: string) => {
-  switch (status?.toLowerCase()) {
-    case 'pending': return 'status-pending';
-    case 'confirmed': return 'status-confirmed';
-    case 'cancelled': return 'status-cancelled';
-    case 'requested_by_guest': return 'bg-info text-white';
-    default: return 'bg-secondary';
+// Watchers
+watch([() => bookingForm.value.date, () => bookingForm.value.startTime, () => bookingForm.value.endTime], () => {
+  if (bookingForm.value.date && bookingForm.value.startTime && bookingForm.value.endTime && bookingForm.value.startTime < bookingForm.value.endTime) {
+    loadAvailableEquipment();
   }
-};
+});
 
-const getBookingStatusText = (status: string) => {
-  if (!status) return 'Unknown';
-  return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-};
-
-const viewBookingDetails = (booking: any) => {
-  alert(`Booking Reference: ${booking.booking_reference}\nDate: ${formatDate(booking.booking_date)}\nStatus: ${getBookingStatusText(booking.status)}`);
-};
-
-const cancelBooking = async (booking: any) => {
-  if (!confirm('Are you sure you want to cancel this booking?')) return;
-  try {
-    const token = getAuthToken();
-    await axios.post(`${API_BASE_URL}/bookings/${booking.id}/cancel`, {}, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    alert('Booking cancelled successfully');
-    loadResourceDetails();
-  } catch (e) {
-    alert('Failed to cancel booking');
-  }
-};
-
-const closeOTPModal = () => {
-  showOTPModal.value = false;
-};
-
-const resendOTP = async () => {
-  if (!pendingBookingId.value) return;
-  isResendingOTP.value = true;
-  otpError.value = '';
-  try {
-    const token = getAuthToken();
-    const headers: any = { 'Accept': 'application/json', 'X-User-Type': 'external' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-
-    await axios.post(`${API_BASE_URL}/bookings/${pendingBookingId.value}/resend-otp`, {
-        email: bookingForm.value.email
-    }, { headers });
-    
-    startOTPTimer();
-    otpDigits.value = Array(6).fill('');
-    otpSentSuccess.value = true;
-    otpError.value = 'New OTP sent successfully!';
-    
-    await nextTick();
-    if (otpInputs.value[0]) otpInputs.value[0].focus();
-  } catch (error: any) {
-    otpError.value = error.response?.data?.message || 'Failed to resend OTP';
-  } finally {
-    isResendingOTP.value = false;
-  }
-};
-
-const closeSuccessModal = () => {
-  showSuccessModal.value = false;
-  router.push('/guest-resources');
-};
-
-
+onMounted(() => {
+  loadResourceDetails();
+});
 </script>
 
 <style scoped>
@@ -1008,29 +1187,6 @@ const closeSuccessModal = () => {
     transform: none;
 }
 
-.btn-outline-teal-modern {
-    background: transparent;
-    border: 1px solid #1e4449;
-    color: #1e4449;
-    transition: all 0.2s ease;
-    font-weight: 600;
-}
-
-.btn-outline-teal-modern:hover {
-    background: #1e4449;
-    color: white;
-}
-
-.btn-outline-teal {
-    border-color: #1e4449;
-    color: #1e4449;
-}
-
-.btn-outline-teal:hover {
-    background-color: #1e4449;
-    color: white;
-}
-
 .cursor-pointer { cursor: pointer; }
 .hover-bg-teal-light:hover { background-color: #e5f4de; }
 
@@ -1041,17 +1197,6 @@ const closeSuccessModal = () => {
     width: calc(100% - 2px);
     max-height: 200px;
     overflow-y: auto;
-}
-
-.otp-pulse-circle {
-    width: 70px;
-    height: 70px;
-    background: #e5f4de;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    animation: pulse 2s infinite;
 }
 
 .modal-overlay {
@@ -1093,37 +1238,6 @@ const closeSuccessModal = () => {
     outline: none;
 }
 
-.details-modal-content {
-    max-width: 800px;
-}
-
-.success-modal-header, .details-modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem 1.5rem;
-    border-top-left-radius: 16px;
-    border-top-right-radius: 16px;
-}
-
-.success-modal-body, .details-modal-body {
-    padding: 1.5rem;
-}
-
-.success-modal-footer, .details-modal-footer {
-    padding: 1rem 1.5rem;
-    border-top: 1px solid #e5e7eb;
-    display: flex;
-    gap: 10px;
-    justify-content: center;
-}
-
-.booking-details {
-    background-color: #f8f9fa;
-    border-radius: 8px;
-}
-
-/* Badge Styles */
 .badge.status-pending {
     background-color: #ffffff !important;
     color: #8B8000 !important;
@@ -1140,19 +1254,72 @@ const closeSuccessModal = () => {
     color: white !important;
 }
 
-@keyframes pulse {
-  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(30, 68, 73, 0.2); }
-  70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(30, 68, 73, 0); }
-  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(30, 68, 73, 0); }
+.extra-small { font-size: 0.75rem; }
+.x-small { font-size: 0.75rem; }
+
+.table {
+  font-size: 0.85rem;
+}
+
+.table th, .table td {
+  padding: 0.6rem 0.5rem;
+  vertical-align: middle;
+}
+
+.availability-list {
+  max-height: 350px;
+  overflow-y: auto;
+  padding-right: 5px;
+}
+
+.day-availability {
+  padding: 12px;
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  border: 1px solid #f1f3f5;
+  border-left: 4px solid #1e4449;
+  margin-bottom: 12px;
+}
+
+.time-slots-container {
+  background-color: #f8f9fa;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+}
+
+.time-slot {
+  padding: 4px 8px;
+  background-color: white;
+  border-radius: 4px;
+  border-left: 3px solid #4BB66D;
+  margin-bottom: 5px;
+}
+
+.slot-time {
+  font-family: 'Courier New', Courier, monospace;
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 0.85rem;
+}
+
+.availability-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.availability-list::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.availability-list::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 10px;
 }
 
 @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
-}
-
-@keyframes modalFadeIn {
-    from { opacity: 0; transform: scale(0.95); }
-    to { opacity: 1; transform: scale(1); }
 }
 </style>

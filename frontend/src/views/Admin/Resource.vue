@@ -5,30 +5,6 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
       <h2 class="section-title mb-0">Resources</h2>
       <div class="d-flex gap-2 mt-3">
-        <button
-          class="btn btn-outline-dark-teal btn-sm"
-          @click="navigateToDepartment"
-        >
-          <i class="bi bi-list-ul me-1"></i>Department
-        </button>
-         <button
-          class="btn btn-outline-dark-teal btn-sm"
-          @click="navigateToBooking_Item"
-        >
-          <i class="bi bi-list-ul me-1"></i>Booking Item
-        </button>
-        <button
-          class="btn btn-outline-dark-teal btn-sm"
-          @click="navigateToCategories"
-        >
-          <i class="bi bi-list-ul me-1"></i>Categories
-        </button> 
-        <button
-          class="btn btn-outline-dark-teal btn-sm"
-          @click="navigateToTemplates"
-        >
-          <i class="bi bi-file-text me-1"></i>Templates
-        </button>
         <button 
           class="btn btn-success btn-sm" 
           @click="showAddModal = true"
@@ -108,7 +84,7 @@
               </button>
             </div>
 
-            <div @click="navigateToSingleResource(resource.id)">
+            <div @click="navigateToSingleresource(resource.id)">
               <div class="resource-image">
                 <img :src="getImageUrl(resource)" :alt="resource.name">
               </div>
@@ -433,24 +409,9 @@ const handleDeleteResource = async () => {
 };
 
 // Navigation Handlers
-const navigateToDepartment = () => {
-    router.push('/master-admin/department');
-};
 
-const navigateToBooking_Item = () => {
-    router.push('/master-admin/booking_item');
-};
-
-const navigateToCategories = () => {
-    router.push('/master-admin/categories');
-};
-
-const navigateToTemplates = () => {
-    router.push('/master-admin/templates');
-};
-
-const navigateToSingleResource = (id: number) => {
-    router.push(`/master-admin/resource/${id}`);
+const navigateToSingleresource = (id: number) => {
+    router.push(`/admin/resource/${id}`);
 };
 
 const navigateToAdd_Custom = () => {
@@ -464,11 +425,11 @@ const openTemplateSelectionModal = () => {
 };
 
 const navigateToEditResource = (id: number) => {
-    router.push({ path: '/master-admin/add-resource', query: { id: id, mode: 'edit' } });
+    router.push({ path: '/admin/add-resource', query: { id: id, mode: 'edit' } });
 };
 
 const handleReserveClick = (id: number) => {
-    router.push({ path: '/master-admin/single-resource-booking', query: { resourceId: id } });
+    router.push({ path: '/admin/single-resource-booking', query: { resourceId: id } });
 };
 
 // Delete Modal Handlers
