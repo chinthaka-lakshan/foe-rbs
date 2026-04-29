@@ -1,6 +1,6 @@
 <template>
   <navbar/>
-  <master-admin-sidebar/>
+  <admin_-sidebar/>
   <div class="section">
     <div class="d-flex justify-content-between align-items-center mb-4">
       <h2 class="section-title mb-0">Resource Details: <span class="text-dark-teal">{{ resource?.name || 'Loading...' }}</span></h2>
@@ -161,7 +161,7 @@ import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter} from 'vue-router';
 import axios from 'axios';
 import Navbar from '../../components/Navbar.vue';
-import MasterAdminSidebar from '../../components/Sidebar/MasterAdminSidebar.vue';
+import Admin_Sidebar from '../../components/Sidebar/Admin_Sidebar.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -420,7 +420,7 @@ const fetchResourceDetails = async (id: number) => {
 };
 
 const handleReserveClick = (id: number) => {
-    router.push({ path: '/master-admin/single-resource-booking', query: { resourceId: id } });
+    router.push({ path: '/admin/single-resource-booking', query: { resourceId: id } });
 };
 
 onMounted(() => {
