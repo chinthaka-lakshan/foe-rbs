@@ -2,9 +2,22 @@
   <Navbar />
   <AdminSidebar />
   <div class="section">
-    <div class="dashboard-header mb-4">
-      <h2 class="section-title">Account Settings</h2>
-      <p class="text-muted mb-0">Update your personal details and security preferences.</p>
+    <!-- Modern Header Card -->
+    <div class="dashboard-header-modern mb-4 p-4 rounded shadow-sm bg-white">
+      <div>
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb mb-1">
+            <li class="breadcrumb-item active" aria-current="page">Settings</li>
+          </ol>
+        </nav>
+        <h2 class="mb-0 fw-bold text-dark-teal">Account Settings</h2>
+        <p class="text-muted mb-0">Update your personal details and security preferences.</p>
+      </div>
+      <div class="text-end d-none d-md-block">
+        <span class="badge bg-light-teal text-teal p-2 px-3 rounded-pill border border-teal-subtle">
+          <i class="bi bi-person-badge me-1"></i> {{ userRole }} Account
+        </span>
+      </div>
     </div>
 
     <div class="row">
@@ -166,17 +179,6 @@ const updateProfile = async () => {
   }
 }
 
-.dashboard-header {
-  background-color: #e5f4de; 
-  color: #1e4449; 
-  padding: 20px 25px; 
-  border-radius: 10px;
-}
-
-.section-title {
-  margin: 0;
-  font-weight: 600;
-}
 
 .avatar-circle {
   width: 80px;

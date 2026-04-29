@@ -2,7 +2,24 @@
   <navbar/>
   <admin-sidebar/>
   <div class="section">
-    <h2 class="section-title">Bookings</h2>
+    <!-- Modern Header Card -->
+    <div class="dashboard-header-modern mb-4 p-4 rounded shadow-sm bg-white">
+      <div>
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb mb-1">
+            <li class="breadcrumb-item active" aria-current="page">Bookings</li>
+          </ol>
+        </nav>
+        <h2 class="mb-0 fw-bold text-dark-teal">Booking Management</h2>
+        <p class="text-muted mb-0">Review and manage bookings for your assigned resources.</p>
+      </div>
+      <div class="text-end d-none d-md-block">
+        <span class="badge bg-light-teal text-teal p-2 px-3 rounded-pill border border-teal-subtle">
+          <i class="bi bi-calendar-event me-1"></i> {{ bookingStore.bookings.length }} Total
+        </span>
+      </div>
+    </div>
+
 
     <div v-if="isLoading" class="text-center py-5">
       <div class="spinner-border text-primary" role="status">
