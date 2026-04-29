@@ -3,8 +3,22 @@
   <AdminSidebar />
   <div class="section">
     
-    <div class="dashboard-header mb-4">
-      <h2 class="section-title">Admin Dashboard</h2>
+    <!-- Modern Header Card -->
+    <div class="dashboard-header-modern mb-4 p-4 rounded shadow-sm bg-white">
+      <div>
+        <nav aria-label="breadcrumb">
+          <ol class="breadcrumb mb-1">
+            <li class="breadcrumb-item active" aria-current="page">Dashboard</li>
+          </ol>
+        </nav>
+        <h2 class="mb-0 fw-bold text-dark-teal">Admin Dashboard</h2>
+        <p class="text-muted mb-0">Overview of assigned resources and booking activities.</p>
+      </div>
+      <div class="text-end d-none d-md-block">
+        <span class="badge bg-light-teal text-teal p-2 px-3 rounded-pill border border-teal-subtle">
+          <i class="bi bi-cpu me-1"></i> System Online
+        </span>
+      </div>
     </div>
 
     <div class="row g-4 mb-4">
@@ -182,20 +196,6 @@ onMounted(() => {
   to { opacity: 1; transform: translateY(0); }
 }
 
-.dashboard-header {
-  background-color: #e5f4de; 
-  color: #1e4449; 
-  text-align: center;
-  padding: 30px 15px; 
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-}
-
-.dashboard-header .section-title {
-  margin: 0;
-  font-weight: 600;
-  font-size: 24px; 
-}
 
 .chart-card {
   background: white;
