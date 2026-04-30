@@ -162,9 +162,10 @@
         </div>
       </div>
 
-      <div class="table-card">
+      <!-- Managed Resource Bookings Table -->
+      <div class="table-card mb-4">
         <div class="d-flex justify-content-between align-items-center mb-3">
-          <h5 class="mb-0">All Bookings ({{ filteredBookings.length }})</h5>
+          <h5 class="mb-0 text-dark-teal"><i class="bi bi-person-workspace me-2"></i>Managed Resource Bookings ({{ managedBookings.length }})</h5>
           <div>
             <button class="btn btn-success btn-sm me-2" @click="loadBookings" :disabled="isRefreshing">
               <span v-if="isRefreshing" class="spinner-border spinner-border-sm me-1"></span>
@@ -181,78 +182,78 @@
                 <th>User Email</th>
                 <th>Resource</th>
                 <th>Booking Date</th>
-                <th>Start Time</th>
-                <th>End Time</th>
+                <th>Time Slot</th>
                 <th>Total Amount</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="booking in filteredBookings" :key="booking.id">
-                <td>
-                  <span class="badge bg-light text-dark">{{ booking.booking_reference }}</span>
-                </td>
+              <tr v-for="booking in managedBookings" :key="booking.id">
+                <td><span class="badge bg-light text-dark">{{ booking.booking_reference }}</span></td>
                 <td>{{ booking.user_email }}</td>
-                
-                <td>
-                  <template v-if="booking.resource && booking.resource.name">
-                    {{ booking.resource.name }}
-                  </template>
-                  <template v-else-if="booking.details && booking.details.length > 0">
-                    {{ booking.details[0].item_name }}
-                  </template>
-                  <template v-else>
-                    <span class="text-muted">N/A</span>
-                  </template>
-                </td>
-
+                <td>{{ booking.resource?.name || booking.details?.[0]?.item_name || 'N/A' }}</td>
                 <td>{{ formatDate(booking.booking_date) }}</td>
-                <td>{{ booking.start_time }}</td>
-                <td>{{ booking.end_time }}</td>
+                <td>{{ booking.start_time }} - {{ booking.end_time }}</td>
                 <td>Rs. {{ booking.total_amount }}</td>
-                <td>
-                  <span class="badge" :class="getStatusClass(booking.status)">
-                    {{ booking.status }}
-                  </span>
-                </td>
-               
+                <td><span class="badge" :class="getStatusClass(booking.status)">{{ booking.status }}</span></td>
                 <td>
                   <div class="btn-group btn-group-sm">
-                    <!-- ALWAYS SHOW PREVIEW ICON -->
-                    <button class="btn btn-outline-info" @click="viewBookingDetails(booking.id)" title="View Details">
-                      <i class="bi bi-eye"></i>
-                    </button>
-                    
-                    <!-- ALWAYS SHOW DELETE ICON -->
-                    <button class="btn btn-outline-danger" @click="openDeleteConfirmation(booking)" title="Delete Permanently">
-                      <i class="bi bi-trash"></i>
-                    </button>
-                    
-                    <!-- SHOW CONFIRM AND REJECT ICONS ONLY FOR PENDING BOOKINGS THAT HAVEN'T BEEN ACTIONED -->
+                    <button class="btn btn-outline-info" @click="viewBookingDetails(booking.id)" title="View Details"><i class="bi bi-eye"></i></button>
+                    <button class="btn btn-outline-danger" @click="openDeleteConfirmation(booking)" title="Delete Permanently"><i class="bi bi-trash"></i></button>
                     <template v-if="(booking.status === 'Pending' || booking.status === 'Requested_by_Guest') && !booking.actionTaken">
-                      <button class="btn btn-outline-success" @click="confirmBooking(booking.id)" title="Confirm">
-                        <i class="bi bi-check-circle"></i>
-                      </button>
-                      <button class="btn btn-outline-warning" @click="rejectBooking(booking.id)" title="Reject">
-                        <i class="bi bi-x-circle"></i>
-                      </button>
-                    </template>
-                    
-                    <!-- SHOW ONLY PREVIEW AND DELETE AFTER ACTION IS TAKEN -->
-                    <template v-else-if="(booking.status === 'Pending' || booking.status === 'Requested_by_Guest') && booking.actionTaken">
-                      <!-- Preview and Delete already shown above -->
+                      <button class="btn btn-outline-success" @click="confirmBooking(booking.id)" title="Confirm"><i class="bi bi-check-circle"></i></button>
+                      <button class="btn btn-outline-warning" @click="rejectBooking(booking.id)" title="Reject"><i class="bi bi-x-circle"></i></button>
                     </template>
                   </div>
                 </td>
               </tr>
+              <tr v-if="managedBookings.length === 0">
+                <td colspan="8" class="text-center py-4 text-muted">No managed resource bookings found.</td>
+              </tr>
             </tbody>
           </table>
-          
-          <div v-if="filteredBookings.length === 0" class="text-center py-5 text-muted">
-            <i class="bi bi-calendar-x" style="font-size: 3rem;"></i>
-            <p class="mt-3">No bookings found</p>
-          </div>
+        </div>
+      </div>
+
+      <!-- My Personal Bookings Table -->
+      <div class="table-card">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 class="mb-0 text-dark-teal"><i class="bi bi-person-badge me-2"></i>My Personal Bookings ({{ personalBookings.length }})</h5>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>Booking Ref</th>
+                <th>Resource</th>
+                <th>Booking Date</th>
+                <th>Time Slot</th>
+                <th>Total Amount</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="booking in personalBookings" :key="booking.id">
+                <td><span class="badge bg-light text-dark">{{ booking.booking_reference }}</span></td>
+                <td>{{ booking.resource?.name || booking.details?.[0]?.item_name || 'N/A' }}</td>
+                <td>{{ formatDate(booking.booking_date) }}</td>
+                <td>{{ booking.start_time }} - {{ booking.end_time }}</td>
+                <td>Rs. {{ booking.total_amount }}</td>
+                <td><span class="badge" :class="getStatusClass(booking.status)">{{ booking.status }}</span></td>
+                <td>
+                  <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-info" @click="viewBookingDetails(booking.id)" title="View Details"><i class="bi bi-eye"></i></button>
+                    <button v-if="booking.status === 'Pending' || booking.status === 'Pending_for_Verification'" class="btn btn-outline-danger" @click="openDeleteConfirmation(booking)" title="Cancel Booking"><i class="bi bi-trash"></i></button>
+                  </div>
+                </td>
+              </tr>
+              <tr v-if="personalBookings.length === 0">
+                <td colspan="7" class="text-center py-4 text-muted">No personal bookings found.</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -398,31 +399,30 @@ const getCurrentUserId = () => {
     try {
       const user = JSON.parse(userStr);
       if (user && user.id) return user.id;
-      if (user && user.user_id) return user.user_id;
-    } catch (e) {
-      console.error('Error parsing user from localStorage', e);
-    }
+    } catch (e) {}
   }
-  return localStorage.getItem('userId') || 
-         localStorage.getItem('user_id') || 
-         localStorage.getItem('adminId') || 
-         localStorage.getItem('admin_id') ||
-         localStorage.getItem('id');
+  return localStorage.getItem('userId');
+};
+
+const getCurrentUserEmail = () => {
+  const userStr = localStorage.getItem('user');
+  if (userStr) {
+    try {
+      const user = JSON.parse(userStr);
+      if (user && user.email) return user.email;
+    } catch (e) {}
+  }
+  return localStorage.getItem('userEmail') || localStorage.getItem('email');
 };
 
 const isMasterAdmin = computed(() => {
-  const roleId = localStorage.getItem('role_id') || 
-                 localStorage.getItem('roleId') || 
-                 localStorage.getItem('user_role_id');
+  const roleId = localStorage.getItem('role_id') || localStorage.getItem('roleId');
   return parseInt(roleId || '0') === 1;
 });
 
 // Filter bookings by assigned admin
-// Note: We now rely on the specialized backend endpoint (fetchAssignedBookings) 
-// to provide pre-filtered data for Admins, while Master Admins get the full list.
 const roleFilteredBookings = computed(() => {
-  if (!bookingStore.bookings || bookingStore.bookings.length === 0) return [];
-  return bookingStore.bookings;
+  return bookingStore.bookings || [];
 });
 
 // --- Helper Functions ---
@@ -450,17 +450,13 @@ const getStatusClass = (status: string) => {
 const showSuccess = (message: string) => {
   successMessage.value = message;
   showSuccessToast.value = true;
-  setTimeout(() => {
-    showSuccessToast.value = false;
-  }, 3000);
+  setTimeout(() => showSuccessToast.value = false, 3000);
 };
 
 const showError = (message: string) => {
   errorMessage.value = message;
   showErrorToast.value = true;
-  setTimeout(() => {
-    showErrorToast.value = false;
-  }, 3000);
+  setTimeout(() => showErrorToast.value = false, 3000);
 };
 
 // --- API Functions ---
@@ -470,25 +466,23 @@ const loadBookings = async () => {
   
   try {
     const adminId = getCurrentUserId();
-    // Refresh both stores to ensure filtering is based on latest assignments
-    const promises: Promise<any>[] = [resourceStore.fetchAll(true)];
+    if (!resourceStore.isLoaded) await resourceStore.fetchAll();
     
     if (isMasterAdmin.value) {
-      promises.push(bookingStore.fetchAll(true));
+      await bookingStore.fetchAll(true);
     } else if (adminId) {
-      promises.push(bookingStore.fetchAssignedBookings(adminId, true));
+      // Fetch both personal and assigned bookings
+      await bookingStore.fetchAdminData(adminId);
     }
     
-    await Promise.all(promises);
-    
-    // Normalize resources for filtering consistency
-    bookings.value.forEach(booking => {
+    // Normalize resources
+    bookingStore.bookings.forEach(booking => {
       booking.actionTaken = actionedBookings.value.has(booking.id);
-      booking.resource = booking.resource || booking.item || booking.details?.[0] || null;
+      booking.resource = booking.resource || booking.details?.[0] || null;
     });
   } catch (error: any) {
     console.error('Error loading bookings:', error);
-    errorMessage.value = 'Failed to load bookings. Please try again.';
+    errorMessage.value = 'Failed to load bookings.';
   } finally {
     isRefreshing.value = false;
   }
@@ -672,9 +666,6 @@ const filteredBookings = computed(() => {
   if (selectedStatus.value) {
     filtered = filtered.filter(booking => booking.status === selectedStatus.value);
   } else {
-    // Default: Exclude only pending_for_verification IF the user requested so, 
-    // but let's keep it visible if it's the only thing there or if we are debugging.
-    // Based on user request: "pending for verification status do not want to view booking list"
     filtered = filtered.filter(booking => (booking.status || '').toLowerCase() !== 'pending_for_verification');
   }
 
@@ -693,7 +684,7 @@ const filteredBookings = computed(() => {
     filtered = filtered.filter(booking => {
       if (!booking.booking_date) return false;
       try {
-        const bDate = booking.booking_date.split(' ')[0]; // Handle possible time suffix
+        const bDate = booking.booking_date.split(' ')[0];
         return bDate >= startDate.value && bDate <= endDate.value;
       } catch (e) {
         return false;
@@ -702,6 +693,16 @@ const filteredBookings = computed(() => {
   }
   
   return filtered;
+});
+
+const managedBookings = computed(() => {
+  const adminEmail = getCurrentUserEmail();
+  return filteredBookings.value.filter(b => b.user_email !== adminEmail);
+});
+
+const personalBookings = computed(() => {
+  const adminEmail = getCurrentUserEmail();
+  return filteredBookings.value.filter(b => b.user_email === adminEmail);
 });
 
 const focusedDateBookings = computed(() => {
