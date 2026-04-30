@@ -178,6 +178,40 @@ export const bookingStore = reactive({
     }
   },
 
+  async fetchAdminData(adminId: number | string) {
+    this.isLoading = true;
+    try {
+      const token = this.getAuthToken();
+      const [personalRes, assignedRes] = await Promise.all([
+        axios.get('http://localhost:8000/api/bookings/my', {
+          headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
+        }),
+        axios.get(`http://localhost:8000/api/bookings/admin/assigned?admin_id=${adminId}`, {
+          headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
+        })
+      ]);
+
+      const personal = personalRes.data.bookings || personalRes.data || [];
+      const assigned = assignedRes.data.bookings || assignedRes.data || [];
+
+      // Merge and remove duplicates by ID
+      const allBookings = [...personal];
+      assigned.forEach((b: any) => {
+        if (!allBookings.find(existing => existing.id === b.id)) {
+          allBookings.push(b);
+        }
+      });
+
+      this.bookings = allBookings;
+      this.isLoaded = true;
+      this.lastFetched = Date.now();
+    } catch (e) {
+      console.error("Booking Store: Failed to load admin dashboard data", e);
+    } finally {
+      this.isLoading = false;
+    }
+  },
+
   async fetchGuestBookings(email: string) {
     this.isLoading = true;
     try {
