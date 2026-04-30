@@ -14,7 +14,8 @@ class UserController extends Controller
     public function updateProfile(Request $request)
     {
         $user = $request->user();
-        if (!$user) return response()->json(['message' => 'Unauthenticated'], 401);
+        if (!$user)
+            return response()->json(['message' => 'Unauthenticated'], 401);
 
         $validated = $request->validate([
             'name' => 'nullable|string',
@@ -22,15 +23,15 @@ class UserController extends Controller
             'password' => 'nullable|string|min:6',
             'department' => 'nullable|string',
         ]);
-        
+
         $dataToUpdate = $validated;
-        
+
         if (isset($dataToUpdate['password']) && !empty($dataToUpdate['password'])) {
             $dataToUpdate['password'] = Hash::make($dataToUpdate['password']);
         } else {
             unset($dataToUpdate['password']);
         }
-        
+
         $user->update($dataToUpdate);
         return response()->json($user->load('roles'));
     }
@@ -49,12 +50,14 @@ class UserController extends Controller
             'name' => 'required|string',
             'email' => 'required|email|unique:users',
             'password' => 'required|string|min:6',
+            'department' => 'nullable|exists:departments,name',
         ]);
         // Create user
         $user = User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
+            'department' => $validated['department'],
             'status' => 'active',
         ]);
         // Assign default role 'User'
@@ -72,7 +75,7 @@ class UserController extends Controller
         // Validate input
         $validated = $request->validate([
             'name' => 'nullable|string',
-            'email' => 'nullable|email|unique:users,email,' . $user->id, 
+            'email' => 'nullable|email|unique:users,email,' . $user->id,
             'password' => 'nullable|string|min:6',
             'status' => 'nullable|in:active,inactive',
             'role' => 'nullable|string|exists:roles,name',
@@ -126,5 +129,5 @@ class UserController extends Controller
     {
         $user->delete();
         return response()->json(['message' => 'User deleted successfully']);
-    }       
+    }
 }
