@@ -57,7 +57,13 @@ class User extends Authenticatable
         // Define standard role defaults (Admins and Users start with no hardcoded permissions)
         // Master Admin is handled above. 
         $roleDefaults = [
-            'Admin' => ['view_assigned_bookings'],
+            'Admin' => [
+                'view_assigned_bookings',
+                'manage_resources',
+                'manage_bookings',
+                'view_reports',
+                'manage_categories'
+            ],
             'User'  => [],
         ];
 

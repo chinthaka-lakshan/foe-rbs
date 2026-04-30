@@ -50,7 +50,7 @@ class UserController extends Controller
             'name' => 'required|string',
             'email' => 'required|email|unique:users',
             'password' => 'required|string|min:6',
-            'department' => 'nullable|exists:departments,name',
+            'department' => 'nullable|string',
         ]);
         // Create user
         $user = User::create([
