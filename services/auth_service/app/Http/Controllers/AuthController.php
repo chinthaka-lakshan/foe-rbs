@@ -64,8 +64,8 @@ class AuthController extends Controller
             'status' => 'active',
         ]);
 
-        // Assign role based on email domain
-        $isInternal = \str_ends_with(\strtolower($validated['email']));
+        // Assign role based on whether they belong to a department
+        $isInternal = !empty($validated['department']);
         $roleName = $isInternal ? 'User' : 'Guest';
         $role = \App\Models\Role::where('name', $roleName)->first();
         if ($role) {
