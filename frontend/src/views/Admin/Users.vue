@@ -97,6 +97,7 @@
               <th>User ID</th>
               <th>Name</th>
               <th>Email</th>
+              <th>Department</th>
               <th>Role</th>
               <th>Status</th>
             </tr>
@@ -106,6 +107,7 @@
               <td>{{ user.id }}</td>
               <td>{{ user.name }}</td>
               <td>{{ user.email }}</td>
+              <td>{{ user.department }}</td>
               <td>
                 <span class="badge" :class="user.primaryRole.toLowerCase().includes('admin') ? 'bg-primary' : 'bg-info'">
                   {{ user.primaryRole }}
@@ -159,6 +161,23 @@
                   placeholder="Enter full name"
                 />
                 <small class="text-danger" v-if="validationErrors.name">{{ validationErrors.name[0] }}</small>
+              </div>
+
+               <div class="mb-3">
+                  <label for="department" class="form-label fw-bold">Department<span class="text-danger">*</span></label>
+                  <select
+                      class="form-select"
+                      id="department"
+                      v-model="newUser.department"
+                      required
+                      :disabled="isLoading || isFetchingDepartments"
+                  >
+                      <option value="" disabled>Select your department</option>
+                      <option v-for="dept in departments" :key="dept.id" :value="dept.name">
+                          {{ dept.name }}
+                      </option>
+                  </select>
+                  <div v-if="departmentsError" class="text-danger small mt-1">Failed to load departments.</div>
               </div>
               
               <div class="mb-3">
@@ -375,6 +394,7 @@ interface Role {
 interface User {
   id: number | string;
   name: string;
+  department:string;
   email: string;
   status: 'active' | 'inactive' | string;
   roles: Role[];
@@ -383,6 +403,7 @@ interface User {
 
 interface NewUserForm {
   name: string;
+  department:string;
   email: string;
   password: string;
   password_confirmation: string;
@@ -403,6 +424,11 @@ const successMessage = ref('');
 const errorMessage = ref('');
 const modalErrorMessage = ref('');
 const validationErrors = ref<ValidationErrors>({});
+
+const selectedDepartment = ref('');
+const departments = ref<any[]>([]);
+const isFetchingDepartments = ref(false);
+const departmentsError = ref(false);
 
 // Remove redundant local users ref
 // const users = ref<User[]>([]);
@@ -435,6 +461,7 @@ const taskPermissions = [
 // Add User modal state
 const initialNewUserState: NewUserForm = {
   name: '',
+  department:'',
   email: '',
   password: '',
   password_confirmation: '',
@@ -451,6 +478,22 @@ let deleteModalInstance: any = null;
 let permissionModalInstance: any = null;
 
 const permissionModalRef = ref<HTMLElement | null>(null);
+
+onMounted(async () => {
+    isFetchingDepartments.value = true;
+    try {
+        const response = await fetch('http://localhost:8000/api/departments');
+        if (response.ok) {
+            departments.value = await response.json();
+        } else {
+            departmentsError.value = true;
+        }
+    } catch (e) {
+        departmentsError.value = true;
+    } finally {
+        isFetchingDepartments.value = false;
+    }
+});
 
 
 const stats = computed(() => ({
@@ -751,6 +794,7 @@ const handleStore = async () => {
         name: newUser.value.name,
         email: newUser.value.email,
         password: newUser.value.password,
+        department:newUser.value.department,
         password_confirmation: newUser.value.password_confirmation,
       }),
     });

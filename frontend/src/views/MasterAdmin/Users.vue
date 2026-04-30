@@ -98,6 +98,7 @@
               <th>User ID</th>
               <th>Name</th>
               <th>Email</th>
+              <th>Department</th>
               <th>Role</th>
               <th>Status</th>
               <th>Actions</th>
@@ -108,6 +109,7 @@
               <td>{{ user.id }}</td>
               <td>{{ user.name }}</td>
               <td>{{ user.email }}</td>
+              <td>{{ user.department }}</td>
               <td>
                 <span class="badge" :class="user.primaryRole.toLowerCase().includes('admin') ? 'bg-primary' : 'bg-info'">
                   {{ user.primaryRole }}
@@ -210,7 +212,7 @@
                   <select
                       class="form-select"
                       id="department"
-                      v-model="selectedDepartment"
+                      v-model="newUser.department"
                       required
                       :disabled="isLoading || isFetchingDepartments"
                   >
@@ -435,6 +437,7 @@ interface Role {
 
 interface User {
   id: number | string;
+  department:string;
   name: string;
   email: string;
   status: 'active' | 'inactive' | string;
@@ -444,10 +447,11 @@ interface User {
 
 interface NewUserForm {
   name: string;
+  department:string;
   email: string;
   password: string;
   password_confirmation: string;
-  department:string;
+  
 }
 
 interface ValidationErrors {
@@ -465,8 +469,9 @@ const successMessage = ref('');
 const errorMessage = ref('');
 const modalErrorMessage = ref('');
 const validationErrors = ref<ValidationErrors>({});
-const selectedDepartment = ref('');
 
+
+const selectedDepartment = ref('');
 const departments = ref<any[]>([]);
 const isFetchingDepartments = ref(false);
 const departmentsError = ref(false);
@@ -502,10 +507,11 @@ const taskPermissions = [
 // Add User modal state
 const initialNewUserState: NewUserForm = {
   name: '',
+  department: '',
   email: '',
   password: '',
   password_confirmation: '',
-  department: selectedDepartment.value
+  
 };
 const newUser = ref<NewUserForm>({ ...initialNewUserState });
 
@@ -835,6 +841,7 @@ const handleStore = async () => {
         name: newUser.value.name,
         email: newUser.value.email,
         password: newUser.value.password,
+        department:newUser.value.department,
         password_confirmation: newUser.value.password_confirmation,
       }),
     });
