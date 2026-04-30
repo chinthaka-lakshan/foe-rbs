@@ -711,7 +711,7 @@ export default {
         }
         
         setTimeout(() => {
-          router.push('/master-admin/resource');
+          router.push('/admin/resource');
         }, 2000);
         
       } catch (error) {
@@ -771,7 +771,7 @@ export default {
         }
         
         setTimeout(() => {
-          router.push('/master-admin/resource');
+          router.push('/admin/resource');
         }, 2000);
         
       } catch (error) {
