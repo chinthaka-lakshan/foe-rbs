@@ -74,9 +74,9 @@
           
           <!-- Assigned Admin -->
           <div class="col-md-6">
-            <label for="assignee" class="form-label fw-bold">Assign Admin</label>
-            <select class="form-select" id="assignee" v-model="resource.assigned_admin_id">
-              <option value="">No Assignee</option>
+            <label for="assignee" class="form-label fw-bold">Assign Admin <span class="text-danger">*</span></label>
+            <select class="form-select" id="assignee" v-model="resource.assigned_admin_id" required>
+              <option value="" disabled>No Assignee</option>
               <option v-for="admin in admins" :key="admin.id" :value="admin.id">
                 {{ admin.name }} ({{ admin.email }})
               </option>
@@ -95,7 +95,7 @@
 
           <!-- Availability -->
           <div class="col-12">
-            <h5 class="section-subtitle fw-bold mb-3 mt-3">Availability & Time Slots</h5>
+            <label class="form-label fw-bold">Availability & Time Slots <span class="text-danger">*</span></label>
             <div class="availability-matrix border p-3 rounded bg-light">
               <div class="row fw-bold text-muted mb-2 border-bottom pb-2 mx-0 small">
                 <div class="col-2">Day</div>
@@ -391,11 +391,13 @@ export default {
     // Count of existing images
     const existingImagesCount = computed(() => existingImagePreviews.value.length);
     
-    // Check if there are availability validation errors
+    // Check if there are availability validation errors or if no availability is selected
     const hasAvailabilityErrors = computed(() => {
-      return availability.value.some(day => 
+      const hasErrors = availability.value.some(day => 
         day.is_available && day.slotError
       );
+      const noneSelected = !availability.value.some(day => day.is_available);
+      return hasErrors || noneSelected;
     });
 
     // Get auth token
@@ -503,9 +505,11 @@ export default {
     // Validate all availability before submission
     const validateAvailability = () => {
       let isValid = true;
+      let atLeastOneDayAvailable = false;
       
       availability.value.forEach((day, dayIndex) => {
         if (day.is_available) {
+          atLeastOneDayAvailable = true;
           if (day.slots.length === 0) {
             availability.value[dayIndex].slotError = 'At least one time slot is required';
             isValid = false;
@@ -516,6 +520,11 @@ export default {
           }
         }
       });
+
+      if (!atLeastOneDayAvailable) {
+        errorMessage.value = 'At least one day must be marked as available with time slots.';
+        isValid = false;
+      }
       
       return isValid;
     };
