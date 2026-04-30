@@ -175,15 +175,19 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.layout-wrapper { background: #f1f5f9; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+.layout-wrapper { 
+  background: #f1f5f9; 
+  min-height: 100vh; 
+  display: flex; 
+  flex-direction: column; 
+}
 
 /* Structural separation to prevent overlap with the 260px sidebar */
 .content-body { 
   margin-left: 260px; 
   padding: 30px 40px; 
-  margin-top: 2px; 
-  height: calc(100vh - 60px);
-  overflow-y: visible;
+  margin-top: 60px; /* Offset for fixed navbar */
+  flex: 1;
   transition: all 0.3s ease;
 }
 
@@ -258,7 +262,9 @@ onMounted(async () => {
   display: flex; 
   justify-content: flex-end; 
   border-top: 1px solid #f1f5f9; 
-  padding-top: 20px; 
+  padding-top: 25px;
+  margin-top: 30px;
+  padding-bottom: 50px; /* Extra padding at bottom to ensure button is fully visible */
 }
 
 
