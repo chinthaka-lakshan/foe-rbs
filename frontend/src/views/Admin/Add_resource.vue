@@ -46,15 +46,22 @@
             </select>
           </div>
 
-          <!-- Department -->
+          <!-- 🔥 FIXED: Department - Auto-filled from logged-in admin, READONLY -->
           <div class="col-md-6">
-            <label for="resourceDepartment" class="form-label fw-bold">Department</label>
-            <select class="form-select" id="resourceDepartment" v-model="resource.department_id">
-              <option value="">No Department</option>
-              <option v-for="department in departments" :key="department.id" :value="department.id">
-                {{ department.name }}
-              </option>
-            </select>
+            <label for="resourceDepartment" class="form-label fw-bold">Department <span class="text-danger">*</span></label>
+            <input 
+              type="text" 
+              class="form-control" 
+              id="resourceDepartment" 
+              :value="adminDepartmentName"
+              readonly
+              disabled
+              style="background-color: #f5f5f5; cursor: not-allowed;"
+            >
+            <small class="text-muted d-block mt-1">
+              <i class="bi bi-info-circle me-1"></i> 
+               Cannot be changed.
+            </small>
           </div>
 
           <!-- Base Price -->
@@ -277,7 +284,7 @@
             </div>
           </div>
           
-          <!-- Description - FIXED: Removed required attribute -->
+          <!-- Description -->
           <div class="col-12">
             <label for="resourceDescription" class="form-label fw-bold">Description</label>
             <textarea 
@@ -302,7 +309,7 @@
 
         <!-- Buttons -->
         <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
-          <button type="button" class="btn btn-secondary" @click="router.push('/master-admin/resource')">
+          <button type="button" class="btn btn-secondary" @click="router.push('/admin/resource')">
             <i class="bi bi-x-circle me-1"></i> Cancel
           </button>
           <button type="submit" class="btn btn-success" :disabled="isSubmitting || hasAvailabilityErrors">
@@ -338,12 +345,39 @@ export default {
     const API_BASE_URL = 'http://localhost:8000/api';
     const STORAGE_URL_ROOT = 'http://localhost:8000/api/resources/storage';
 
+    // 🔥 Get logged-in admin's department from localStorage
+    const getLoggedInAdminDepartment = () => {
+      try {
+        // Try to get from user object in localStorage first
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          if (user.department) {
+            return user.department;
+          }
+        }
+      } catch (e) {
+        console.error('Error parsing user from localStorage:', e);
+      }
+      
+      // Fallback: Try direct department from localStorage
+      const department = localStorage.getItem('department') || 
+                        localStorage.getItem('userDepartment') || 
+                        localStorage.getItem('adminDepartment') || 
+                        '';
+      return department;
+    };
+    
+    // 🔥 Admin's department name (auto-filled, readonly)
+    const adminDepartmentName = ref(getLoggedInAdminDepartment());
+
     // Resource data
     const resource = ref({
       name: '',
       location_name: '',
       category_id: '',
       department_id: '', 
+      department_name: adminDepartmentName.value,
       base_price: null,
       assigned_admin_id: '',
       description: '',
@@ -392,7 +426,7 @@ export default {
     // Count of existing images
     const existingImagesCount = computed(() => existingImagePreviews.value.length);
     
-    // Check if there are availability validation errors or if no availability is selected
+    // Check if there are availability validation errors
     const hasAvailabilityErrors = computed(() => {
       const hasErrors = availability.value.some(day => 
         day.is_available && day.slotError
@@ -534,7 +568,6 @@ export default {
     const handleFileUpload = (event) => {
       const files = Array.from(event.target.files);
       
-      // Check total images limit
       const totalImages = existingImages.value.length + selectedFiles.value.length + files.length;
       if (totalImages > 10) {
         errorMessage.value = 'Maximum 10 images allowed total.';
@@ -553,26 +586,18 @@ export default {
         reader.readAsDataURL(file);
       });
       
-      // Clear input
       event.target.value = '';
     };
 
     const removeImage = (index) => {
-      // Check if this is an existing image
       if (index < existingImagePreviews.value.length) {
-        // Get the actual image ID from existing images array
         const imageId = existingImages.value[index].id;
-        
-        // Add to delete list if not already there
         if (!imagesToDelete.value.includes(imageId)) {
           imagesToDelete.value.push(imageId);
         }
-        
-        // Remove from existing arrays
         existingImages.value.splice(index, 1);
         existingImagePreviews.value.splice(index, 1);
       } else {
-        // This is a new image
         const newImageIndex = index - existingImagePreviews.value.length;
         if (newImageIndex >= 0 && newImageIndex < selectedFiles.value.length) {
           selectedFiles.value.splice(newImageIndex, 1);
@@ -581,24 +606,17 @@ export default {
       }
     };
 
-    // FIXED: Prepare form data with proper description handling
+    // 🔥 FIXED: Prepare form data with department name from logged-in admin
     const prepareFormData = () => {
       const formData = new FormData();
       
-      // Add basic resource data
       formData.append('name', resource.value.name);
       formData.append('location_name', resource.value.location_name);
       formData.append('category_id', resource.value.category_id.toString());
       
-      // Handle department
-      if (resource.value.department_id && departments.value.length > 0) {
-        const selectedDept = departments.value.find(d => d.id == resource.value.department_id);
-        formData.append('department', selectedDept ? selectedDept.name : '');
-      } else {
-        formData.append('department', '');
-      }
+      // 🔥 Use admin's department name (readonly)
+      formData.append('department', adminDepartmentName.value);
       
-      // Handle base price
       if (resource.value.base_price === null || resource.value.base_price === undefined || resource.value.base_price === '') {
         formData.append('base_price', '0.00');
       } else {
@@ -614,29 +632,20 @@ export default {
         formData.append('assigned_admin_id', '');
       }
       
-      // FIXED: Always send description as a string
-      // Check if description exists, if not send empty string
-// ===== FIXED: Description handling - සැමවිටම field එක යවන්න =====
- if (resource.value.description && resource.value.description.trim() !== '') {
-    formData.append('description', String(resource.value.description));
-    console.log('Sending description:', resource.value.description);
-  } else {
-    console.log('Description is empty - not sending');
-  }
+      if (resource.value.description && resource.value.description.trim() !== '') {
+        formData.append('description', String(resource.value.description));
+      }
       
-      // Add images to delete
       if (imagesToDelete.value.length > 0) {
         imagesToDelete.value.forEach((id, index) => {
           formData.append(`removeImages[${index}]`, id);
         });
       }
       
-      // Add new images
       selectedFiles.value.forEach((file, index) => {
         formData.append(`images[${index}]`, file);
       });
       
-      // Add equipment
       if (equipment.value.length > 0) {
         equipment.value.forEach((item, index) => {
           if (item.equipment_name && item.equipment_name.trim()) {
@@ -646,7 +655,6 @@ export default {
         });
       }
       
-      // Add availability
       availability.value.forEach((day, dayIndex) => {
         if (day.is_available && day.slots.length > 0) {
           const validSlots = day.slots.filter(slot => 
@@ -689,12 +697,7 @@ export default {
           throw new Error('Authentication required. Please login again.');
         }
         
-        // Log FormData contents for debugging
-        console.log('=== FormData Contents ===');
-        for (let pair of formData.entries()) {
-          console.log(pair[0] + ': ' + pair[1]);
-        }
-        console.log('=== End FormData ===');
+        console.log('Saving resource with department:', adminDepartmentName.value);
         
         const response = await axios.post(`${API_BASE_URL}/resources`, formData, {
           headers: {
@@ -721,7 +724,6 @@ export default {
           errorMessage.value = 'Authentication required. Please login again.';
         } else if (error.response?.data?.errors) {
           const errors = error.response.data.errors;
-          console.error('Validation errors:', errors);
           errorMessage.value = Object.values(errors).flat().join(', ');
         } else if (error.response?.data?.message) {
           errorMessage.value = error.response.data.message;
@@ -810,23 +812,12 @@ export default {
         
         const resourceData = response.data;
         
-        // Find department ID from department name
-        let departmentId = '';
-        if (resourceData.department && departments.value.length > 0) {
-          const matchedDept = departments.value.find(d => 
-            d.name.toLowerCase() === resourceData.department.toLowerCase()
-          );
-          if (matchedDept) {
-            departmentId = matchedDept.id;
-          }
-        }
-        
-        // Set basic resource data
         resource.value = {
           name: resourceData.name || '',
           location_name: resourceData.location_name || '',
           category_id: resourceData.category_id || '',
-          department_id: departmentId,
+          department_id: '',
+          department_name: resourceData.department || adminDepartmentName.value,
           base_price: resourceData.base_price !== null && resourceData.base_price !== undefined 
             ? parseFloat(resourceData.base_price) 
             : null,
@@ -835,7 +826,6 @@ export default {
           status: resourceData.status || 'Active',
         };
         
-        // Set equipment
         if (resourceData.equipment && Array.isArray(resourceData.equipment)) {
           equipment.value = resourceData.equipment.map(item => ({
             equipment_name: item.equipment_name || '',
@@ -845,15 +835,12 @@ export default {
           equipment.value = [];
         }
         
-        // Load existing images
         if (resourceData.images && Array.isArray(resourceData.images)) {
           existingImages.value = resourceData.images;
           existingImagePreviews.value = resourceData.images.map(img => getImageUrl(img.file_path));
         }
         
-        // Load availability
         if (resourceData.availability && Array.isArray(resourceData.availability)) {
-          // Reset availability array
           availability.value = [
             { day_name: 'Monday', is_available: false, slots: [], slotError: '' },
             { day_name: 'Tuesday', is_available: false, slots: [], slotError: '' },
@@ -864,7 +851,6 @@ export default {
             { day_name: 'Sunday', is_available: false, slots: [], slotError: '' },
           ];
           
-          // Map saved availability to our array
           resourceData.availability.forEach(savedDay => {
             const dayIndex = availability.value.findIndex(
               day => day.day_name === savedDay.day_name
@@ -889,42 +875,17 @@ export default {
       }
     };
 
-    // Fetch departments from API (fallback)
-    const fetchDepartments = async () => {
-      try {
-        const token = getAuthToken();
-        if (!token) return;
-        
-        const response = await axios.get(`${API_BASE_URL}/departments`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          }
-        });
-        
-        if (response.data && Array.isArray(response.data)) {
-          resourceStore.setDepartments(response.data);
-        }
-        
-      } catch (error) {
-        console.error('Error fetching departments:', error);
-      }
-    };
-
     // Initialize
     onMounted(async () => {
-      // Load dependencies from stores if not loaded
       if (!resourceStore.isLoaded) {
         await resourceStore.fetchAll();
-      } else {
-        if (!resourceStore.departments || resourceStore.departments.length === 0) {
-          await fetchDepartments();
-        }
       }
       
       if (!userStore.isLoaded) {
         await userStore.fetchUsers();
       }
+      
+      console.log('Logged-in Admin Department:', adminDepartmentName.value);
       
       if (isEditMode.value) {
         await loadResourceForEdit(route.query.id);
@@ -949,6 +910,7 @@ export default {
       departments,
       isEditMode,
       hasAvailabilityErrors,
+      adminDepartmentName,
       addEquipment,
       removeEquipment,
       addSlot,
