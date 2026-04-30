@@ -53,7 +53,18 @@
                 <label class="form-label text-muted small fw-bold">Email Address</label>
                 <div class="input-group">
                   <span class="input-group-text bg-light border-end-0"><i class="bi bi-envelope"></i></span>
-                  <input type="email" class="form-control border-start-0 ps-0" v-model="profileForm.email" required>
+                  <input type="email" class="form-control border-start-0 ps-0" v-model="profileForm.email" disabled readonly style="background-color: #f8f9fa;">
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label text-muted small fw-bold">Department</label>
+                <div class="input-group">
+                  <span class="input-group-text bg-light border-end-0"><i class="bi bi-building"></i></span>
+                  <select class="form-select border-start-0 ps-0" v-model="profileForm.department" required>
+                    <option value="" disabled>Select Department</option>
+                    <option v-for="dept in departments" :key="dept.id" :value="dept.name">{{ dept.name }}</option>
+                  </select>
                 </div>
               </div>
 
@@ -103,11 +114,15 @@ const errMsg = ref('');
 const profileForm = ref({
   name: '',
   email: '',
-  password: ''
+  password: '',
+  department: ''
 });
+
+const departments = ref<any[]>([]);
 
 onMounted(async () => {
   await fetchProfile();
+  await fetchDepartments();
 });
 
 const fetchProfile = async () => {
@@ -119,12 +134,22 @@ const fetchProfile = async () => {
     const u = res.data;
     profileForm.value.name = u.name;
     profileForm.value.email = u.email;
+    profileForm.value.department = u.department || '';
     profileForm.value.password = ''; // Don't prefill password
   } catch (err: any) {
     console.error("Failed to load profile", err);
     errMsg.value = "Failed to load profile data from server.";
   } finally {
     isLoading.value = false;
+  }
+};
+
+const fetchDepartments = async () => {
+  try {
+    const res = await axios.get('http://localhost:8000/api/departments');
+    departments.value = res.data;
+  } catch (err) {
+    console.error("Failed to fetch departments", err);
   }
 };
 
@@ -136,7 +161,8 @@ const updateProfile = async () => {
     const token = localStorage.getItem('authToken');
     const payload: any = {
       name: profileForm.value.name,
-      email: profileForm.value.email
+      email: profileForm.value.email,
+      department: profileForm.value.department
     };
     if (profileForm.value.password) {
       if (profileForm.value.password.length < 6) {
@@ -193,9 +219,13 @@ const updateProfile = async () => {
   font-weight: bold;
 }
 
-.form-control:focus {
+.form-control:focus, .form-select:focus {
   border-color: #ced4da;
   box-shadow: none;
+}
+
+.form-control, .form-select {
+    border-radius: 8px;
 }
 
 .input-group-text {

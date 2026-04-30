@@ -20,6 +20,7 @@ class UserController extends Controller
             'name' => 'nullable|string',
             'email' => 'nullable|email|unique:users,email,' . $user->id,
             'password' => 'nullable|string|min:6',
+            'department' => 'nullable|string',
         ]);
         
         $dataToUpdate = $validated;
