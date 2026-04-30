@@ -20,8 +20,8 @@
       </div>
     </div>
 
-    <div class="row">
-      <div class="col-md-8 col-lg-6">
+    <div class="row justify-content-center">
+      <div class="col-md-10 col-lg-8">
         <div class="card shadow-sm border-0">
           <div class="card-body p-4">
             

@@ -81,7 +81,7 @@
         <div class="table-responsive">
           <table class="table table-hover">
             <thead>
-              <tr><th>ID</th><th>Name</th><th>Category</th><th>Price</th><th>Revenue</th><th>Status</th></tr>
+              <tr><th>ID</th><th>Name</th><th>Category</th><th>Price</th><th>Status</th></tr>
             </thead>
             <tbody>
               <tr v-for="res in filteredResources" :key="res.id">
@@ -89,7 +89,6 @@
                 <td><strong>{{ res.name }}</strong></td>
                 <td>{{ getCategoryName(res.category_id) }}</td>
                 <td>Rs. {{ formatPrice(res.base_price) }}</td>
-                <td class="text-success fw-bold">Rs. {{ formatPrice(getResourceRevenue(res.id)) }}</td>
                 <td><span class="badge" :class="res.status === 'Active' ? 'bg-success' : 'bg-secondary'">{{ res.status }}</span></td>
               </tr>
             </tbody>
