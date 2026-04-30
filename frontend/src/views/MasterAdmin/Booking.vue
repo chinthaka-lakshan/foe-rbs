@@ -229,9 +229,10 @@
         </div>
       </div>
 
-      <div class="table-card">
+      <!-- System-Wide Resource Bookings Table -->
+      <div class="table-card mb-4">
         <div class="d-flex justify-content-between align-items-center mb-3">
-          <h5 class="mb-0">All Bookings ({{ filteredBookings.length }})</h5>
+          <h5 class="mb-0 text-dark-teal"><i class="bi bi-globe me-2"></i>System-Wide Resource Bookings ({{ allResourceBookings.length }})</h5>
           <div>
             <button class="btn btn-success btn-sm me-2" @click="loadBookings" :disabled="isRefreshing">
               <span v-if="isRefreshing" class="spinner-border spinner-border-sm me-1"></span>
@@ -248,73 +249,78 @@
                 <th>User Email</th>
                 <th>Resource</th>
                 <th>Booking Date</th>
-                <th>Start Time</th>
-                <th>End Time</th>
+                <th>Time Slot</th>
                 <th>Total Amount</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="booking in filteredBookings" :key="booking.id">
-                <td>
-                  <span class="badge bg-light text-dark">{{ booking.booking_reference }}</span>
-                </td>
+              <tr v-for="booking in allResourceBookings" :key="booking.id">
+                <td><span class="badge bg-light text-dark">{{ booking.booking_reference }}</span></td>
                 <td>{{ booking.user_email }}</td>
-                
-                <td>
-                  <template v-if="booking.resource && booking.resource.name">
-                    {{ booking.resource.name }}
-                  </template>
-                  <template v-else-if="booking.details && booking.details.length > 0">
-                    {{ booking.details[0].item_name }}
-                  </template>
-                  <template v-else>
-                    <span class="text-muted">N/A</span>
-                  </template>
-                </td>
-
+                <td>{{ booking.resource?.name || booking.details?.[0]?.item_name || 'N/A' }}</td>
                 <td>{{ formatDate(booking.booking_date) }}</td>
-                <td>{{ booking.start_time }}</td>
-                <td>{{ booking.end_time }}</td>
+                <td>{{ booking.start_time }} - {{ booking.end_time }}</td>
                 <td>Rs. {{ booking.total_amount }}</td>
-                <td>
-                  <span class="badge" :class="getStatusClass(booking.status)">
-                    {{ booking.status }}
-                  </span>
-                </td>
-               
+                <td><span class="badge" :class="getStatusClass(booking.status)">{{ booking.status }}</span></td>
                 <td>
                   <div class="btn-group btn-group-sm">
-                    <!-- Preview Icon - Always Show -->
-                    <button class="btn btn-outline-info" @click="viewBookingDetails(booking.id)" title="View Details">
-                      <i class="bi bi-eye"></i>
-                    </button>
-                    
-                    <!-- Delete Icon - Always Show -->
-                    <button class="btn btn-outline-danger" @click="openDeleteConfirmation(booking)" title="Delete Permanently">
-                      <i class="bi bi-trash"></i>
-                    </button>
-                    
-                    <!-- Show Confirm and Reject Icons ONLY for Pending Bookings -->
+                    <button class="btn btn-outline-info" @click="viewBookingDetails(booking.id)" title="View Details"><i class="bi bi-eye"></i></button>
+                    <button class="btn btn-outline-danger" @click="openDeleteConfirmation(booking)" title="Delete Permanently"><i class="bi bi-trash"></i></button>
                     <template v-if="booking.status === 'Pending' || booking.status === 'Requested_by_Guest'">
-                      <button class="btn btn-outline-success" @click="openConfirmConfirmation(booking)" title="Confirm Booking">
-                        <i class="bi bi-check-circle"></i>
-                      </button>
-                      <button class="btn btn-outline-warning" @click="openRejectConfirmation(booking)" title="Reject Booking">
-                        <i class="bi bi-x-circle"></i>
-                      </button>
+                      <button class="btn btn-outline-success" @click="openConfirmConfirmation(booking)" title="Confirm"><i class="bi bi-check-circle"></i></button>
+                      <button class="btn btn-outline-warning" @click="openRejectConfirmation(booking)" title="Reject"><i class="bi bi-x-circle"></i></button>
                     </template>
                   </div>
                 </td>
               </tr>
+              <tr v-if="allResourceBookings.length === 0">
+                <td colspan="8" class="text-center py-4 text-muted">No system-wide bookings found.</td>
+              </tr>
             </tbody>
           </table>
-          
-          <div v-if="filteredBookings.length === 0" class="text-center py-5 text-muted">
-            <i class="bi bi-calendar-x" style="font-size: 3rem;"></i>
-            <p class="mt-3">No bookings found</p>
-          </div>
+        </div>
+      </div>
+
+      <!-- My Personal Bookings Table -->
+      <div class="table-card">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 class="mb-0 text-dark-teal"><i class="bi bi-person-badge me-2"></i>My Personal Bookings ({{ personalBookings.length }})</h5>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>Booking Ref</th>
+                <th>Resource</th>
+                <th>Booking Date</th>
+                <th>Time Slot</th>
+                <th>Total Amount</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="booking in personalBookings" :key="booking.id">
+                <td><span class="badge bg-light text-dark">{{ booking.booking_reference }}</span></td>
+                <td>{{ booking.resource?.name || booking.details?.[0]?.item_name || 'N/A' }}</td>
+                <td>{{ formatDate(booking.booking_date) }}</td>
+                <td>{{ booking.start_time }} - {{ booking.end_time }}</td>
+                <td>Rs. {{ booking.total_amount }}</td>
+                <td><span class="badge" :class="getStatusClass(booking.status)">{{ booking.status }}</span></td>
+                <td>
+                  <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-info" @click="viewBookingDetails(booking.id)" title="View Details"><i class="bi bi-eye"></i></button>
+                    <button v-if="booking.status === 'Pending' || booking.status === 'Pending_for_Verification'" class="btn btn-outline-danger" @click="openDeleteConfirmation(booking)" title="Cancel Booking"><i class="bi bi-trash"></i></button>
+                  </div>
+                </td>
+              </tr>
+              <tr v-if="personalBookings.length === 0">
+                <td colspan="7" class="text-center py-4 text-muted">No personal bookings found.</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -594,12 +600,33 @@ const router = useRouter();
 // API Configuration
 const API_BASE_URL = 'http://localhost:8000/api';
 
-// Get auth token
-const getAuthToken = () => {
-  return localStorage.getItem('authToken') || 
-         localStorage.getItem('auth_token') || 
-         localStorage.getItem('token');
+// Get current user ID
+const getCurrentUserId = () => {
+  const userStr = localStorage.getItem('user');
+  if (userStr) {
+    try {
+      const user = JSON.parse(userStr);
+      if (user && user.id) return user.id;
+    } catch (e) {}
+  }
+  return localStorage.getItem('userId');
 };
+
+const getCurrentUserEmail = () => {
+  const userStr = localStorage.getItem('user');
+  if (userStr) {
+    try {
+      const user = JSON.parse(userStr);
+      if (user && user.email) return user.email;
+    } catch (e) {}
+  }
+  return localStorage.getItem('userEmail') || localStorage.getItem('email');
+};
+
+const isMasterAdmin = computed(() => {
+  const roleId = localStorage.getItem('role_id') || localStorage.getItem('roleId');
+  return parseInt(roleId || '0') === 1;
+});
 
 // State
 const isLoading = computed(() => bookingStore.isLoading && !bookingStore.isLoaded);
@@ -926,45 +953,47 @@ const uniqueResources = computed(() => {
   return Array.from(resources).sort();
 });
 
+const getAuthToken = () => {
+  return localStorage.getItem('authToken') || 
+         localStorage.getItem('auth_token') || 
+         localStorage.getItem('token');
+};
+
 const filteredBookings = computed(() => {
   return bookings.value.filter((booking: any) => {
     // Resource filter
     if (selectedResource.value) {
       let resourceName = '';
-      
       if (booking.resource?.name) {
         resourceName = booking.resource.name;
       } else if (booking.details && booking.details.length > 0) {
-        // Find the detail that is actually the resource
         const resourceDetail = booking.details.find((d: any) => d.item_type === 'resource');
         resourceName = resourceDetail?.item_name || booking.details[0]?.item_name || '';
       }
-      
-      if (resourceName !== selectedResource.value) {
-        return false;
-      }
+      if (resourceName !== selectedResource.value) return false;
     }
-    
     // Status filter
-    if (selectedStatus.value && booking.status !== selectedStatus.value) {
-      return false;
-    }
-    
+    if (selectedStatus.value && booking.status !== selectedStatus.value) return false;
     // Date range filter
     if (startDate.value && endDate.value) {
       if (!booking.booking_date) return false;
       try {
         const bookingDate = new Date(booking.booking_date).toISOString().split('T')[0];
-        if (bookingDate < startDate.value || bookingDate > endDate.value) {
-          return false;
-        }
-      } catch (e) {
-        return false;
-      }
+        if (bookingDate < startDate.value || bookingDate > endDate.value) return false;
+      } catch (e) { return false; }
     }
-    
     return true;
   });
+});
+
+const allResourceBookings = computed(() => {
+  const adminEmail = getCurrentUserEmail();
+  return filteredBookings.value.filter(b => b.user_email !== adminEmail);
+});
+
+const personalBookings = computed(() => {
+  const adminEmail = getCurrentUserEmail();
+  return filteredBookings.value.filter(b => b.user_email === adminEmail);
 });
 
 const focusedDateBookings = computed(() => {
