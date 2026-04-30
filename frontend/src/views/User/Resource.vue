@@ -310,14 +310,18 @@ const submitReservation = async () => {
   height: 180px;
   overflow: hidden;
   flex-shrink: 0;
+  background-color: #f8f9fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-
-.card-img-top {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.3s ease;
-}
+ 
+ .card-img-top {
+   width: 100%;
+   height: 100%;
+   object-fit: contain;
+   transition: transform 0.3s ease;
+ }
 
 .resource-card:hover .card-img-top {
   transform: scale(1.05);
