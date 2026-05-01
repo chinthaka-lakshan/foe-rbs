@@ -136,13 +136,11 @@
 
           <div class="timeline-scroll-area">
             <div class="timeline-grid">
-              <!-- Hour Labels and Grid Lines -->
               <div v-for="hour in 24" :key="hour-1" class="hour-row">
                 <div class="hour-label">{{ formatHour(hour-1) }}</div>
                 <div class="hour-line"></div>
               </div>
 
-              <!-- Bookings on Timeline -->
               <div class="booking-layer">
                 <div 
                   v-for="b in focusedDateBookings" 
@@ -189,7 +187,7 @@
                 </div>
                 <div class="mt-2 d-flex gap-2">
                   <button class="btn btn-xs btn-outline-primary py-0 px-2" @click="viewBookingDetails(b.id)" style="font-size: 0.7rem;">View</button>
-                  <button v-if="b.status === 'Pending'" class="btn btn-xs btn-outline-success py-0 px-2" @click="confirmBooking(b.id)" style="font-size: 0.7rem;">Confirm</button>
+                  <button v-if="b.status === 'Pending'" class="btn btn-xs btn-outline-success py-0 px-2" @click="openConfirmConfirmation(b)" style="font-size: 0.7rem;">Confirm</button>
                 </div>
               </div>
             </div>
@@ -245,10 +243,10 @@
                       <i class="bi bi-trash"></i>
                     </button>
                     <template v-if="booking.status === 'Pending' || booking.status === 'Requested_by_Guest'">
-                      <button class="btn btn-outline-success" @click="confirmBooking(booking.id)" title="Confirm Booking">
+                      <button class="btn btn-outline-success" @click="openConfirmConfirmation(booking)" title="Confirm Booking">
                         <i class="bi bi-check-circle"></i>
                       </button>
-                      <button class="btn btn-outline-warning" @click="rejectBooking(booking.id)" title="Reject Booking">
+                      <button class="btn btn-outline-warning" @click="openRejectConfirmation(booking)" title="Reject Booking">
                         <i class="bi bi-x-circle"></i>
                       </button>
                     </template>
@@ -271,7 +269,7 @@
         <div class="table-responsive">
           <table class="table table-hover">
             <thead>
-              <tr>
+              <table>
                 <th>Booking Ref</th>
                 <th>Resource</th>
                 <th>Booking Date</th>
@@ -279,7 +277,7 @@
                 <th>Total Amount</th>
                 <th>Status</th>
                 <th>Actions</th>
-              </tr>
+              </table>
             </thead>
             <tbody>
               <tr v-for="booking in personalBookings" :key="booking.id">
@@ -355,6 +353,64 @@
             </button>
           </div>
         </template>
+      </div>
+    </div>
+  </div>
+
+  <!-- ✅ Confirm Booking Modal (Single Confirmation) -->
+  <div class="modal fade" :class="{ 'show d-block': showConfirmModal }" tabindex="-1" @click.self="closeConfirmModal" style="background-color: rgba(0,0,0,0.5);" v-if="showConfirmModal">
+    <div class="modal-dialog action-modal-top" style="max-width: 400px;">
+      <div class="modal-content">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title"><i class="bi bi-check-circle-fill me-2"></i>Confirm Booking</h5>
+          <button type="button" class="btn-close btn-close-white" @click="closeConfirmModal"></button>
+        </div>
+        <div class="modal-body text-center">
+          <p class="mb-2">
+            Are you sure you want to <strong class="text-success">confirm</strong> this booking?
+          </p>
+          <div class="alert alert-light border mt-3 text-start">
+            <p class="mb-1"><strong>Booking Reference:</strong> {{ bookingToConfirm?.booking_reference }}</p>
+            <p class="mb-1"><strong>Resource:</strong> {{ bookingToConfirm?.resource?.name || bookingToConfirm?.details?.[0]?.item_name || 'N/A' }}</p>
+            <p class="mb-0"><strong>User:</strong> {{ bookingToConfirm?.user_email }}</p>
+          </div>
+        </div>
+        <div class="modal-footer justify-content-center">
+          <button type="button" class="btn btn-secondary" @click="closeConfirmModal">Cancel</button>
+          <button type="button" class="btn btn-success" @click="handleConfirmBooking" :disabled="isConfirming">
+            <span v-if="isConfirming" class="spinner-border spinner-border-sm me-2"></span>
+            Yes, Confirm Booking
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ✅ Reject Booking Modal (Single Confirmation) -->
+  <div class="modal fade" :class="{ 'show d-block': showRejectModal }" tabindex="-1" @click.self="closeRejectModal" style="background-color: rgba(0,0,0,0.5);" v-if="showRejectModal">
+    <div class="modal-dialog action-modal-top" style="max-width: 400px;">
+      <div class="modal-content">
+        <div class="modal-header bg-danger text-white">
+          <h5 class="modal-title"><i class="bi bi-exclamation-triangle-fill me-2"></i>Reject Booking</h5>
+          <button type="button" class="btn-close btn-close-white" @click="closeRejectModal"></button>
+        </div>
+        <div class="modal-body text-center">
+          <p class="mb-2">
+            Are you sure you want to <strong class="text-danger">reject</strong> this booking?
+          </p>
+          <div class="alert alert-light border mt-3 text-start">
+            <p class="mb-1"><strong>Booking Reference:</strong> {{ bookingToReject?.booking_reference }}</p>
+            <p class="mb-1"><strong>Resource:</strong> {{ bookingToReject?.resource?.name || bookingToReject?.details?.[0]?.item_name || 'N/A' }}</p>
+            <p class="mb-0"><strong>User:</strong> {{ bookingToReject?.user_email }}</p>
+          </div>
+        </div>
+        <div class="modal-footer justify-content-center">
+          <button type="button" class="btn btn-secondary" @click="closeRejectModal">Cancel</button>
+          <button type="button" class="btn btn-danger" @click="handleRejectBooking" :disabled="isRejecting">
+            <span v-if="isRejecting" class="spinner-border spinner-border-sm me-2"></span>
+            Yes, Reject Booking
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -453,7 +509,7 @@
                     <tbody>
                       <tr v-for="item in bookingToView.details" :key="item.id">
                         <td class="ps-3 fw-bold small text-dark-teal">{{ item.item_name || 'N/A' }}</td>
-                        <td class="small text-muted">{{ item.item_type || 'N/A' }}</td>
+                        <td class="small text-muted">{{ item.item_type || 'N/A' }}‹</td>
                         <td class="text-center small">{{ item.quantity }}</td>
                         <td class="text-end pe-3 fw-bold small">Rs. {{ item.subtotal || item.unit_price * item.quantity }}</td>
                       </tr>
@@ -537,6 +593,16 @@ const bookingToDelete = ref<any>(null);
 const showDeleteConfirmation = ref(false);
 const deleteStep = ref<'confirm' | 'final'>('confirm');
 const isDeleting = ref(false);
+
+// ✅ Confirm Modal State
+const bookingToConfirm = ref<any>(null);
+const showConfirmModal = ref(false);
+const isConfirming = ref(false);
+
+// ✅ Reject Modal State
+const bookingToReject = ref<any>(null);
+const showRejectModal = ref(false);
+const isRejecting = ref(false);
 
 // Preview Modal State
 const bookingToView = ref<any>(null);
@@ -647,7 +713,10 @@ const loadBookings = async () => {
   }
 };
 
+// ✅ Confirm Booking Function
 const confirmBooking = async (bookingId: number) => {
+  isConfirming.value = true;
+  
   try {
     const token = getAuthToken();
     await axios.patch(`${API_BASE_URL}/bookings/${bookingId}/status`, { status: 'Confirmed' }, {
@@ -656,13 +725,24 @@ const confirmBooking = async (bookingId: number) => {
     
     const booking = bookings.value.find((b: any) => b.id === bookingId);
     if (booking) bookingStore.updateBookingLocally({ ...booking, status: 'Confirmed' });
+    
     showSuccess('Booking confirmed successfully!');
+    closeConfirmModal();
+    
+    if (bookingToView.value && bookingToView.value.id === bookingId) {
+      bookingToView.value.status = 'Confirmed';
+    }
   } catch (error: any) {
     showError(error.response?.data?.message || 'Failed to confirm booking');
+  } finally {
+    isConfirming.value = false;
   }
 };
 
+// ✅ Reject Booking Function
 const rejectBooking = async (bookingId: number) => {
+  isRejecting.value = true;
+  
   try {
     const token = getAuthToken();
     await axios.patch(`${API_BASE_URL}/bookings/${bookingId}/status`, { status: 'Cancelled' }, {
@@ -671,9 +751,17 @@ const rejectBooking = async (bookingId: number) => {
     
     const booking = bookings.value.find((b: any) => b.id === bookingId);
     if (booking) bookingStore.updateBookingLocally({ ...booking, status: 'Cancelled' });
+    
     showSuccess('Booking rejected successfully!');
+    closeRejectModal();
+    
+    if (bookingToView.value && bookingToView.value.id === bookingId) {
+      bookingToView.value.status = 'Cancelled';
+    }
   } catch (error: any) {
     showError(error.response?.data?.message || 'Failed to reject booking');
+  } finally {
+    isRejecting.value = false;
   }
 };
 
@@ -713,6 +801,42 @@ const handleDeleteBooking = async () => {
   if (!bookingToDelete.value) return;
   await deleteBooking(bookingToDelete.value.id);
   handleCancelDeletion();
+};
+
+// ✅ Confirm Modal Functions
+const openConfirmConfirmation = (booking: any) => {
+  bookingToConfirm.value = booking;
+  showConfirmModal.value = true;
+};
+
+const closeConfirmModal = () => {
+  showConfirmModal.value = false;
+  bookingToConfirm.value = null;
+  isConfirming.value = false;
+};
+
+const handleConfirmBooking = () => {
+  if (bookingToConfirm.value) {
+    confirmBooking(bookingToConfirm.value.id);
+  }
+};
+
+// ✅ Reject Modal Functions
+const openRejectConfirmation = (booking: any) => {
+  bookingToReject.value = booking;
+  showRejectModal.value = true;
+};
+
+const closeRejectModal = () => {
+  showRejectModal.value = false;
+  bookingToReject.value = null;
+  isRejecting.value = false;
+};
+
+const handleRejectBooking = () => {
+  if (bookingToReject.value) {
+    rejectBooking(bookingToReject.value.id);
+  }
 };
 
 // --- Filtering ---
