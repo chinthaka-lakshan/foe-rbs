@@ -56,6 +56,11 @@ class CategoryController extends Controller
             return response()->json(['message' => 'Category not found'], Response::HTTP_NOT_FOUND);
         }
 
+        // Check if category has any attached resources to prevent SQL constraint violation
+        if ($category->resources()->exists()) {
+            return response()->json(['message' => 'Cannot delete category. It has attached resources.'], Response::HTTP_BAD_REQUEST);
+        }
+
         $category->delete();
 
         return response()->json(['message' => 'Category deleted'], Response::HTTP_OK);
