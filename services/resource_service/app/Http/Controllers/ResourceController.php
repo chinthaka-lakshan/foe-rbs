@@ -189,6 +189,8 @@ class ResourceController extends Controller
             'status' => ($isUpdate ? 'sometimes' : 'required') . '|in:Active,Inactive,Maintenance',
             'description' => 'nullable|string',
             'assigned_admin_id' => 'nullable|integer',
+            'template_id' => 'nullable|integer|exists:resource_templates,id',
+            'template_data' => 'nullable',
             'availability' => 'nullable|array',
             'availability.*.day_of_week' => 'required_with:availability|string',
             'availability.*.is_available' => 'required_with:availability',

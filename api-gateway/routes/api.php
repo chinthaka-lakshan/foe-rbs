@@ -278,7 +278,7 @@ Route::middleware('auth:sanctum')->group(function () {
         try {
             $response = Http::timeout(30)->withToken($request->bearerToken())
                 ->post('http://resource_service/api/categories', $request->all());
-            return $response->json();
+            return handleProxyResponse($response, 'Failed to create category.');
         } catch (Exception $e) {
             return response()->json([
                 'message' => 'Cannot connect to resource service',
@@ -292,7 +292,7 @@ Route::middleware('auth:sanctum')->group(function () {
             $response = Http::timeout(30)->withToken($request->bearerToken())
                 ->put("http://resource_service/api/categories/{$id}", $request->all());
 
-            return $response->json();
+            return handleProxyResponse($response, 'Failed to update category.');
         } catch (Exception $e) {
             return response()->json([
                 'message' => 'Cannot connect to resource service',
@@ -306,7 +306,7 @@ Route::middleware('auth:sanctum')->group(function () {
             $response = Http::timeout(30)->withToken($request->bearerToken())
                 ->delete("http://resource_service/api/categories/{$id}");
 
-            return $response->json();
+            return handleProxyResponse($response, 'Failed to delete category.');
         } catch (Exception $e) {
             return response()->json([
                 'message' => 'Cannot connect to resource service',

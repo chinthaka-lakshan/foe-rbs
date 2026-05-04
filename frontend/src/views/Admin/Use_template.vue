@@ -210,7 +210,7 @@
 
               <!-- Base Price -->
               <div class="col-md-6">
-                <label class="form-label">Base Price (Rs.) <span class="text-danger">*</span></label>
+                <label class="form-label">Base Price Per Hour (Rs.) <span class="text-danger">*</span></label>
                 <input 
                   type="number" 
                   class="form-control" 
