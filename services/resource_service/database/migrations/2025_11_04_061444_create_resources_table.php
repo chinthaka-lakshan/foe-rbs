@@ -18,6 +18,7 @@ return new class extends Migration
                 $table->foreignId('template_id')->nullable()->constrained('resource_templates')->onDelete('set null');
                 $table->json('template_data')->nullable();
                 $table->unsignedBigInteger('assigned_admin_id')->nullable();
+                $table->json('assigned_admin_ids')->nullable();
                 $table->string('department')->nullable();
                 $table->enum('status', ['Active', 'Inactive', 'Maintenance'])->default('Active');
                 $table->timestamps();

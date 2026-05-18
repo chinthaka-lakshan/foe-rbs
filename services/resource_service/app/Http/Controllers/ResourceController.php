@@ -45,6 +45,18 @@ class ResourceController extends Controller
         DB::beginTransaction();
         try {
             $resourceData = collect($validatedData)->except(['images', 'equipment', 'availability'])->toArray();
+            
+            if (isset($resourceData['assigned_admin_ids'])) {
+                if (!empty($resourceData['assigned_admin_ids'])) {
+                    $adminIds = array_map('intval', $resourceData['assigned_admin_ids']);
+                    $resourceData['assigned_admin_ids'] = $adminIds;
+                    $resourceData['assigned_admin_id'] = $adminIds[0];
+                } else {
+                    $resourceData['assigned_admin_ids'] = [];
+                    $resourceData['assigned_admin_id'] = null;
+                }
+            }
+            
             $resource = Resource::create($resourceData);
 
             // Handle Image Uploads
@@ -89,9 +101,22 @@ class ResourceController extends Controller
     try {
         // 3. Update base resource data
         // We exclude relationship keys to prevent SQL errors in the main table update
-        $resource->update(collect($validatedData)->except([
+        $resourceData = collect($validatedData)->except([
             'images', 'equipment', 'availability', 'removeImages', 'delete_equipment'
-        ])->toArray());
+        ])->toArray();
+
+        if (isset($resourceData['assigned_admin_ids'])) {
+            if (!empty($resourceData['assigned_admin_ids'])) {
+                $adminIds = array_map('intval', $resourceData['assigned_admin_ids']);
+                $resourceData['assigned_admin_ids'] = $adminIds;
+                $resourceData['assigned_admin_id'] = $adminIds[0];
+            } else {
+                $resourceData['assigned_admin_ids'] = [];
+                $resourceData['assigned_admin_id'] = null;
+            }
+        }
+
+        $resource->update($resourceData);
 
         // 4. Handle Image Deletions
         if (!empty($request->removeImages)) {
@@ -189,6 +214,8 @@ class ResourceController extends Controller
             'status' => ($isUpdate ? 'sometimes' : 'required') . '|in:Active,Inactive,Maintenance',
             'description' => 'nullable|string',
             'assigned_admin_id' => 'nullable|integer',
+            'assigned_admin_ids' => 'nullable|array',
+            'assigned_admin_ids.*' => 'integer',
             'template_id' => 'nullable|integer|exists:resource_templates,id',
             'template_data' => 'nullable',
             'availability' => 'nullable|array',

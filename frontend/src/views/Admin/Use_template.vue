@@ -221,15 +221,24 @@
                 >
               </div>
 
-              <!-- Assigned Admin - FIXED: Using EXACT same logic as Add Resource page -->
+              <!-- Assigned Admins (Multiple) -->
               <div class="col-md-6">
-                <label class="form-label">Assign Admin</label>
-                <select class="form-select" v-model="resourceForm.assigned_admin_id">
-                  <option value="">No Assignee</option>
-                  <option v-for="admin in admins" :key="admin.id" :value="admin.id">
-                    {{ admin.name }} ({{ admin.email }})
-                  </option>
-                </select>
+                <label class="form-label fw-bold">Assign Admins <span class="text-danger">*</span></label>
+                <div class="border rounded p-3 bg-white" style="max-height: 150px; overflow-y: auto;">
+                  <div v-for="admin in admins" :key="admin.id" class="form-check mb-2">
+                    <input 
+                      class="form-check-input" 
+                      type="checkbox" 
+                      :id="'admin_' + admin.id" 
+                      :value="admin.id" 
+                      v-model="resourceForm.assigned_admin_ids"
+                    >
+                    <label class="form-check-label small" :for="'admin_' + admin.id">
+                      {{ admin.name }} ({{ admin.email }})
+                    </label>
+                  </div>
+                </div>
+                <small class="text-muted">Select one or more admins who will confirm bookings for this resource.</small>
               </div>
 
               <!-- Status -->
@@ -627,6 +636,7 @@ const resourceForm = ref({
   department_id: '',
   base_price: null,
   assigned_admin_id: '',
+  assigned_admin_ids: [],
   description: '',
   status: 'Active'
 });
@@ -913,10 +923,12 @@ const prepareFormData = () => {
   
   formData.append('status', resourceForm.value.status);
   
-  if (resourceForm.value.assigned_admin_id) {
-    formData.append('assigned_admin_id', resourceForm.value.assigned_admin_id.toString());
-  } else {
-    formData.append('assigned_admin_id', '');
+  if (resourceForm.value.assigned_admin_ids && resourceForm.value.assigned_admin_ids.length > 0) {
+    resourceForm.value.assigned_admin_ids.forEach((id, index) => {
+      formData.append(`assigned_admin_ids[${index}]`, id.toString());
+    });
+  } else if (resourceForm.value.assigned_admin_id) {
+    formData.append('assigned_admin_ids[0]', resourceForm.value.assigned_admin_id.toString());
   }
   
   // Handle description
@@ -1052,6 +1064,7 @@ const selectTemplate = (template) => {
     department_id: '',
     base_price: null,
     assigned_admin_id: '',
+    assigned_admin_ids: [],
     description: '',
     status: 'Active'
   };
@@ -1134,6 +1147,11 @@ const submitResource = async () => {
   // Validate availability
   if (!validateAvailability()) {
     formError.value = 'Please fix time slot errors before saving.';
+    return;
+  }
+
+  if (!resourceForm.value.assigned_admin_ids || resourceForm.value.assigned_admin_ids.length === 0) {
+    formError.value = 'Please select at least one assigned admin.';
     return;
   }
 

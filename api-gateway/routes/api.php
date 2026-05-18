@@ -678,7 +678,21 @@ Route::middleware('auth:sanctum')->group(function () {
     // Update booking status
     Route::patch('/bookings/{id}/status', function (Request $request, $id) {
         try {
+            $user = $request->user();
+            $roleName = null;
+            if ($user) {
+                $roleModel = \Illuminate\Support\Facades\DB::table('role_user')
+                    ->join('roles', 'role_user.role_id', '=', 'roles.id')
+                    ->where('role_user.user_id', $user->id)
+                    ->first(['roles.name']);
+                $roleName = $roleModel ? $roleModel->name : null;
+            }
+
             $response = Http::timeout(30)
+                ->withHeaders([
+                    'X-User-Id' => $user ? (string)$user->id : '',
+                    'X-User-Role' => $roleName ?? '',
+                ])
                 ->withToken($request->bearerToken())
                 ->patch("http://booking_service/api/bookings/{$id}/status", $request->all());
             return handleProxyResponse($response, 'Booking status update failed.');

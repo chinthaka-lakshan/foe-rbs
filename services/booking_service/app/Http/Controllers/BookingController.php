@@ -286,7 +286,7 @@ class BookingController
             if ($status !== 'Requested_by_Guest') {
                 $this->reserveInventory($booking);
             } else {
-                // It's a guest request: Notify the assigned admin
+                // It's a guest request: Notify all assigned admins
                 // Get the admin ID from the first resource (assuming 1 resource)
                 $firstResourceDetail = $booking->details->where('item_type', 'resource')->first();
                 if ($firstResourceDetail) {
@@ -294,8 +294,16 @@ class BookingController
                     $resResp = Http::get("{$resourceServiceUrl}/resources/{$resId}");
                     if ($resResp->successful()) {
                         $resData = $resResp->json();
-                        $adminId = $resData['assigned_admin_id'] ?? null;
-                        if ($adminId) {
+                        
+                        $assignedAdminIds = [];
+                        $ids = $resData['assigned_admin_ids'] ?? [];
+                        if (!empty($ids) && is_array($ids)) {
+                            $assignedAdminIds = array_map('intval', $ids);
+                        } elseif (!empty($resData['assigned_admin_id'])) {
+                            $assignedAdminIds = [(int)$resData['assigned_admin_id']];
+                        }
+                        
+                        foreach ($assignedAdminIds as $adminId) {
                             $adminUserResp = Http::get("http://auth_service/api/internal/users/{$adminId}");
                             if ($adminUserResp->successful()) {
                                 $adminEmail = $adminUserResp->json()['email'] ?? null;
@@ -347,35 +355,128 @@ class BookingController
         $booking = Booking::with('details')->findOrFail($id);
         $resourceServiceUrl = env('RESOURCE_SERVICE_URL', 'http://resource_service/api');
         
+        // Extract gateway authentication headers
+        $adminId = $request->header('X-User-Id') ? (int)$request->header('X-User-Id') : null;
+        $adminRole = $request->header('X-User-Role') ?: null;
+
         DB::beginTransaction();
         try {
-            \Log::info("Updating status for booking {$id} to {$validated['status']}. Current status: {$booking->status}");
+            \Log::info("Updating status for booking {$id} to {$validated['status']}. Current status: {$booking->status}, Admin Role: {$adminRole}, Admin ID: {$adminId}");
             \Log::info("Details count: " . $booking->details->count());
 
-            // 1. If status moves to Confirmed, reserve inventory (if not already done)
+            // Handle multi-admin confirmation flow when setting status to Confirmed
+            if ($validated['status'] === 'Confirmed') {
+                if ($booking->status === 'Confirmed') {
+                    return response()->json([
+                        'message' => 'Booking is already confirmed.',
+                        'booking' => $booking
+                    ]);
+                }
+
+                // If user is a Master Admin, bypass individual confirmation and confirm at once
+                if ($adminRole === 'Master Admin') {
+                    \Log::info("Bypassing confirmation check because requester is Master Admin.");
+                    $this->reserveInventory($booking);
+                    $booking->update(['status' => 'Confirmed']);
+                    
+                    // Mark as confirmed by all assigned admins (or store empty/master marker)
+                    $booking->update(['confirmed_by_admins' => ['master']]);
+
+                    if (in_array('Confirmed', ['Pending', 'Confirmed', 'Rejected', 'Cancelled'])) {
+                        Mail::to($booking->user_email)->send(new \App\Mail\BookingStatusUpdatedMail($booking));
+                    }
+                    $this->clearBookingCache();
+                    DB::commit();
+
+                    return response()->json([
+                        'message' => 'Booking confirmed successfully by Master Admin.',
+                        'booking' => $booking->fresh('details')
+                    ]);
+                }
+
+                // If user is regular Admin
+                if ($adminRole === 'Admin') {
+                    // Fetch all assigned admin IDs for all resources in this booking
+                    $allAssignedAdminIds = [];
+                    foreach ($booking->details as $detail) {
+                        if ($detail->item_type === 'resource') {
+                            $resResp = Http::get("{$resourceServiceUrl}/resources/{$detail->item_id}");
+                            if ($resResp->successful()) {
+                                $resData = $resResp->json();
+                                $ids = $resData['assigned_admin_ids'] ?? [];
+                                if (!empty($ids) && is_array($ids)) {
+                                    $allAssignedAdminIds = array_merge($allAssignedAdminIds, array_map('intval', $ids));
+                                } elseif (!empty($resData['assigned_admin_id'])) {
+                                    $allAssignedAdminIds[] = (int)$resData['assigned_admin_id'];
+                                }
+                            }
+                        }
+                    }
+                    $allAssignedAdminIds = array_unique($allAssignedAdminIds);
+
+                    \Log::info("Required assigned admins for booking confirmation: " . json_encode($allAssignedAdminIds));
+
+                    // If there are assigned admins, check if current admin is one of them
+                    if (!empty($allAssignedAdminIds)) {
+                        if (!$adminId || !in_array($adminId, $allAssignedAdminIds)) {
+                            return response()->json([
+                                'message' => 'Forbidden. You are not an assigned admin for any resource in this booking.'
+                            ], 403);
+                        }
+
+                        // Record current admin's confirmation
+                        $confirmed = $booking->confirmed_by_admins ?? [];
+                        if (!in_array($adminId, $confirmed)) {
+                            $confirmed[] = $adminId;
+                        }
+                        $booking->update(['confirmed_by_admins' => $confirmed]);
+
+                        \Log::info("Current confirmations: " . json_encode($confirmed));
+
+                        // Check if all assigned admins have confirmed
+                        $allConfirmed = true;
+                        foreach ($allAssignedAdminIds as $id) {
+                            if (!in_array($id, $confirmed)) {
+                                $allConfirmed = false;
+                                break;
+                            }
+                        }
+
+                        if (!$allConfirmed) {
+                            // Committing the partial confirmation state to the database, but keeping status Pending
+                            $this->clearBookingCache();
+                            DB::commit();
+
+                            return response()->json([
+                                'message' => 'Your confirmation has been recorded. Waiting for other assigned admins to confirm.',
+                                'booking' => $booking->fresh('details')
+                            ]);
+                        }
+                    }
+                }
+            }
+
+            // Normal flow (If Master Admin, or regular Admin and all confirmed, or other status changes)
             if ($validated['status'] === 'Confirmed' && $booking->status !== 'Confirmed') {
                 $this->reserveInventory($booking);
             }
 
-            // 2. If status moves to Cancelled, release inventory
             if ($validated['status'] === 'Cancelled') {
                 $this->releaseInventory($booking->id);
             }
 
             $booking->update(['status' => $validated['status']]);
 
-            // Dispatch status update mail to guest user
             if (in_array($validated['status'], ['Pending', 'Confirmed', 'Rejected', 'Cancelled'])) {
                 Mail::to($booking->user_email)->send(new \App\Mail\BookingStatusUpdatedMail($booking));
             }
 
-            // CRITICAL: Clear the cache for real-time updates
             $this->clearBookingCache();
-
             DB::commit();
+
             return response()->json([
                 'message' => 'Status updated successfully',
-                'booking' => $booking
+                'booking' => $booking->fresh('details')
             ]);
         } catch (Exception $e) {
             DB::rollBack();
@@ -417,7 +518,14 @@ class BookingController
         
         // Ensure comparison is safe by casting to integer
         $adminResourceIds = $resourcesMap->filter(function($r) use ($validated) {
-            return isset($r['assigned_admin_id']) && (int)$r['assigned_admin_id'] === (int)$validated['admin_id'];
+            $adminId = (int)$validated['admin_id'];
+            if (isset($r['assigned_admin_ids']) && is_array($r['assigned_admin_ids'])) {
+                $ids = array_map('intval', $r['assigned_admin_ids']);
+                if (in_array($adminId, $ids)) {
+                    return true;
+                }
+            }
+            return isset($r['assigned_admin_id']) && (int)$r['assigned_admin_id'] === $adminId;
         })->pluck('id')->toArray();
 
         $statusStr = $validated['status'] ?? 'all';
