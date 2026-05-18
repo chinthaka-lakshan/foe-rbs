@@ -17,6 +17,7 @@ class Resource extends Model
         'base_price',
         'category_id',
         'assigned_admin_id',
+        'assigned_admin_ids',
         'template_data',
         'template_id',
         'status',
@@ -25,6 +26,7 @@ class Resource extends Model
     // Cast template_data to array
     protected $casts = [
         'template_data' => 'array',
+        'assigned_admin_ids' => 'array',
     ];
 
     // Define relationship with Category model

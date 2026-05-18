@@ -24,6 +24,7 @@ class Booking extends Model
         'total_amount',
         'status',
         'notes',
+        'confirmed_by_admins',
     ];
 
     // Cast attributes
@@ -32,6 +33,7 @@ class Booking extends Model
         'total_amount' => 'decimal:2',
         'is_verified' => 'boolean',
         'otp_expires_at' => 'datetime',
+        'confirmed_by_admins' => 'array',
     ];
     protected $hidden = [
         'otp_code',

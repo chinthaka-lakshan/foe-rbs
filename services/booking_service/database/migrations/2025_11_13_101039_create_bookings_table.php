@@ -23,6 +23,7 @@ return new class extends Migration
             $table->decimal('total_amount', 10, 2)->default(0);
             $table->enum('status', ['Pending', 'Confirmed', 'Cancelled', 'Completed', 'Pending_for_Verification', 'Requested_by_Guest', 'Rejected' ])->default('Pending_for_Verification');
             $table->text('notes')->nullable();
+            $table->json('confirmed_by_admins')->nullable();
             $table->timestamps();
             
             $table->index('user_email');

@@ -72,15 +72,24 @@
             >
           </div>
           
-          <!-- Assigned Admin -->
+          <!-- Assigned Admins (Multiple) -->
           <div class="col-md-6">
-            <label for="assignee" class="form-label fw-bold">Assign Admin <span class="text-danger">*</span></label>
-            <select class="form-select" id="assignee" v-model="resource.assigned_admin_id" required>
-              <option value="" disabled>No Assignee</option>
-              <option v-for="admin in admins" :key="admin.id" :value="admin.id">
-                {{ admin.name }} ({{ admin.email }})
-              </option>
-            </select>
+            <label class="form-label fw-bold">Assign Admins <span class="text-danger">*</span></label>
+            <div class="border rounded p-3 bg-white" style="max-height: 150px; overflow-y: auto;">
+              <div v-for="admin in admins" :key="admin.id" class="form-check mb-2">
+                <input 
+                  class="form-check-input" 
+                  type="checkbox" 
+                  :id="'admin_' + admin.id" 
+                  :value="admin.id" 
+                  v-model="resource.assigned_admin_ids"
+                >
+                <label class="form-check-label small" :for="'admin_' + admin.id">
+                  {{ admin.name }} ({{ admin.email }})
+                </label>
+              </div>
+            </div>
+            <small class="text-muted">Select one or more admins who will confirm bookings for this resource.</small>
           </div>
           
           <!-- Status -->
@@ -345,6 +354,7 @@ export default {
       department_id: '', 
       base_price: null,
       assigned_admin_id: '',
+      assigned_admin_ids: [],
       description: '',
       status: 'Active',
     });
@@ -607,10 +617,12 @@ export default {
       
       formData.append('status', resource.value.status);
       
-      if (resource.value.assigned_admin_id) {
-        formData.append('assigned_admin_id', resource.value.assigned_admin_id.toString());
-      } else {
-        formData.append('assigned_admin_id', '');
+      if (resource.value.assigned_admin_ids && resource.value.assigned_admin_ids.length > 0) {
+        resource.value.assigned_admin_ids.forEach((id, index) => {
+          formData.append(`assigned_admin_ids[${index}]`, id.toString());
+        });
+      } else if (resource.value.assigned_admin_id) {
+        formData.append('assigned_admin_ids[0]', resource.value.assigned_admin_id.toString());
       }
       
       // FIXED: Always send description as a string
@@ -677,6 +689,11 @@ export default {
         errorMessage.value = 'Please fix time slot errors before saving.';
         return;
       }
+
+      if (!resource.value.assigned_admin_ids || resource.value.assigned_admin_ids.length === 0) {
+        errorMessage.value = 'Please select at least one assigned admin.';
+        return;
+      }
       
       isSubmitting.value = true;
       
@@ -739,6 +756,11 @@ export default {
       
       if (!validateAvailability()) {
         errorMessage.value = 'Please fix time slot errors before updating.';
+        return;
+      }
+
+      if (!resource.value.assigned_admin_ids || resource.value.assigned_admin_ids.length === 0) {
+        errorMessage.value = 'Please select at least one assigned admin.';
         return;
       }
       
@@ -830,6 +852,9 @@ export default {
             ? parseFloat(resourceData.base_price) 
             : null,
           assigned_admin_id: resourceData.assigned_admin_id ? resourceData.assigned_admin_id.toString() : '',
+          assigned_admin_ids: resourceData.assigned_admin_ids 
+            ? resourceData.assigned_admin_ids.map(id => parseInt(id))
+            : (resourceData.assigned_admin_id ? [parseInt(resourceData.assigned_admin_id)] : []),
           description: resourceData.description || '',
           status: resourceData.status || 'Active',
         };
