@@ -237,6 +237,16 @@
                     <div class="form-text x-small">Notification will be sent to this email.</div>
                   </div>
 
+                  <!-- Phone Input -->
+                  <div class="mb-3">
+                    <label class="form-label small fw-bold text-dark-teal">Phone Number</label>
+                    <div class="input-group">
+                      <span class="input-group-text bg-light border-end-0"><i class="bi bi-telephone text-teal"></i></span>
+                      <input type="tel" class="form-control border-start-0" v-model="bookingForm.phone" placeholder="+94 77 123 4567" required>
+                    </div>
+                    <div class="form-text x-small">Used for booking verification.</div>
+                  </div>
+
                   <!-- 1. Reservation Details -->
                   <div class="mb-3">
                     <label class="form-label small fw-bold text-dark-teal">Select Date</label>
@@ -331,7 +341,7 @@
                   </div>
 
                   <div class="d-grid mt-4">
-                    <button type="submit" class="btn btn-teal-modern py-3 shadow-sm rounded-3" :disabled="isCreatingBooking || isResourceUnavailable || isBookingConflict || (bookingForm.startTime >= bookingForm.endTime) || !bookingForm.email">
+                    <button type="submit" class="btn btn-teal-modern py-3 shadow-sm rounded-3" :disabled="isCreatingBooking || isResourceUnavailable || isBookingConflict || (bookingForm.startTime >= bookingForm.endTime) || !bookingForm.email || !bookingForm.phone">
                       <span v-if="isCreatingBooking" class="spinner-border spinner-border-sm me-2"></span>
                       <i v-else class="bi bi-check2-circle me-2"></i>
                       {{ isCreatingBooking ? 'Creating Booking...' : 'Book Now & Verify OTP' }}
@@ -746,6 +756,7 @@ const otpSentSuccess = ref(false);
 // Booking Form
 const bookingForm = ref({
   email: '',
+  phone: '',
   date: new Date().toISOString().split('T')[0],
   startTime: '08:00',
   endTime: '09:00',
@@ -873,8 +884,8 @@ const loadBookings = async () => {
 
 // Create Booking Logic
 const createBookingAndSendOTP = async () => {
-  if (!bookingForm.value.email) {
-    errorMessage.value = "Email is required.";
+  if (!bookingForm.value.email || !bookingForm.value.phone) {
+    errorMessage.value = "Email and Phone Number are required.";
     return;
   }
 
@@ -885,6 +896,7 @@ const createBookingAndSendOTP = async () => {
     const payload = {
       user_id: 0,
       user_email: bookingForm.value.email,
+      phone: bookingForm.value.phone,
       booking_date: bookingForm.value.date,
       start_time: bookingForm.value.startTime,
       end_time: bookingForm.value.endTime,

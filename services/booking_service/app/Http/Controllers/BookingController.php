@@ -107,6 +107,7 @@ class BookingController
         $validated = $request->validate([
             'user_id' => 'required|integer',
             'user_email' => 'required|email',
+            'phone' => 'required|string|max:20',
             'booking_date' => 'required|date|after_or_equal:today',
             'start_time' => 'required|date_format:H:i',
             'end_time' => 'required|date_format:H:i|after:start_time',
@@ -135,6 +136,7 @@ class BookingController
             $booking = Booking::create([
                 'user_id'          => $validated['user_id'],
                 'user_email'       => $validated['user_email'],
+                'phone'            => $validated['phone'],
                 'user_type'        => $userType, // Add this line here!
                 'booking_reference'=> Booking::generateReference(),
                 'booking_date'     => $validated['booking_date'],
