@@ -73,8 +73,20 @@
       <div class="table-card mb-4" id="resources-report">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <h5 class="mb-0">Resources Report</h5>
-          <div class="d-flex gap-2 no-print">
-            <input type="text" class="form-control form-control-sm" placeholder="Search resources..." v-model="resourceFilter.search">
+          <div class="d-flex gap-2 align-items-center no-print">
+            <input type="text" class="form-control form-control-sm" placeholder="Search resources..." v-model="resourceFilter.search" style="max-width: 200px;">
+            <select class="form-select form-select-sm" v-model="selectedResourceReportFilter" style="max-width: 200px;">
+              <option value="">All Resources</option>
+              <option v-for="res in resources" :key="res.id" :value="res.name">
+                {{ res.name }}
+              </option>
+            </select>
+            <select class="form-select form-select-sm" v-model="selectedCategoryReportFilter" style="max-width: 200px;">
+              <option value="">All Categories</option>
+              <option v-for="cat in categories" :key="cat.id" :value="cat.id">
+                {{ cat.name }}
+              </option>
+            </select>
             <button class="btn btn-sm btn-outline-success" @click="printSection('resources')">PDF</button>
           </div>
         </div>
@@ -99,8 +111,20 @@
       <div class="table-card mb-4" id="users-report">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <h5 class="mb-0">Users Report</h5>
-          <div class="d-flex gap-2 no-print">
-            <input type="text" class="form-control form-control-sm" placeholder="Search users..." v-model="userFilter.search">
+          <div class="d-flex gap-2 align-items-center no-print">
+            <input type="text" class="form-control form-control-sm" placeholder="Search users..." v-model="userFilter.search" style="max-width: 200px;">
+            <select class="form-select form-select-sm" v-model="selectedUserNameFilter" style="max-width: 200px;">
+              <option value="">All Users</option>
+              <option v-for="user in users" :key="user.id" :value="user.name">
+                {{ user.name }}
+              </option>
+            </select>
+            <select class="form-select form-select-sm" v-model="selectedRoleReportFilter" style="max-width: 200px;">
+              <option value="">All Roles</option>
+              <option v-for="role in uniqueRoles" :key="role" :value="role">
+                {{ role }}
+              </option>
+            </select>
             <button class="btn btn-sm btn-outline-success" @click="printSection('users')">PDF</button>
           </div>
         </div>
@@ -126,19 +150,28 @@
       <div class="table-card mb-4" id="bookings-report">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <h5 class="mb-0">Bookings Report</h5>
-          <div class="d-flex gap-2 no-print">
+          <div class="d-flex gap-2 align-items-center no-print">
+            <input type="text" class="form-control form-control-sm" placeholder="Search bookings..." v-model="bookingFilter.search" style="max-width: 150px;">
+            <select class="form-select form-select-sm" v-model="selectedResourceFilter" style="max-width: 150px;">
+              <option value="">All Resources</option>
+              <option v-for="res in resources" :key="res.id" :value="res.name">
+                {{ res.name }}
+              </option>
+            </select>
+            <input type="date" class="form-control form-control-sm" v-model="selectedBookingDateFilter" style="max-width: 150px;">
             <button class="btn btn-sm btn-outline-success" @click="printSection('bookings')">PDF</button>
           </div>
         </div>
         <div class="table-responsive">
           <table class="table table-hover">
             <thead>
-              <tr><th>Ref</th><th>Email</th><th>Date</th><th>Amount</th><th>Status</th></tr>
+              <tr><th>Ref</th><th>Email</th><th>Resource</th><th>Date</th><th>Amount</th><th>Status</th></tr>
             </thead>
             <tbody>
               <tr v-for="bkg in filteredBookings" :key="bkg.id">
                 <td><span class="badge bg-light text-dark">{{ bkg.booking_reference }}</span></td>
                 <td>{{ bkg.user_email }}</td>
+                <td>{{ bkg.resource?.name || bkg.details?.[0]?.item_name || 'N/A' }}</td>
                 <td>{{ formatDate(bkg.booking_date) }}</td>
                 <td>Rs. {{ formatPrice(bkg.total_amount) }}</td>
                 <td><span class="badge" :class="bkg.status === 'Confirmed' ? 'bg-success' : 'bg-warning text-dark'">{{ bkg.status }}</span></td>
@@ -169,6 +202,13 @@ const startDate = ref('');
 const endDate = ref('');
 const resourceFilter = ref({ search: '' });
 const userFilter = ref({ search: '' });
+const bookingFilter = ref({ search: '' });
+const selectedResourceFilter = ref('');
+const selectedResourceReportFilter = ref('');
+const selectedCategoryReportFilter = ref('');
+const selectedUserNameFilter = ref('');
+const selectedRoleReportFilter = ref('');
+const selectedBookingDateFilter = ref('');
 
 // --- COMPUTED DATA FROM STORE ---
 const users = computed(() => reportStore.users);
@@ -176,26 +216,81 @@ const resources = computed(() => reportStore.resources);
 const bookings = computed(() => reportStore.bookings);
 const categories = computed(() => reportStore.categories);
 
+const uniqueRoles = computed(() => {
+  return [...new Set(users.value.map(u => u.primaryRole).filter(Boolean))];
+});
+
 // --- FILTERING LOGIC ---
 const filteredResources = computed(() => {
-  return resources.value.filter(r => r.name.toLowerCase().includes(resourceFilter.value.search.toLowerCase()));
+  return resources.value.filter(r => {
+    // 1. Text search filter
+    if (resourceFilter.value.search && !r.name.toLowerCase().includes(resourceFilter.value.search.toLowerCase())) {
+      return false;
+    }
+    // 2. Dropdown filter
+    if (selectedResourceReportFilter.value && r.name !== selectedResourceReportFilter.value) {
+      return false;
+    }
+    // 3. Category filter
+    if (selectedCategoryReportFilter.value && r.category_id != selectedCategoryReportFilter.value) {
+      return false;
+    }
+    return true;
+  });
 });
 const handlePrint = () => {
   window.print();
 };
 
 const filteredUsers = computed(() => {
-  return users.value.filter(u => 
-    u.name.toLowerCase().includes(userFilter.value.search.toLowerCase()) || 
-    u.email.toLowerCase().includes(userFilter.value.search.toLowerCase())
-  );
+  return users.value.filter(u => {
+    // 1. Text search filter
+    if (userFilter.value.search) {
+      const query = userFilter.value.search.toLowerCase();
+      const nameMatch = u.name?.toLowerCase().includes(query);
+      const emailMatch = u.email?.toLowerCase().includes(query);
+      if (!nameMatch && !emailMatch) return false;
+    }
+    // 2. Name dropdown filter
+    if (selectedUserNameFilter.value && u.name !== selectedUserNameFilter.value) {
+      return false;
+    }
+    // 3. Role dropdown filter
+    if (selectedRoleReportFilter.value && u.primaryRole !== selectedRoleReportFilter.value) {
+      return false;
+    }
+    return true;
+  });
 });
 
 const filteredBookings = computed(() => {
   return bookings.value.filter(b => {
-    if (!startDate.value || dateRangeType.value === 'all') return true;
+    // 1. Date filter
     const bookingDate = new Date(b.booking_date).toISOString().split('T')[0];
-    return bookingDate >= startDate.value && bookingDate <= endDate.value;
+    if (selectedBookingDateFilter.value) {
+      if (bookingDate !== selectedBookingDateFilter.value) return false;
+    } else if (startDate.value && dateRangeType.value !== 'all') {
+      if (bookingDate < startDate.value || bookingDate > endDate.value) return false;
+    }
+    
+    // 2. Resource filter
+    if (selectedResourceFilter.value) {
+      const bookingResourceName = b.resource?.name || b.details?.[0]?.item_name || '';
+      if (bookingResourceName.toLowerCase() !== selectedResourceFilter.value.toLowerCase()) return false;
+    }
+    
+    // 3. Search query filter (Reference, Email, Resource Name)
+    if (bookingFilter.value.search) {
+      const query = bookingFilter.value.search.toLowerCase();
+      const refMatch = b.booking_reference?.toLowerCase().includes(query);
+      const emailMatch = b.user_email?.toLowerCase().includes(query);
+      const resourceName = b.resource?.name || b.details?.[0]?.item_name || '';
+      const resourceMatch = resourceName.toLowerCase().includes(query);
+      
+      if (!refMatch && !emailMatch && !resourceMatch) return false;
+    }
+    
+    return true;
   });
 });
 
@@ -236,6 +331,10 @@ const printSection = (sectionId: string) => {
 onMounted(async () => {
   setDateRange('month');
   if (!reportStore.isLoaded) await reportStore.fetchAllReports();
+  // Normalize bookings to ensure resource info is populated
+  reportStore.bookings.forEach((booking: any) => {
+    booking.resource = booking.resource || booking.item || booking.details?.[0] || null;
+  });
   isInitialLoading.value = false;
 });
 </script>
