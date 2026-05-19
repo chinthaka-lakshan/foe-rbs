@@ -14,6 +14,7 @@ class Booking extends Model
         'user_id',
         'user_email',
         'user_type',
+        'phone',
         'is_verified',
         'otp_code',
         'otp_expires_at',
@@ -24,6 +25,7 @@ class Booking extends Model
         'total_amount',
         'status',
         'notes',
+        'confirmed_by_admins',
     ];
 
     // Cast attributes
@@ -32,6 +34,7 @@ class Booking extends Model
         'total_amount' => 'decimal:2',
         'is_verified' => 'boolean',
         'otp_expires_at' => 'datetime',
+        'confirmed_by_admins' => 'array',
     ];
     protected $hidden = [
         'otp_code',
@@ -44,7 +47,7 @@ class Booking extends Model
     }
 
     // Only resource bookings
-        public function resources(): HasMany
+    public function resources(): HasMany
     {
         return $this->hasMany(BookingDetail::class)->where('item_type', 'resource');
     }
@@ -64,7 +67,7 @@ class Booking extends Model
 
         return $reference;
     }
-    
+
     //generate OTP code
     public static function generateOTP(): string
     {
@@ -80,7 +83,7 @@ class Booking extends Model
         if ($overrideType) {
             return $overrideType;
         }
-        
+
         // Default to external if no header is provided (e.g. direct service access)
         return 'external';
     }

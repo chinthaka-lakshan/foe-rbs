@@ -263,6 +263,21 @@
                   <small class="text-muted">This email is auto-filled from your account and cannot be changed.</small>
                 </div>
 
+                <!-- Phone Input -->
+                <div class="mb-3">
+                  <label for="phone" class="form-label">
+                    <i class="bi bi-telephone me-1"></i>Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    id="phone"
+                    class="form-control"
+                    placeholder="Enter phone number (e.g. +94 77 123 4567)"
+                    v-model="bookingForm.phone"
+                    required
+                  >
+                </div>
+
                 <!-- 1. Reservation Details -->
                 <div class="mb-4">
                   <h6 class="border-bottom pb-2">1. Reservation Details</h6>
@@ -1019,6 +1034,7 @@ interface SelectedEquipmentItem extends BookingEquipment {
 
 interface BookingForm {
   email: string;
+  phone: string;
   date: string;
   startTime: string;
   endTime: string;
@@ -1101,6 +1117,7 @@ const otpSentSuccess = ref(false);
 // Booking Form
 const bookingForm = ref<BookingForm>({
   email: '',
+  phone: '',
   date: '',
   startTime: '08:00',
   endTime: '10:00',
@@ -1620,6 +1637,7 @@ const createBooking = async () => {
     const bookingPayload: any = {
       user_id: userId,
       user_email: bookingForm.value.email,
+      phone: bookingForm.value.phone,
       user_role_id: roleId,
       booking_date: bookingForm.value.date,
       start_time: bookingForm.value.startTime,
@@ -1693,7 +1711,7 @@ const createBookingAndSendOTP = async () => {
     return;
   }
   
-  if (!bookingForm.value.email || !bookingForm.value.date || !bookingForm.value.startTime || !bookingForm.value.endTime) {
+  if (!bookingForm.value.email || !bookingForm.value.phone || !bookingForm.value.date || !bookingForm.value.startTime || !bookingForm.value.endTime) {
     errorMessage.value = 'Please fill all required fields';
     return;
   }
@@ -1962,6 +1980,7 @@ const closeSuccessModal = () => {
   showSuccessModal.value = false;
   
   bookingForm.value.email = getLoggedInUserEmail();
+  bookingForm.value.phone = JSON.parse(localStorage.getItem('user') || '{}').phone || '';
   bookingForm.value.date = minDate.value;
   bookingForm.value.startTime = '08:00';
   bookingForm.value.endTime = '10:00';
@@ -2048,6 +2067,12 @@ onMounted(() => {
   // Auto-fill email from localStorage
   const userEmail = getLoggedInUserEmail();
   bookingForm.value.email = userEmail;
+  
+  // Auto-fill phone from localStorage user profile if available
+  const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+  if (currentUser.phone) {
+    bookingForm.value.phone = currentUser.phone;
+  }
   
   console.log('========== USER INFO ==========');
   console.log('Auto-filled email:', userEmail);
