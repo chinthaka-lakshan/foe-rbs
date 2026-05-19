@@ -409,7 +409,7 @@ export default {
     const equipment = ref([]);
 
     // Store integration
-    const admins = computed(() => userStore.users.filter(u => u.primaryRole && u.primaryRole.toLowerCase().includes('admin')));
+    const admins = computed(() => userStore.users.filter(u => u.primaryRole && u.primaryRole.toLowerCase() === 'admin'));
     const categories = computed(() => resourceStore.categories);
     const departments = computed(() => resourceStore.departments);
     
