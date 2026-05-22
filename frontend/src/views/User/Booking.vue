@@ -359,10 +359,17 @@
 
                 <div class="info-group mb-4">
                   <label class="text-muted small fw-bold text-uppercase mb-1 d-block">Customer Information</label>
-                  <div class="d-flex align-items-center p-2 rounded hover-light">
+                  <div class="d-flex align-items-center p-2 rounded hover-light mb-2">
                     <i class="bi bi-envelope-at-fill text-muted me-3 fs-5"></i>
                     <div>
                       <div class="fw-bold text-dark">{{ bookingToView?.user_email }}</div>
+                    </div>
+                  </div>
+                  <div v-if="bookingToView?.phone" class="d-flex align-items-center p-2 rounded hover-light">
+                    <i class="bi bi-telephone-fill text-muted me-3 fs-5"></i>
+                    <div>
+                      <div class="fw-bold text-dark">{{ bookingToView?.phone }}</div>
+                      <div class="extra-small text-muted">Contact Number</div>
                     </div>
                   </div>
                 </div>
