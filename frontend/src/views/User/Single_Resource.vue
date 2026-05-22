@@ -69,6 +69,10 @@
                     <h6 class="text-muted mb-0">Category</h6>
                     <p class="fw-bold">{{ resource.category?.name || 'Unknown' }}</p>
                 </div>
+                 <div class="detail-item mb-3">
+                    <h6 class="text-muted mb-0">Department</h6>
+                    <p class="fw-bold">{{ resource.department || 'Unknown' }}</p>
+                </div>
                 <div class="detail-item">
                     <h6 class="text-muted mb-0">Assigned Person</h6>
                     <div v-if="assignedAdminNames.length > 0">
