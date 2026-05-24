@@ -69,17 +69,25 @@
                     <h6 class="text-muted mb-0">Category</h6>
                     <p class="fw-bold">{{ resource.category?.name || 'Unknown' }}</p>
                 </div>
+                 <div class="detail-item mb-3">
+                    <h6 class="text-muted mb-0">Department</h6>
+                    <p class="fw-bold">{{ resource.department || 'Unknown' }}</p>
+                </div>
                 <div class="detail-item">
                     <h6 class="text-muted mb-0">Assigned Person</h6>
-                    <div v-if="assignedAdminName">
-                        <p class="fw-bold">{{ assignedAdminName }}</p>
+                    <div v-if="assignedAdminNames.length > 0">
+                        <p v-for="name in assignedAdminNames" :key="name" class="fw-bold mb-1">
+                            <i class="bi bi-person-fill text-dark-teal me-1"></i>{{ name }}
+                        </p>
                     </div>
-                    <div v-else-if="resource.assigned_admin_id">
-                        <p class="fw-bold text-muted">Loading admin name...</p>
-                        <small class="text-muted">Admin ID: {{ resource.assigned_admin_id }}</small>
+                    <div v-else-if="isLoadingAdmins">
+                        <p class="fw-bold text-muted mb-0">Loading admin names...</p>
+                    </div>
+                    <div v-else-if="resource.assigned_admin_id || (resource.assigned_admin_ids && resource.assigned_admin_ids.length > 0)">
+                        <p class="fw-bold text-muted mb-0">Loading admin details...</p>
                     </div>
                     <div v-else>
-                        <p class="fw-bold text-muted">Unassigned</p>
+                        <p class="fw-bold text-muted mb-0">Unassigned</p>
                     </div>
                 </div>
             </div>
@@ -205,6 +213,7 @@ interface Resource {
     category: ResourceCategory;
     base_price: number | null;
     assigned_admin_id: number | null;
+    assigned_admin_ids: number[] | null;
     description: string | null;
     status: 'Active' | 'Inactive' | 'Maintenance';
     images: ResourceImage[];
@@ -216,7 +225,8 @@ interface Resource {
 const resource = ref<Resource | null>(null);
 const isLoading = ref(false);
 const errorMessage = ref('');
-const assignedAdminName = ref<string>('');
+const assignedAdminNames = ref<string[]>([]);
+const isLoadingAdmins = ref(false);
 
 // Helper to get auth token
 const getAuthToken = (): string | null => {
@@ -250,17 +260,22 @@ const sortedAvailability = computed(() => {
 });
 
 // Fetch admin details
-const fetchAdminDetails = async (adminId: number) => {
-    if (!adminId) return;
+const fetchAdminDetails = async (adminIds: number[]) => {
+    if (!adminIds || adminIds.length === 0) return;
+    
+    isLoadingAdmins.value = true;
+    assignedAdminNames.value = [];
     
     try {
         const token = getAuthToken();
         if (!token) {
             console.warn('No auth token found for admin fetch');
+            isLoadingAdmins.value = false;
             return;
         }
 
         // Try users endpoint first
+        let allUsers: any[] = [];
         try {
             const response = await axios.get(`${API_BASE_URL}/users`, {
                 headers: {
@@ -268,56 +283,49 @@ const fetchAdminDetails = async (adminId: number) => {
                     'Accept': 'application/json',
                 }
             });
-            
-            const users = response.data.users || response.data || [];
-            const adminUser = users.find((user: any) => user.id === adminId);
-            
-            if (adminUser) {
-                if (adminUser.name) {
-                    assignedAdminName.value = adminUser.name;
-                } else if (adminUser.first_name && adminUser.last_name) {
-                    assignedAdminName.value = `${adminUser.first_name} ${adminUser.last_name}`;
-                } else if (adminUser.username) {
-                    assignedAdminName.value = adminUser.username;
-                } else if (adminUser.email) {
-                    assignedAdminName.value = adminUser.email;
-                } else {
-                    assignedAdminName.value = `Admin ID: ${adminId}`;
-                }
-                return;
-            }
+            allUsers = response.data.users || response.data || [];
         } catch (usersError) {
-            console.log('Users endpoint not available, trying admins...');
+            console.log('Users endpoint not available, trying individual admins fetch...');
         }
 
-        // Try admins endpoint
-        try {
-            const response = await axios.get(`${API_BASE_URL}/admins/${adminId}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json',
-                }
-            });
-            
-            const adminData = response.data.admin || response.data;
-            
-            if (adminData.name) {
-                assignedAdminName.value = adminData.name;
-            } else if (adminData.first_name && adminData.last_name) {
-                assignedAdminName.value = `${adminData.first_name} ${adminData.last_name}`;
-            } else if (adminData.username) {
-                assignedAdminName.value = adminData.username;
+        const names: string[] = [];
+
+        for (const adminId of adminIds) {
+            const adminUser = allUsers.find((user: any) => user.id === adminId);
+            if (adminUser) {
+                const name = adminUser.name || 
+                             (adminUser.first_name && adminUser.last_name ? `${adminUser.first_name} ${adminUser.last_name}` : '') ||
+                             adminUser.username || 
+                             adminUser.email || 
+                             `Admin ID: ${adminId}`;
+                names.push(name);
             } else {
-                assignedAdminName.value = `Admin ID: ${adminId}`;
+                try {
+                    const response = await axios.get(`${API_BASE_URL}/admins/${adminId}`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Accept': 'application/json',
+                        }
+                    });
+                    const adminData = response.data.admin || response.data;
+                    const name = adminData.name || 
+                                 (adminData.first_name && adminData.last_name ? `${adminData.first_name} ${adminData.last_name}` : '') ||
+                                 adminData.username || 
+                                 `Admin ID: ${adminId}`;
+                    names.push(name);
+                } catch (adminsError) {
+                    console.error(`Failed to fetch admin details for ID ${adminId}`);
+                    names.push(`Admin ID: ${adminId}`);
+                }
             }
-        } catch (adminsError) {
-            console.error('Both endpoints failed');
-            assignedAdminName.value = `Admin ID: ${adminId}`;
         }
         
+        assignedAdminNames.value = names;
     } catch (error: any) {
         console.error('Error fetching admin details:', error);
-        assignedAdminName.value = `Admin ID: ${adminId}`;
+        assignedAdminNames.value = adminIds.map(id => `Admin ID: ${id}`);
+    } finally {
+        isLoadingAdmins.value = false;
     }
 };
 
@@ -357,7 +365,7 @@ const processAvailabilityData = (availabilityData: any[]) => {
 const fetchResourceDetails = async (id: number) => {
     isLoading.value = true;
     errorMessage.value = '';
-    assignedAdminName.value = '';
+    assignedAdminNames.value = [];
     
     try {
         const token = getAuthToken();
@@ -397,9 +405,13 @@ const fetchResourceDetails = async (id: number) => {
         // Debug log to check availability data structure
         console.log('Resource availability data:', fetchedResource.availability);
 
-        // Fetch admin name if admin ID exists
-        if (fetchedResource.assigned_admin_id) {
-            await fetchAdminDetails(fetchedResource.assigned_admin_id);
+        // Fetch admin names if admin IDs exist
+        const adminIds = fetchedResource.assigned_admin_ids && fetchedResource.assigned_admin_ids.length > 0
+            ? fetchedResource.assigned_admin_ids
+            : (fetchedResource.assigned_admin_id ? [fetchedResource.assigned_admin_id] : []);
+
+        if (adminIds.length > 0) {
+            await fetchAdminDetails(adminIds);
         }
 
     } catch (error: any) {

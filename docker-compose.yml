@@ -69,7 +69,7 @@ services:
     image: redis:alpine
     container_name: foe_rbs_redis
     ports:
-      - "6379:6379"
+      - "6380:6379"
     networks:
       - foe_rbs_network
 

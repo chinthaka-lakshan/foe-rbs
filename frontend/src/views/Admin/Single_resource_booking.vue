@@ -763,6 +763,10 @@
                   <th>Email:</th>
                   <td>{{ selectedBooking.user?.email || selectedBooking.user_email || 'N/A' }}</td>
                 </tr>
+                <tr>
+                  <th>Phone:</th>
+                  <td>{{ selectedBooking.phone || selectedBooking.user?.phone || 'N/A' }}</td>
+                </tr>
               </tbody>
             </table>
 

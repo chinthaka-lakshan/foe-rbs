@@ -59,7 +59,7 @@
 
           <!-- Base Price -->
           <div class="col-md-6">
-            <label for="resourcePrice" class="form-label fw-bold">Resource Base Price Per Hour (Rs.) <span class="text-danger">*</span></label>
+            <label for="resourcePrice" class="form-label fw-bold">Resource Base Price (Rs.) <span class="text-danger">*</span></label>
             <input 
               type="number" 
               class="form-control" 
@@ -102,6 +102,93 @@
             </select>
           </div>
 
+          <!-- 🔥 Template Fields Section (Only shown when editing a template-based resource) -->
+          <div v-if="isFromTemplate && templateFields.length > 0" class="col-12">
+            <div class="form-section mt-2">
+              <h4 class="section-title">
+                <i class="bi bi-list-task me-2"></i>
+                Template Fields
+                <small class="text-muted ms-2">(From: {{ templateName }})</small>
+              </h4>
+              <div class="row g-3">
+                <div 
+                  v-for="field in templateFields" 
+                  :key="field.id" 
+                  class="col-md-6"
+                >
+                  <label class="form-label">
+                    {{ field.field_name }}
+                    <span v-if="field.is_required === 1" class="text-danger">*</span>
+                  </label>
+
+                  <!-- Text Input -->
+                  <input
+                    v-if="field.field_type === 'text'"
+                    type="text"
+                    class="form-control"
+                    v-model="fieldValues[field.field_name]"
+                    :required="field.is_required === 1"
+                  >
+
+                  <!-- Number Input -->
+                  <input
+                    v-else-if="field.field_type === 'number'"
+                    type="number"
+                    class="form-control"
+                    v-model="fieldValues[field.field_name]"
+                    :required="field.is_required === 1"
+                  >
+
+                  <!-- Textarea -->
+                  <textarea
+                    v-else-if="field.field_type === 'textarea'"
+                    class="form-control"
+                    rows="2"
+                    v-model="fieldValues[field.field_name]"
+                    :required="field.is_required === 1"
+                  ></textarea>
+
+                  <!-- Checkbox -->
+                  <div v-else-if="field.field_type === 'checkbox'" class="form-check">
+                    <input
+                      type="checkbox"
+                      class="form-check-input"
+                      :id="'edit-field-' + field.id"
+                      v-model="fieldValues[field.field_name]"
+                    >
+                    <label class="form-check-label" :for="'edit-field-' + field.id">Yes</label>
+                  </div>
+
+                  <!-- Dropdown -->
+                  <select
+                    v-else-if="field.field_type === 'dropdown'"
+                    class="form-select"
+                    v-model="fieldValues[field.field_name]"
+                    :required="field.is_required === 1"
+                  >
+                    <option value="" disabled>Select option</option>
+                    <option 
+                      v-for="option in getDropdownOptions(field)" 
+                      :key="option" 
+                      :value="option"
+                    >
+                      {{ option }}
+                    </option>
+                  </select>
+
+                  <!-- Default -->
+                  <input
+                    v-else
+                    type="text"
+                    class="form-control"
+                    v-model="fieldValues[field.field_name]"
+                    :required="field.is_required === 1"
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Availability -->
           <div class="col-12">
             <label class="form-label fw-bold">Availability & Time Slots <span class="text-danger">*</span></label>
@@ -132,7 +219,6 @@
                 </div>
 
                 <div class="col-5">
-                  <!-- Time Slots -->
                   <div v-if="day.is_available" class="time-slots-container">
                     <div v-for="(slot, slotIndex) in day.slots" :key="slotIndex" class="row g-2 mb-2 align-items-center">
                       <div class="col-5">
@@ -159,7 +245,6 @@
                           type="button" 
                           class="btn btn-sm btn-outline-danger"
                           @click="removeSlot(dayIndex, slotIndex)"
-                          title="Remove this time slot"
                         >
                           <i class="bi bi-x"></i>
                         </button>
@@ -167,7 +252,6 @@
                       </div>
                     </div>
                     
-                    <!-- Add Slot Button -->
                     <button 
                       type="button" 
                       class="btn btn-sm btn-outline-secondary mt-1"
@@ -176,7 +260,6 @@
                       <i class="bi bi-plus-circle me-1"></i> Add Time Slot
                     </button>
                     
-                    <!-- Validation message -->
                     <div v-if="day.slotError" class="text-danger small mt-1">
                       {{ day.slotError }}
                     </div>
@@ -259,7 +342,6 @@
             >
             <small class="text-muted d-block mt-1">You can upload up to 10 images total</small>
             
-            <!-- Image Previews -->
             <div v-if="allImagePreviews.length > 0" class="mt-3">
               <h6>Images:</h6>
               <div class="d-flex flex-wrap gap-2">
@@ -286,7 +368,7 @@
             </div>
           </div>
           
-          <!-- Description - FIXED: Removed required attribute -->
+          <!-- Description -->
           <div class="col-12">
             <label for="resourceDescription" class="form-label fw-bold">Description</label>
             <textarea 
@@ -300,7 +382,6 @@
           </div>
         </div>
 
-        <!-- Error/Success Messages -->
         <div v-if="errorMessage" class="alert alert-danger mt-3">
           {{ errorMessage }}
         </div>
@@ -309,7 +390,6 @@
           {{ successMessage }}
         </div>
 
-        <!-- Buttons -->
         <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
           <button type="button" class="btn btn-secondary" @click="router.push('/master-admin/resource')">
             <i class="bi bi-x-circle me-1"></i> Cancel
@@ -373,16 +453,21 @@ export default {
     // Equipment data
     const equipment = ref([]);
 
+    // 🔥 Template related state for edit mode
+    const isFromTemplate = ref(false);
+    const currentTemplateId = ref(null);
+    const templateFields = ref([]);
+    const fieldValues = ref({});
+    const templateName = ref('');
+
     // Store integration
-    const admins = computed(() => userStore.users.filter(u => u.primaryRole && u.primaryRole.toLowerCase().includes('admin')));
+    const admins = computed(() => userStore.users.filter(u => u.primaryRole && u.primaryRole.toLowerCase() === 'admin'));
     const categories = computed(() => resourceStore.categories);
     const departments = computed(() => resourceStore.departments);
     
     // Other state
     const selectedFiles = ref([]);
     const imagePreviews = ref([]);
-    
-    // For existing images
     const existingImages = ref([]);
     const existingImagePreviews = ref([]);
     const imagesToDelete = ref([]);
@@ -393,15 +478,12 @@ export default {
 
     const isEditMode = computed(() => route.query.mode === 'edit' && !!route.query.id);
     
-    // Combine all previews
     const allImagePreviews = computed(() => {
       return [...existingImagePreviews.value, ...imagePreviews.value];
     });
     
-    // Count of existing images
     const existingImagesCount = computed(() => existingImagePreviews.value.length);
     
-    // Check if there are availability validation errors or if no availability is selected
     const hasAvailabilityErrors = computed(() => {
       const hasErrors = availability.value.some(day => 
         day.is_available && day.slotError
@@ -410,17 +492,65 @@ export default {
       return hasErrors || noneSelected;
     });
 
-    // Get auth token
     const getAuthToken = () => {
       return localStorage.getItem('authToken') || 
              localStorage.getItem('token') || 
              localStorage.getItem('access_token');
     };
 
-    // Get full image URL
     const getImageUrl = (filePath) => {
       if (!filePath) return 'https://via.placeholder.com/600x400?text=No+Image';
       return filePath.startsWith('http') ? filePath : `${STORAGE_URL_ROOT}/${filePath}`;
+    };
+
+    // 🔥 Get dropdown options from field metadata
+    const getDropdownOptions = (field) => {
+      if (field.metadata) {
+        try {
+          const meta = typeof field.metadata === 'string' ? JSON.parse(field.metadata) : field.metadata;
+          return meta.options || [];
+        } catch (e) {
+          console.error('Error parsing metadata:', e);
+          return [];
+        }
+      }
+      return [];
+    };
+
+    // 🔥 Load template data for edit mode
+    const loadTemplateData = async (templateId, savedFieldValues = {}) => {
+      try {
+        const token = getAuthToken();
+        if (!token) return;
+        
+        const response = await axios.get(`${API_BASE_URL}/resource-templates/${templateId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+          }
+        });
+        
+        const template = response.data;
+        templateName.value = template.template_name;
+        
+        if (template.fields && Array.isArray(template.fields)) {
+          templateFields.value = template.fields.sort((a, b) => a.order_index - b.order_index);
+          
+          // Initialize field values with saved data or defaults
+          templateFields.value.forEach(field => {
+            if (savedFieldValues[field.field_name] !== undefined) {
+              fieldValues.value[field.field_name] = savedFieldValues[field.field_name];
+            } else if (field.field_type === 'checkbox') {
+              fieldValues.value[field.field_name] = false;
+            } else {
+              fieldValues.value[field.field_name] = '';
+            }
+          });
+        }
+        
+      } catch (error) {
+        console.error('Error loading template:', error);
+      }
     };
 
     // Equipment methods
@@ -459,7 +589,6 @@ export default {
       }
     };
 
-    // Validate time slot
     const validateTimeSlot = (dayIndex, slotIndex) => {
       const slot = availability.value[dayIndex].slots[slotIndex];
       
@@ -473,7 +602,6 @@ export default {
         return false;
       }
       
-      // Check for overlapping slots
       const slots = availability.value[dayIndex].slots;
       for (let i = 0; i < slots.length; i++) {
         if (i !== slotIndex && slots[i].start_time && slots[i].end_time) {
@@ -512,7 +640,6 @@ export default {
       return !hasError;
     };
 
-    // Validate all availability before submission
     const validateAvailability = () => {
       let isValid = true;
       let atLeastOneDayAvailable = false;
@@ -543,7 +670,6 @@ export default {
     const handleFileUpload = (event) => {
       const files = Array.from(event.target.files);
       
-      // Check total images limit
       const totalImages = existingImages.value.length + selectedFiles.value.length + files.length;
       if (totalImages > 10) {
         errorMessage.value = 'Maximum 10 images allowed total.';
@@ -562,26 +688,18 @@ export default {
         reader.readAsDataURL(file);
       });
       
-      // Clear input
       event.target.value = '';
     };
 
     const removeImage = (index) => {
-      // Check if this is an existing image
       if (index < existingImagePreviews.value.length) {
-        // Get the actual image ID from existing images array
         const imageId = existingImages.value[index].id;
-        
-        // Add to delete list if not already there
         if (!imagesToDelete.value.includes(imageId)) {
           imagesToDelete.value.push(imageId);
         }
-        
-        // Remove from existing arrays
         existingImages.value.splice(index, 1);
         existingImagePreviews.value.splice(index, 1);
       } else {
-        // This is a new image
         const newImageIndex = index - existingImagePreviews.value.length;
         if (newImageIndex >= 0 && newImageIndex < selectedFiles.value.length) {
           selectedFiles.value.splice(newImageIndex, 1);
@@ -590,16 +708,13 @@ export default {
       }
     };
 
-    // FIXED: Prepare form data with proper description handling
     const prepareFormData = () => {
       const formData = new FormData();
       
-      // Add basic resource data
       formData.append('name', resource.value.name);
       formData.append('location_name', resource.value.location_name);
       formData.append('category_id', resource.value.category_id.toString());
       
-      // Handle department
       if (resource.value.department_id && departments.value.length > 0) {
         const selectedDept = departments.value.find(d => d.id == resource.value.department_id);
         formData.append('department', selectedDept ? selectedDept.name : '');
@@ -607,7 +722,6 @@ export default {
         formData.append('department', '');
       }
       
-      // Handle base price
       if (resource.value.base_price === null || resource.value.base_price === undefined || resource.value.base_price === '') {
         formData.append('base_price', '0.00');
       } else {
@@ -625,29 +739,32 @@ export default {
         formData.append('assigned_admin_ids[0]', resource.value.assigned_admin_id.toString());
       }
       
-      // FIXED: Always send description as a string
-      // Check if description exists, if not send empty string
-// ===== FIXED: Description handling - සැමවිටම field එක යවන්න =====
- if (resource.value.description && resource.value.description.trim() !== '') {
-    formData.append('description', String(resource.value.description));
-    console.log('Sending description:', resource.value.description);
-  } else {
-    console.log('Description is empty - not sending');
-  }
+      if (resource.value.description && resource.value.description.trim() !== '') {
+        formData.append('description', String(resource.value.description));
+      }
       
-      // Add images to delete
+      // 🔥 Add template ID if this resource is from a template
+      if (isFromTemplate.value && currentTemplateId.value) {
+        formData.append('template_id', currentTemplateId.value.toString());
+        
+        // Add template field values
+        for (const [key, value] of Object.entries(fieldValues.value)) {
+          if (value !== null && value !== undefined && value !== '') {
+            formData.append(`template_fields[${key}]`, String(value));
+          }
+        }
+      }
+      
       if (imagesToDelete.value.length > 0) {
         imagesToDelete.value.forEach((id, index) => {
           formData.append(`removeImages[${index}]`, id);
         });
       }
       
-      // Add new images
       selectedFiles.value.forEach((file, index) => {
         formData.append(`images[${index}]`, file);
       });
       
-      // Add equipment
       if (equipment.value.length > 0) {
         equipment.value.forEach((item, index) => {
           if (item.equipment_name && item.equipment_name.trim()) {
@@ -657,7 +774,6 @@ export default {
         });
       }
       
-      // Add availability
       availability.value.forEach((day, dayIndex) => {
         if (day.is_available && day.slots.length > 0) {
           const validSlots = day.slots.filter(slot => 
@@ -680,7 +796,6 @@ export default {
       return formData;
     };
 
-    // Save resource
     const handleSave = async () => {
       errorMessage.value = '';
       successMessage.value = '';
@@ -704,13 +819,6 @@ export default {
         if (!token) {
           throw new Error('Authentication required. Please login again.');
         }
-        
-        // Log FormData contents for debugging
-        console.log('=== FormData Contents ===');
-        for (let pair of formData.entries()) {
-          console.log(pair[0] + ': ' + pair[1]);
-        }
-        console.log('=== End FormData ===');
         
         const response = await axios.post(`${API_BASE_URL}/resources`, formData, {
           headers: {
@@ -737,7 +845,6 @@ export default {
           errorMessage.value = 'Authentication required. Please login again.';
         } else if (error.response?.data?.errors) {
           const errors = error.response.data.errors;
-          console.error('Validation errors:', errors);
           errorMessage.value = Object.values(errors).flat().join(', ');
         } else if (error.response?.data?.message) {
           errorMessage.value = error.response.data.message;
@@ -749,7 +856,6 @@ export default {
       }
     };
 
-    // Update resource
     const handleUpdate = async () => {
       errorMessage.value = '';
       successMessage.value = '';
@@ -813,7 +919,6 @@ export default {
       }
     };
 
-    // Load resource for edit
     const loadResourceForEdit = async (resourceId) => {
       try {
         const token = getAuthToken();
@@ -831,7 +936,16 @@ export default {
         
         const resourceData = response.data;
         
-        // Find department ID from department name
+        // 🔥 Check if this resource was created from a template
+        if (resourceData.template_id) {
+          isFromTemplate.value = true;
+          currentTemplateId.value = resourceData.template_id;
+          
+          // Load template data with saved field values
+          const savedFieldValues = resourceData.template_field_values || {};
+          await loadTemplateData(resourceData.template_id, savedFieldValues);
+        }
+        
         let departmentId = '';
         if (resourceData.department && departments.value.length > 0) {
           const matchedDept = departments.value.find(d => 
@@ -842,7 +956,6 @@ export default {
           }
         }
         
-        // Set basic resource data
         resource.value = {
           name: resourceData.name || '',
           location_name: resourceData.location_name || '',
@@ -859,7 +972,6 @@ export default {
           status: resourceData.status || 'Active',
         };
         
-        // Set equipment
         if (resourceData.equipment && Array.isArray(resourceData.equipment)) {
           equipment.value = resourceData.equipment.map(item => ({
             equipment_name: item.equipment_name || '',
@@ -867,17 +979,15 @@ export default {
           }));
         } else {
           equipment.value = [];
+          addEquipment();
         }
         
-        // Load existing images
         if (resourceData.images && Array.isArray(resourceData.images)) {
           existingImages.value = resourceData.images;
           existingImagePreviews.value = resourceData.images.map(img => getImageUrl(img.file_path));
         }
         
-        // Load availability
         if (resourceData.availability && Array.isArray(resourceData.availability)) {
-          // Reset availability array
           availability.value = [
             { day_name: 'Monday', is_available: false, slots: [], slotError: '' },
             { day_name: 'Tuesday', is_available: false, slots: [], slotError: '' },
@@ -888,7 +998,6 @@ export default {
             { day_name: 'Sunday', is_available: false, slots: [], slotError: '' },
           ];
           
-          // Map saved availability to our array
           resourceData.availability.forEach(savedDay => {
             const dayIndex = availability.value.findIndex(
               day => day.day_name === savedDay.day_name
@@ -913,7 +1022,6 @@ export default {
       }
     };
 
-    // Fetch departments from API (fallback)
     const fetchDepartments = async () => {
       try {
         const token = getAuthToken();
@@ -935,9 +1043,7 @@ export default {
       }
     };
 
-    // Initialize
     onMounted(async () => {
-      // Load dependencies from stores if not loaded
       if (!resourceStore.isLoaded) {
         await resourceStore.fetchAll();
       } else {
@@ -973,6 +1079,11 @@ export default {
       departments,
       isEditMode,
       hasAvailabilityErrors,
+      isFromTemplate,
+      templateFields,
+      fieldValues,
+      templateName,
+      getDropdownOptions,
       addEquipment,
       removeEquipment,
       addSlot,
@@ -1008,9 +1119,11 @@ export default {
   margin-bottom: 24px;
 }
 
-.section-subtitle {
-  color: #1e4449;
-  font-size: 1.1rem;
+.form-section {
+  background: #f8f9fa;
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 20px;
 }
 
 .btn-outline-dark-teal {
