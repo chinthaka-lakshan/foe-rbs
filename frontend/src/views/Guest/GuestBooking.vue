@@ -491,90 +491,97 @@
         </div>
       </div>
 
-      <!-- OTP Verification Modal -->
-      <div v-if="showOTPModal" class="modal-overlay">
-        <div class="modal-content">
-          <div class="modal-header bg-primary text-white">
-            <h5 class="modal-title">
-              <i class="bi bi-shield-lock me-2"></i>OTP Verification
-            </h5>
-            <button type="button" class="btn-close btn-close-white" @click="closeOTPModal"></button>
+      <!-- OTP Verification Modal - RECTANGLE INPUT VERSION -->
+      <div v-if="showOTPModal" class="modal-overlay-otp">
+        <div class="modal-container-otp">
+          <div class="modal-header-otp">
+            <div class="header-icon">
+              <i class="bi bi-shield-check"></i>
+            </div>
+            <h3 class="modal-title-otp">Verify Your Identity</h3>
+            <button type="button" class="btn-close-otp" @click="closeOTPModal">
+              <i class="bi bi-x-lg"></i>
+            </button>
           </div>
-          <div class="modal-body">
-            <div class="text-center mb-4">
-              <div class="otp-icon mb-3">
-                <i class="bi bi-envelope-check" style="font-size: 3rem; color: #4BB66D;"></i>
+
+          <div class="modal-body-otp">
+            <div class="otp-info-section">
+              <div class="info-icon">
+                <i class="bi bi-envelope-paper"></i>
               </div>
-              <h6 class="fw-bold">Verify Your Email</h6>
-              <p class="text-muted small">
-                We've sent a 6-digit OTP to:<br>
+              <p class="info-text">
+                We've sent a verification code to<br>
                 <strong>{{ bookingForm.email }}</strong>
               </p>
-              <div v-if="otpSentSuccess" class="alert alert-success alert-sm py-2">
-                <i class="bi bi-check-circle me-1"></i>OTP sent successfully! Please check your email.
+              <div v-if="otpSentSuccess" class="alert-success-otp">
+                <i class="bi bi-check-circle-fill"></i> OTP sent successfully!
               </div>
             </div>
-            
-            <div class="otp-input-container mb-4">
-              <div class="d-flex justify-content-center gap-2">
+
+            <!-- SINGLE RECTANGLE OTP INPUT FIELD -->
+            <div class="otp-rectangle-container">
+              <label class="otp-label">Enter Verification Code</label>
+              <div class="otp-rectangle-input">
                 <input
-                  v-for="n in 6"
-                  :key="n"
                   type="text"
-                  maxlength="1"
-                  class="otp-digit"
-                  v-model="otpDigits[n-1]"
-                  @input="onOtpInput(n-1, $event)"
-                  @keydown="onOtpKeydown(n-1, $event)"
-                  :ref="el => { if (el) otpInputs[n-1] = el as any }"
+                  class="otp-rectangle-field"
+                  v-model="otpCode"
+                  maxlength="6"
+                  placeholder="••••••"
+                  @input="onOtpRectangleInput"
                   :disabled="isVerifyingOTP"
+                  autofocus
                 />
+                <div class="otp-rectangle-highlight"></div>
               </div>
-              <div v-if="otpError" class="text-danger text-center mt-2 small">
-                <i class="bi bi-exclamation-triangle me-1"></i>{{ otpError }}
+              <p class="otp-hint">Enter the 6-digit code sent to your email</p>
+            </div>
+
+            <!-- Timer -->
+            <div class="otp-timer-section">
+              <div class="timer-circle" :class="{ 'timer-expired': otpExpired }">
+                <i class="bi bi-clock-history"></i>
+                <span>{{ formatCountdownTimer() }}</span>
               </div>
             </div>
-            
-            <div class="text-center mb-3">
-              <small class="text-muted">
-                OTP expires in: 
-                <span class="fw-bold" :class="otpExpired ? 'text-danger' : 'text-success'">
-                  {{ formatCountdownTimer() }}
-                </span>
-              </small>
-            </div>
-            
-            <div class="text-center">
-              <button 
-                class="btn btn-link btn-sm text-decoration-none"
-                @click="resendOTP"
-                :disabled="!otpExpired || isResendingOTP"
-              >
-                <span v-if="isResendingOTP" class="spinner-border spinner-border-sm me-1"></span>
-                <span v-else><i class="bi bi-arrow-clockwise me-1"></i></span>
-                Resend OTP
-              </button>
+
+            <!-- Error Message -->
+            <div v-if="otpError" class="error-message-otp">
+              <i class="bi bi-exclamation-triangle-fill"></i>
+              {{ otpError }}
             </div>
           </div>
-          <div class="modal-footer">
+
+          <div class="modal-footer-otp">
             <button 
               type="button" 
-              class="btn btn-secondary" 
-              @click="closeOTPModal"
-              :disabled="isVerifyingOTP"
+              class="btn-resend-otp"
+              @click="resendOTP"
+              :disabled="!otpExpired || isResendingOTP"
             >
-              Cancel
+              <i class="bi bi-arrow-repeat" :class="{ 'fa-spin': isResendingOTP }"></i>
+              {{ isResendingOTP ? 'Sending...' : 'Resend Code' }}
             </button>
-            <button 
-              type="button" 
-              class="btn btn-success" 
-              @click="verifyOTPAndConfirmBooking"
-              :disabled="!isOtpComplete || isVerifyingOTP"
-            >
-              <span v-if="isVerifyingOTP" class="spinner-border spinner-border-sm me-2"></span>
-              <i class="bi bi-check-circle me-2"></i>
-              {{ isVerifyingOTP ? 'Verifying...' : 'Verify & Confirm Booking' }}
-            </button>
+            <div class="footer-buttons">
+              <button 
+                type="button" 
+                class="btn-cancel-otp"
+                @click="closeOTPModal"
+                :disabled="isVerifyingOTP"
+              >
+                Cancel
+              </button>
+              <button 
+                type="button" 
+                class="btn-verify-otp"
+                @click="verifyOTPAndConfirmBooking"
+                :disabled="!isOtpComplete || isVerifyingOTP"
+              >
+                <span v-if="isVerifyingOTP" class="spinner-border spinner-border-sm me-2"></span>
+                <i v-else class="bi bi-check2-circle me-2"></i>
+                {{ isVerifyingOTP ? 'Verifying...' : 'Verify & Confirm' }}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -626,10 +633,9 @@
         </div>
       </div>
 
-      <!-- Booking Details Modal - WITH SCROLL -->
+      <!-- Booking Details Modal -->
       <div v-if="selectedBooking" class="modal-overlay" @click.self="selectedBooking = null">
         <div class="modal-container booking-details-modal">
-          <!-- Fixed Header -->
           <div class="modal-header-custom">
             <h5 class="modal-title-custom">
               <i class="bi bi-calendar-check-fill me-2"></i> Booking Details
@@ -637,9 +643,7 @@
             <button type="button" class="btn-close-custom" @click="selectedBooking = null">×</button>
           </div>
           
-          <!-- Scrollable Body - This is where scroll works -->
           <div class="modal-body-custom">
-            <!-- Status Badge -->
             <div class="status-badge-wrapper mb-4">
               <span class="status-badge" :class="getBookingStatusClass(selectedBooking.status)">
                 <i class="bi" :class="getStatusIcon(selectedBooking.status)"></i>
@@ -647,7 +651,6 @@
               </span>
             </div>
 
-            <!-- Booking Reference -->
             <div class="info-card mb-4">
               <div class="info-label">
                 <i class="bi bi-upc-scan"></i> Booking Reference
@@ -658,7 +661,6 @@
             </div>
 
             <div class="row g-4">
-              <!-- Left Column - Booking Info -->
               <div class="col-md-6">
                 <div class="info-section">
                   <h6 class="section-title">
@@ -685,7 +687,6 @@
                 </div>
               </div>
               
-              <!-- Right Column - Customer Info -->
               <div class="col-md-6">
                 <div class="info-section">
                   <h6 class="section-title">
@@ -709,7 +710,6 @@
               </div>
             </div>
 
-            <!-- Resource Details -->
             <div class="info-section mt-4">
               <h6 class="section-title">
                 <i class="bi bi-building"></i> Resource Details
@@ -730,7 +730,6 @@
               </div>
             </div>
 
-            <!-- Equipment Items if any -->
             <div v-if="selectedBooking.details && selectedBooking.details.filter(d => d.item_type === 'equipment').length > 0" class="info-section mt-4">
               <h6 class="section-title">
                 <i class="bi bi-tools"></i> Equipment Items
@@ -746,7 +745,6 @@
               </div>
             </div>
 
-            <!-- Notes -->
             <div v-if="selectedBooking.notes" class="info-section mt-4">
               <h6 class="section-title">
                 <i class="bi bi-chat-text"></i> Additional Notes
@@ -756,7 +754,6 @@
               </div>
             </div>
 
-            <!-- Booking Timeline -->
             <div class="info-section mt-4">
               <h6 class="section-title">
                 <i class="bi bi-clock-history"></i> Booking Timeline
@@ -793,7 +790,6 @@
             </div>
           </div>
           
-          <!-- Fixed Footer -->
           <div class="modal-footer-custom">
             <button type="button" class="btn-close-modal" @click="selectedBooking = null">
               <i class="bi bi-x-lg me-1"></i> Close
@@ -821,6 +817,9 @@ const API_BASE_URL = 'http://localhost:8000/api';
 
 // Helper to get auth token
 const getAuthToken = () => localStorage.getItem('token') || '';
+
+// OTP Code - Single rectangle input
+const otpCode = ref('');
 
 // Bookings computed property
 const bookings = computed(() => {
@@ -913,7 +912,7 @@ const isResourceUnavailable = computed(() => {
 });
 
 const otpExpired = computed(() => otpTimer.value <= 0);
-const isOtpComplete = computed(() => otpDigits.value.join('').length === 6);
+const isOtpComplete = computed(() => otpCode.value.length === 6);
 
 const calculateBookingDuration = (): number => {
   if (!bookingForm.value.startTime || !bookingForm.value.endTime) return 0;
@@ -974,8 +973,6 @@ const showEquipmentDropdown = ref(false);
 // OTP & Modals
 const showOTPModal = ref(false);
 const showSuccessModal = ref(false);
-const otpDigits = ref<string[]>(Array(6).fill(''));
-const otpInputs = ref<HTMLInputElement[]>([]);
 const otpError = ref('');
 const isVerifyingOTP = ref(false);
 const isCreatingBooking = ref(false);
@@ -1007,6 +1004,12 @@ const endMin = ref('00');
 // Sync time selects with bookingForm
 watch([startHour, startMin], () => { bookingForm.value.startTime = `${startHour.value}:${startMin.value}`; });
 watch([endHour, endMin], () => { bookingForm.value.endTime = `${endHour.value}:${endMin.value}`; });
+
+// OTP Rectangle Input Handler
+const onOtpRectangleInput = (event: any) => {
+  const value = event.target.value.replace(/\D/g, '').slice(0, 6);
+  otpCode.value = value;
+};
 
 // Formatting Functions
 const formatTime = (time: string | null): string => {
@@ -1042,7 +1045,7 @@ const formatTimeShort = (time: string) => {
 const formatCountdownTimer = () => {
   const m = Math.floor(otpTimer.value / 60);
   const s = otpTimer.value % 60;
-  return `${m}:${s.toString().padStart(2, '0')}`;
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 };
 
 const calculateDuration = (startTime: string, endTime: string): string => {
@@ -1265,12 +1268,13 @@ const createBookingAndSendOTP = async () => {
     
     if (pendingBookingId.value) {
       otpSentSuccess.value = true;
+      otpCode.value = '';
       showOTPModal.value = true;
       startOTPTimer();
-      otpDigits.value = Array(6).fill('');
       
       await nextTick();
-      if (otpInputs.value[0]) otpInputs.value[0].focus();
+      const rectangleInput = document.querySelector('.otp-rectangle-field') as HTMLInputElement;
+      if (rectangleInput) rectangleInput.focus();
     }
     
   } catch (error: any) {
@@ -1282,8 +1286,11 @@ const createBookingAndSendOTP = async () => {
 };
 
 const verifyOTPAndConfirmBooking = async () => {
-  const code = otpDigits.value.join('');
-  if (code.length < 6) return;
+  const code = otpCode.value;
+  if (code.length < 6) {
+    otpError.value = 'Please enter complete 6-digit code';
+    return;
+  }
 
   isVerifyingOTP.value = true;
   otpError.value = '';
@@ -1304,9 +1311,8 @@ const verifyOTPAndConfirmBooking = async () => {
     
     await loadBookings();
   } catch (error: any) {
-    otpError.value = error.response?.data?.message || 'Invalid OTP';
-    otpDigits.value = Array(6).fill('');
-    if (otpInputs.value[0]) otpInputs.value[0].focus();
+    otpError.value = error.response?.data?.message || 'Invalid verification code';
+    otpCode.value = '';
   } finally {
     isVerifyingOTP.value = false;
   }
@@ -1328,23 +1334,6 @@ const cancelBooking = async (booking: any) => {
 
 const viewBookingDetails = (booking: any) => {
   selectedBooking.value = booking;
-};
-
-// OTP Input Handlers
-const onOtpInput = (index: number, event: any) => {
-  const val = event.target.value;
-  if (val.length > 1) {
-    otpDigits.value[index] = val.slice(-1);
-  }
-  if (val && index < 5) {
-    otpInputs.value[index + 1]?.focus();
-  }
-};
-
-const onOtpKeydown = (index: number, event: KeyboardEvent) => {
-  if (event.key === 'Backspace' && !otpDigits.value[index] && index > 0) {
-    otpInputs.value[index - 1]?.focus();
-  }
 };
 
 const startOTPTimer = () => {
@@ -1369,14 +1358,12 @@ const resendOTP = async () => {
     }, { headers });
     
     startOTPTimer();
-    otpDigits.value = Array(6).fill('');
+    otpCode.value = '';
     otpSentSuccess.value = true;
-    otpError.value = 'New OTP sent successfully!';
+    otpError.value = '';
     
-    await nextTick();
-    if (otpInputs.value[0]) otpInputs.value[0].focus();
   } catch (error: any) {
-    otpError.value = error.response?.data?.message || 'Failed to resend OTP';
+    otpError.value = error.response?.data?.message || 'Failed to resend code';
   } finally {
     isResendingOTP.value = false;
   }
@@ -1385,6 +1372,7 @@ const resendOTP = async () => {
 const closeOTPModal = () => {
   showOTPModal.value = false;
   otpError.value = '';
+  otpCode.value = '';
 };
 
 const closeSuccessModal = () => {
@@ -1568,14 +1556,327 @@ onMounted(() => {
     overflow-y: auto;
 }
 
-/* Modal Overlay */
+/* ========== OTP MODAL STYLES ========== */
+.modal-overlay-otp {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    padding: 20px;
+}
+
+.modal-container-otp {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border-radius: 32px;
+    width: 100%;
+    max-width: 480px;
+    animation: modalSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+}
+
+.modal-header-otp {
+    background: linear-gradient(135deg, #1e4449 0%, #2a6b6b 100%);
+    padding: 1.75rem 1.5rem 1.5rem;
+    text-align: center;
+    position: relative;
+}
+
+.header-icon {
+    width: 64px;
+    height: 64px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1rem;
+}
+
+.header-icon i {
+    font-size: 2rem;
+    color: white;
+}
+
+.modal-title-otp {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: white;
+    margin: 0;
+    letter-spacing: -0.5px;
+}
+
+.btn-close-otp {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: rgba(255, 255, 255, 0.15);
+    border: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: white;
+}
+
+.btn-close-otp:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: rotate(90deg);
+}
+
+.modal-body-otp {
+    padding: 2rem 1.75rem;
+}
+
+.otp-info-section {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.info-icon {
+    width: 48px;
+    height: 48px;
+    background: #e8f5e9;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1rem;
+}
+
+.info-icon i {
+    font-size: 1.5rem;
+    color: #2e7d32;
+}
+
+.info-text {
+    color: #475569;
+    margin-bottom: 1rem;
+    line-height: 1.5;
+}
+
+.info-text strong {
+    color: #1e4449;
+    font-weight: 600;
+}
+
+.alert-success-otp {
+    background: #e8f5e9;
+    color: #2e7d32;
+    padding: 0.75rem 1rem;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 0.5rem;
+}
+
+/* RECTANGLE OTP INPUT FIELD */
+.otp-rectangle-container {
+    margin-bottom: 1.75rem;
+}
+
+.otp-label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #334155;
+    margin-bottom: 0.75rem;
+    text-align: center;
+}
+
+.otp-rectangle-input {
+    position: relative;
+}
+
+.otp-rectangle-field {
+    width: 100%;
+    padding: 1rem 1.25rem;
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: 0.5rem;
+    text-align: center;
+    border: 2px solid #e2e8f0;
+    border-radius: 16px;
+    background: white;
+    transition: all 0.2s ease;
+    font-family: 'Courier New', monospace;
+}
+
+.otp-rectangle-field:focus {
+    outline: none;
+    border-color: #1e4449;
+    box-shadow: 0 0 0 4px rgba(30, 68, 73, 0.1);
+}
+
+.otp-rectangle-field::placeholder {
+    letter-spacing: 0.25rem;
+    font-size: 1.25rem;
+    color: #cbd5e1;
+}
+
+.otp-rectangle-highlight {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #1e4449, #4BB66D);
+    transition: width 0.3s ease;
+    border-radius: 3px;
+}
+
+.otp-rectangle-field:focus + .otp-rectangle-highlight {
+    width: 80%;
+}
+
+.otp-hint {
+    font-size: 0.7rem;
+    color: #94a3b8;
+    text-align: center;
+    margin-top: 0.75rem;
+}
+
+/* Timer Section */
+.otp-timer-section {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+}
+
+.timer-circle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0.5rem 1.25rem;
+    background: #f1f5f9;
+    border-radius: 50px;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1e4449;
+}
+
+.timer-circle i {
+    font-size: 1rem;
+}
+
+.timer-circle.timer-expired {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+/* Error Message */
+.error-message-otp {
+    background: #fef2f2;
+    color: #dc2626;
+    padding: 0.75rem 1rem;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 1rem;
+}
+
+/* Modal Footer */
+.modal-footer-otp {
+    padding: 1rem 1.75rem 1.75rem;
+    background: #ffffff;
+    border-top: 1px solid #e2e8f0;
+}
+
+.btn-resend-otp {
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: #1e4449;
+    font-size: 0.85rem;
+    font-weight: 500;
+    padding: 0.5rem;
+    cursor: pointer;
+    margin-bottom: 1rem;
+    transition: all 0.2s ease;
+}
+
+.btn-resend-otp:hover:not(:disabled) {
+    color: #4BB66D;
+}
+
+.btn-resend-otp:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.footer-buttons {
+    display: flex;
+    gap: 1rem;
+}
+
+.btn-cancel-otp {
+    flex: 1;
+    padding: 0.75rem;
+    background: #f1f5f9;
+    border: none;
+    border-radius: 14px;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-cancel-otp:hover:not(:disabled) {
+    background: #e2e8f0;
+}
+
+.btn-verify-otp {
+    flex: 1.5;
+    padding: 0.75rem;
+    background: linear-gradient(135deg, #1e4449 0%, #2a6b6b 100%);
+    border: none;
+    border-radius: 14px;
+    font-weight: 600;
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.btn-verify-otp:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(30, 68, 73, 0.3);
+}
+
+.btn-verify-otp:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Booking Details Modal Styles */
 .modal-overlay {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -1583,13 +1884,12 @@ onMounted(() => {
     padding: 20px;
 }
 
-/* Booking Details Modal Styles - WITH SCROLL */
 .modal-container {
   background: white;
   border-radius: 20px;
   width: 90%;
   max-width: 800px;
-  max-height: 90vh;
+  max-height: 85vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1645,16 +1945,14 @@ onMounted(() => {
   transform: rotate(90deg);
 }
 
-/* Scrollable Body */
 .modal-body-custom {
   padding: 1.5rem;
   background: #f8fafc;
   overflow-y: auto;
   flex: 1;
-  max-height: calc(90vh - 120px);
+  max-height: calc(85vh - 120px);
 }
 
-/* Custom Scrollbar for modal body */
 .modal-body-custom::-webkit-scrollbar {
   width: 6px;
 }
@@ -1698,7 +1996,6 @@ onMounted(() => {
   color: #1e293b;
 }
 
-/* Status Badge */
 .status-badge-wrapper {
   text-align: center;
 }
@@ -1713,10 +2010,6 @@ onMounted(() => {
   font-size: 0.875rem;
   background: white;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-
-.status-badge i {
-  font-size: 1rem;
 }
 
 .status-badge.status-pending {
@@ -1737,7 +2030,6 @@ onMounted(() => {
   border: 1px solid #fecaca;
 }
 
-/* Reference Value */
 .reference-value {
   font-family: 'Courier New', monospace;
   font-size: 1rem;
@@ -1748,7 +2040,6 @@ onMounted(() => {
   border-radius: 8px;
 }
 
-/* Info Section */
 .info-section {
   margin-bottom: 0.5rem;
 }
@@ -1770,7 +2061,6 @@ onMounted(() => {
   color: #1e4449;
 }
 
-/* Info Card */
 .info-card {
   background: white;
   border-radius: 16px;
@@ -1800,11 +2090,6 @@ onMounted(() => {
   gap: 6px;
 }
 
-.info-label i {
-  font-size: 0.85rem;
-  color: #1e4449;
-}
-
 .info-value {
   font-size: 0.85rem;
   font-weight: 500;
@@ -1822,7 +2107,6 @@ onMounted(() => {
   color: #1e4449;
 }
 
-/* Equipment List */
 .equipment-list {
   background: white;
   border-radius: 16px;
@@ -1866,7 +2150,6 @@ onMounted(() => {
   color: #059669;
 }
 
-/* Notes Box */
 .notes-box {
   background: #fffbeb;
   border-left: 4px solid #f59e0b;
@@ -1877,7 +2160,6 @@ onMounted(() => {
   line-height: 1.5;
 }
 
-/* Timeline */
 .timeline {
   position: relative;
   padding-left: 1.5rem;
@@ -1939,7 +2221,6 @@ onMounted(() => {
   color: #94a3b8;
 }
 
-/* Actions Cell */
 .actions-cell {
   white-space: nowrap;
 }
@@ -1976,30 +2257,12 @@ onMounted(() => {
   color: white;
 }
 
-/* Modal Content */
 .modal-content {
     background: white;
     border-radius: 12px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
     width: 100%;
     max-width: 450px;
-}
-
-.otp-digit {
-    width: 45px;
-    height: 55px;
-    text-align: center;
-    font-size: 1.5rem;
-    font-weight: 600;
-    border: 2px solid #dee2e6;
-    border-radius: 8px;
-    transition: all 0.2s;
-}
-
-.otp-digit:focus {
-    border-color: #1e4449;
-    box-shadow: 0 0 0 3px rgba(30, 68, 73, 0.1);
-    outline: none;
 }
 
 .badge.status-pending {
