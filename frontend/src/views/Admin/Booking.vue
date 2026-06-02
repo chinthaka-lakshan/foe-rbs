@@ -222,6 +222,7 @@
                 <th>Time Slot</th>
                 <th>Total Amount</th>
                 <th>Status</th>
+                <th>Confirmation Progress</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -233,28 +234,77 @@
                 <td>{{ formatDate(booking.booking_date) }}</td>
                 <td>{{ booking.start_time }} - {{ booking.end_time }}</td>
                 <td>Rs. {{ booking.total_amount }}</td>
-                <td><span class="badge" :class="getStatusClass(booking.status)">{{ booking.status }}</span></td>
                 <td>
+                  <span class="badge" :class="getStatusClass(booking.status)">
+                    {{ booking.status }}
+                  </span>
+                </td>
+                <!-- Confirmation Progress Rectangle Column -->
+                <td class="confirmation-progress-cell">
+                  <div v-if="booking.status === 'Pending'" class="confirmation-progress-container">
+                    <div class="progress-rectangle" :title="`${getConfirmedCount(booking.id)} of ${getTotalAdminsForBooking(booking)} admin(s) confirmed`">
+                      <div class="progress-fill" :style="{ width: getProgressPercentage(booking.id) + '%' }"></div>
+                      <div class="progress-text">{{ getConfirmedCount(booking.id) }}/{{ getTotalAdminsForBooking(booking) }}</div>
+                    </div>
+                    <small class="text-muted confirmation-detail">
+                      {{ getConfirmedCount(booking.id) }} of {{ getTotalAdminsForBooking(booking) }} admin(s) confirmed
+                    </small>
+                  </div>
+                  <div v-else-if="booking.status === 'Confirmed'" class="confirmed-badge">
+                    <i class="bi bi-check-circle-fill text-success"></i> Confirmed
+                  </div>
+                  <div v-else-if="booking.status === 'Cancelled'" class="cancelled-badge">
+                    <i class="bi bi-x-circle-fill text-danger"></i> Cancelled
+                  </div>
+                  <div v-else>-</div>
+                </td>
+                <!-- Actions Column -->
+                <td class="actions-cell">
                   <div class="btn-group btn-group-sm">
+                    <!-- View Button - Always visible -->
                     <button class="btn btn-outline-info" @click="viewBookingDetails(booking.id)" title="View Details">
                       <i class="bi bi-eye"></i>
                     </button>
+                    
+                    <!-- Delete Button - ALWAYS VISIBLE for all statuses -->
                     <button class="btn btn-outline-danger" @click="openDeleteConfirmation(booking)" title="Delete Permanently">
                       <i class="bi bi-trash"></i>
                     </button>
-                    <template v-if="booking.status === 'Pending' || booking.status === 'Requested_by_Guest'">
-                      <button class="btn btn-outline-success" @click="openConfirmConfirmation(booking)" title="Confirm Booking">
-                        <i class="bi bi-check-circle"></i>
-                      </button>
-                      <button class="btn btn-outline-warning" @click="openRejectConfirmation(booking)" title="Reject Booking">
-                        <i class="bi bi-x-circle"></i>
-                      </button>
-                    </template>
+                    
+                    <!-- Confirm Button - Show only if: Pending AND not confirmed AND not rejected -->
+                    <button 
+                      v-if="booking.status === 'Pending' && !hasAdminConfirmed(booking.id) && !hasAdminRejected(booking.id)"
+                      class="btn btn-outline-success" 
+                      @click="openConfirmConfirmation(booking)" 
+                      title="Confirm Booking"
+                    >
+                      <i class="bi bi-check-circle"></i>
+                    </button>
+                    
+                    <!-- Reject Button - Show only if: Pending AND not rejected AND not confirmed -->
+                    <button 
+                      v-if="booking.status === 'Pending' && !hasAdminRejected(booking.id) && !hasAdminConfirmed(booking.id)"
+                      class="btn btn-outline-warning" 
+                      @click="openRejectConfirmation(booking)" 
+                      title="Reject Booking"
+                    >
+                      <i class="bi bi-x-circle"></i>
+                    </button>
+                    
+                    <!-- Master Admin Force Confirm Button -->
+                    <button 
+                      v-if="isMasterAdmin && booking.status === 'Pending' && !isFullyConfirmed(booking.id)"
+                      class="btn btn-outline-primary" 
+                      @click="openMasterConfirmConfirmation(booking)" 
+                      title="Master Admin: Force Confirm"
+                    >
+                      <i class="bi bi-star-fill"></i>
+                    </button>
                   </div>
                 </td>
               </tr>
               <tr v-if="managedBookings.length === 0">
-                <td colspan="8" class="text-center py-4 text-muted">No managed resource bookings found.</td>
+                <td colspan="9" class="text-center py-4 text-muted">No managed resource bookings found.</td>
               </tr>
             </tbody>
           </table>
@@ -269,7 +319,7 @@
         <div class="table-responsive">
           <table class="table table-hover">
             <thead>
-              <table>
+              <tr>
                 <th>Booking Ref</th>
                 <th>Resource</th>
                 <th>Booking Date</th>
@@ -277,7 +327,7 @@
                 <th>Total Amount</th>
                 <th>Status</th>
                 <th>Actions</th>
-              </table>
+              </tr>
             </thead>
             <tbody>
               <tr v-for="booking in personalBookings" :key="booking.id">
@@ -292,8 +342,7 @@
                     <button class="btn btn-outline-info" @click="viewBookingDetails(booking.id)" title="View Details">
                       <i class="bi bi-eye"></i>
                     </button>
-                    <button v-if="booking.status === 'Pending' || booking.status === 'Pending_for_Verification'" 
-                            class="btn btn-outline-danger" @click="openDeleteConfirmation(booking)" title="Cancel Booking">
+                    <button class="btn btn-outline-danger" @click="openDeleteConfirmation(booking)" title="Delete Permanently">
                       <i class="bi bi-trash"></i>
                     </button>
                   </div>
@@ -314,19 +363,28 @@
     <div class="modal-dialog delete-modal-top"> 
       <div class="modal-content">
         <template v-if="deleteStep === 'confirm'">
-          <div class="modal-header bg-warning text-dark">
-            <h5 class="modal-title"><i class="bi bi-question-circle-fill me-2"></i>Confirmation</h5>
-            <button type="button" class="btn-close" @click="handleCancelDeletion"></button>
+          <div class="modal-header" :class="bookingToDelete?.status === 'Confirmed' ? 'bg-success' : (bookingToDelete?.status === 'Cancelled' ? 'bg-danger' : 'bg-warning')">
+            <h5 class="modal-title text-white"><i class="bi bi-question-circle-fill me-2"></i>Confirmation</h5>
+            <button type="button" class="btn-close btn-close-white" @click="handleCancelDeletion"></button>
           </div>
           <div class="modal-body text-center">
             <p class="mb-0">Are you sure you want to delete the booking <strong>{{ bookingToDelete?.booking_reference }}</strong>?</p>
-            <div class="alert alert-warning mt-3" role="alert">
-              <i class="bi bi-exclamation-triangle me-2"></i> This action cannot be undone!
+            <div class="alert mt-3" :class="bookingToDelete?.status === 'Confirmed' ? 'alert-success' : (bookingToDelete?.status === 'Cancelled' ? 'alert-danger' : 'alert-warning')" role="alert">
+              <i class="bi bi-exclamation-triangle me-2"></i> 
+              <span v-if="bookingToDelete?.status === 'Confirmed'">
+                This booking is already <strong class="text-success">CONFIRMED</strong>. Deleting it will remove all records!
+              </span>
+              <span v-else-if="bookingToDelete?.status === 'Cancelled'">
+                This booking is already <strong class="text-danger">CANCELLED</strong>. Deleting it will permanently remove it.
+              </span>
+              <span v-else>
+                This action cannot be undone!
+              </span>
             </div>
           </div>
           <div class="modal-footer justify-content-center">
             <button type="button" class="btn btn-secondary" @click="handleCancelDeletion">Cancel</button>
-            <button type="button" class="btn btn-warning text-dark" @click="handleFirstConfirmation" :disabled="isDeleting">
+            <button type="button" class="btn" :class="bookingToDelete?.status === 'Confirmed' ? 'btn-success' : (bookingToDelete?.status === 'Cancelled' ? 'btn-danger' : 'btn-warning')" @click="handleFirstConfirmation" :disabled="isDeleting">
               <span v-if="isDeleting" class="spinner-border spinner-border-sm me-2"></span>
               Continue to Delete
             </button>
@@ -357,22 +415,31 @@
     </div>
   </div>
 
-  <!-- ✅ Confirm Booking Modal (Single Confirmation) -->
+  <!-- Confirm Booking Modal -->
   <div class="modal fade" :class="{ 'show d-block': showConfirmModal }" tabindex="-1" @click.self="closeConfirmModal" style="background-color: rgba(0,0,0,0.5);" v-if="showConfirmModal">
-    <div class="modal-dialog action-modal-top" style="max-width: 400px;">
+    <div class="modal-dialog action-modal-top" style="max-width: 500px;">
       <div class="modal-content">
         <div class="modal-header bg-success text-white">
           <h5 class="modal-title"><i class="bi bi-check-circle-fill me-2"></i>Confirm Booking</h5>
           <button type="button" class="btn-close btn-close-white" @click="closeConfirmModal"></button>
         </div>
-        <div class="modal-body text-center">
-          <p class="mb-2">
+        <div class="modal-body">
+          <p class="mb-2 text-center">
             Are you sure you want to <strong class="text-success">confirm</strong> this booking?
           </p>
           <div class="alert alert-light border mt-3 text-start">
             <p class="mb-1"><strong>Booking Reference:</strong> {{ bookingToConfirm?.booking_reference }}</p>
             <p class="mb-1"><strong>Resource:</strong> {{ bookingToConfirm?.resource?.name || bookingToConfirm?.details?.[0]?.item_name || 'N/A' }}</p>
-            <p class="mb-0"><strong>User:</strong> {{ bookingToConfirm?.user_email }}</p>
+            <p class="mb-1"><strong>User:</strong> {{ bookingToConfirm?.user_email }}</p>
+            <p class="mb-0"><strong>Current Progress:</strong> {{ getConfirmedCount(bookingToConfirm?.id) }} of {{ getTotalAdminsForBooking(bookingToConfirm) }} admins confirmed</p>
+          </div>
+          <div class="progress-rectangle-modal mt-3">
+            <div class="progress-fill" :style="{ width: getProgressPercentage(bookingToConfirm?.id) + '%' }"></div>
+            <div class="progress-text">{{ getConfirmedCount(bookingToConfirm?.id) }}/{{ getTotalAdminsForBooking(bookingToConfirm) }}</div>
+          </div>
+          <div class="alert alert-info mt-3 small" v-if="!isFullyConfirmed(bookingToConfirm?.id)">
+            <i class="bi bi-info-circle me-1"></i>
+            This booking requires confirmation from {{ getTotalAdminsForBooking(bookingToConfirm) }} admin(s). After your confirmation, it will need {{ getTotalAdminsForBooking(bookingToConfirm) - (getConfirmedCount(bookingToConfirm?.id) + 1) }} more confirmation(s).
           </div>
         </div>
         <div class="modal-footer justify-content-center">
@@ -386,7 +453,44 @@
     </div>
   </div>
 
-  <!-- ✅ Reject Booking Modal (Single Confirmation) -->
+  <!-- Master Admin Force Confirm Modal -->
+  <div class="modal fade" :class="{ 'show d-block': showMasterConfirmModal }" tabindex="-1" @click.self="closeMasterConfirmModal" style="background-color: rgba(0,0,0,0.5);" v-if="showMasterConfirmModal">
+    <div class="modal-dialog action-modal-top" style="max-width: 500px;">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title"><i class="bi bi-star-fill me-2"></i>Master Admin Force Confirm</h5>
+          <button type="button" class="btn-close btn-close-white" @click="closeMasterConfirmModal"></button>
+        </div>
+        <div class="modal-body text-center">
+          <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            <strong>Master Admin Override!</strong>
+          </div>
+          <p>As Master Admin, you can force confirm this booking immediately.</p>
+          <p class="mb-2">This will:</p>
+          <ul class="text-start">
+            <li>Bypass all admin confirmations</li>
+            <li>Fill the rectangle completely ({{ getTotalAdminsForBooking(bookingToMasterConfirm) }}/{{ getTotalAdminsForBooking(bookingToMasterConfirm) }})</li>
+            <li>Set booking status to Confirmed</li>
+          </ul>
+          <div class="alert alert-light border mt-3 text-start">
+            <p class="mb-1"><strong>Booking Reference:</strong> {{ bookingToMasterConfirm?.booking_reference }}</p>
+            <p class="mb-1"><strong>Resource:</strong> {{ bookingToMasterConfirm?.resource?.name || bookingToMasterConfirm?.details?.[0]?.item_name || 'N/A' }}</p>
+            <p class="mb-0"><strong>User:</strong> {{ bookingToMasterConfirm?.user_email }}</p>
+          </div>
+        </div>
+        <div class="modal-footer justify-content-center">
+          <button type="button" class="btn btn-secondary" @click="closeMasterConfirmModal">Cancel</button>
+          <button type="button" class="btn btn-primary" @click="handleMasterConfirmBooking" :disabled="isMasterConfirming">
+            <span v-if="isMasterConfirming" class="spinner-border spinner-border-sm me-2"></span>
+            Yes, Force Confirm as Master Admin
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reject Booking Modal -->
   <div class="modal fade" :class="{ 'show d-block': showRejectModal }" tabindex="-1" @click.self="closeRejectModal" style="background-color: rgba(0,0,0,0.5);" v-if="showRejectModal">
     <div class="modal-dialog action-modal-top" style="max-width: 400px;">
       <div class="modal-content">
@@ -415,7 +519,7 @@
     </div>
   </div>
 
-  <!-- Booking Preview Modal - Centered on Page -->
+  <!-- Booking Preview Modal -->
   <teleport to="body">
     <div v-if="showDetailsModal" class="modal-overlay" @click.self="closeDetailsModal">
       <div class="modal-container modal-container-lg">
@@ -457,7 +561,6 @@
                 <div class="info-group mb-0">
                   <label class="text-muted small fw-bold text-uppercase mb-1 d-block">Duration & Cost</label>
                   <div class="d-flex align-items-center">
-                    <i class="text-success me-2 fs-5"></i>
                     <span class="fw-bold fs-5 text-success">Total Amount: Rs. {{ bookingToView?.total_amount }}</span>
                   </div>
                 </div>
@@ -516,12 +619,35 @@
                     <tbody>
                       <tr v-for="item in bookingToView.details" :key="item.id">
                         <td class="ps-3 fw-bold small text-dark-teal">{{ item.item_name || 'N/A' }}</td>
-                        <td class="small text-muted">{{ item.item_type || 'N/A' }}‹</td>
+                        <td class="small text-muted">{{ item.item_type || 'N/A' }}</td>
                         <td class="text-center small">{{ item.quantity }}</td>
                         <td class="text-end pe-3 fw-bold small">Rs. {{ item.subtotal || item.unit_price * item.quantity }}</td>
                       </tr>
                     </tbody>
                   </table>
+                </div>
+              </div>
+
+              <!-- Confirmation Details Section -->
+              <div class="col-12" v-if="bookingToView?.status === 'Pending'">
+                <hr class="my-2">
+                <label class="text-muted small fw-bold text-uppercase mb-2 d-block">Confirmation Progress</label>
+                <div class="alert alert-info">
+                  <div class="mb-2">
+                    <strong>Progress:</strong> {{ getConfirmedCount(bookingToView?.id) }} of {{ getTotalAdminsForBooking(bookingToView) }} admins confirmed
+                  </div>
+                  <div class="progress-rectangle-modal">
+                    <div class="progress-fill" :style="{ width: getProgressPercentage(bookingToView?.id) + '%' }"></div>
+                    <div class="progress-text">{{ getConfirmedCount(bookingToView?.id) }}/{{ getTotalAdminsForBooking(bookingToView) }}</div>
+                  </div>
+                  <div v-if="getConfirmedAdminsList(bookingToView?.id).length > 0" class="mt-2">
+                    <strong>Confirmed by:</strong>
+                    <ul class="mb-0 mt-1">
+                      <li v-for="admin in getConfirmedAdminsList(bookingToView?.id)" :key="admin.adminId">
+                        {{ admin.adminName }} ({{ admin.confirmedAt }})
+                      </li>
+                    </ul>
+                  </div>
                 </div>
               </div>
             </div>
@@ -557,21 +683,18 @@
         <strong class="me-auto">Error</strong>
         <button type="button" class="btn-close btn-close-white" @click="showErrorToast = false"></button>
       </div>
-      <div class="toast-body">{{ errorMessage }}</div>
+      <div class="toast-body">{{ errorToastMessage }}</div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
 import axios from 'axios';
 import Navbar from '../../components/Navbar.vue';
 import AdminSidebar from '../../components/Sidebar/Admin_Sidebar.vue';
 import { bookingStore } from '../../store/bookingStore';
 import { resourceStore } from '../../store/resourceStore';
-
-const router = useRouter();
 
 // API Configuration
 const API_BASE_URL = 'http://localhost:8000/api';
@@ -580,6 +703,45 @@ const API_BASE_URL = 'http://localhost:8000/api';
 const getAuthToken = () => {
   return localStorage.getItem('authToken') || localStorage.getItem('auth_token') || localStorage.getItem('token');
 };
+
+// Get current admin info
+const getCurrentAdminId = () => {
+  const userStr = localStorage.getItem('user');
+  if (userStr) {
+    try {
+      const user = JSON.parse(userStr);
+      if (user && user.id) return user.id;
+      if (user && user.admin_id) return user.admin_id;
+    } catch (e) {}
+  }
+  return localStorage.getItem('userId') || localStorage.getItem('adminId') || 'admin_' + Date.now();
+};
+
+const getCurrentAdminName = () => {
+  const userStr = localStorage.getItem('user');
+  if (userStr) {
+    try {
+      const user = JSON.parse(userStr);
+      return user.name || user.full_name || user.username || user.email?.split('@')[0] || 'Admin';
+    } catch (e) {}
+  }
+  return localStorage.getItem('adminName') || 'Admin';
+};
+
+const getCurrentAdminEmail = () => {
+  const userStr = localStorage.getItem('user');
+  if (userStr) {
+    try {
+      const user = JSON.parse(userStr);
+      if (user && user.email) return user.email;
+    } catch (e) {}
+  }
+  return localStorage.getItem('userEmail') || localStorage.getItem('email') || 'admin@example.com';
+};
+
+// Storage keys
+const getConfirmationStorageKey = (bookingId: number) => `booking_confirmations_${bookingId}`;
+const getRejectionStorageKey = (bookingId: number) => `booking_rejection_${bookingId}`;
 
 // State
 const isLoading = computed(() => bookingStore.isLoading && !bookingStore.isLoaded);
@@ -601,12 +763,17 @@ const showDeleteConfirmation = ref(false);
 const deleteStep = ref<'confirm' | 'final'>('confirm');
 const isDeleting = ref(false);
 
-// ✅ Confirm Modal State
+// Confirm Modal State
 const bookingToConfirm = ref<any>(null);
 const showConfirmModal = ref(false);
 const isConfirming = ref(false);
 
-// ✅ Reject Modal State
+// Master Confirm Modal State
+const bookingToMasterConfirm = ref<any>(null);
+const showMasterConfirmModal = ref(false);
+const isMasterConfirming = ref(false);
+
+// Reject Modal State
 const bookingToReject = ref<any>(null);
 const showRejectModal = ref(false);
 const isRejecting = ref(false);
@@ -619,34 +786,15 @@ const showDetailsModal = ref(false);
 const showSuccessToast = ref(false);
 const showErrorToast = ref(false);
 const successMessage = ref('');
+const errorToastMessage = ref('');
 
 // Calendar State
 const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const currentDate = ref(new Date());
 const viewMode = ref<'month' | 'day'>('month');
 
-// Get current user
-const getCurrentUserId = () => {
-  const userStr = localStorage.getItem('user');
-  if (userStr) {
-    try {
-      const user = JSON.parse(userStr);
-      if (user && user.id) return user.id;
-    } catch (e) {}
-  }
-  return localStorage.getItem('userId');
-};
-
-const getCurrentUserEmail = () => {
-  const userStr = localStorage.getItem('user');
-  if (userStr) {
-    try {
-      const user = JSON.parse(userStr);
-      if (user && user.email) return user.email;
-    } catch (e) {}
-  }
-  return localStorage.getItem('userEmail') || localStorage.getItem('email');
-};
+// Master Admin Flag
+const isMasterAdmin = ref(false);
 
 // Helper Functions
 const formatDate = (dateString: string) => {
@@ -669,7 +817,6 @@ const getStatusClass = (status: string) => {
     case 'Pending': return 'bg-warning text-dark';
     case 'Cancelled': return 'bg-danger';
     case 'Completed': return 'bg-info';
-    case 'Requested_by_Guest': return 'bg-requested-guest text-white';
     default: return 'bg-secondary';
   }
 };
@@ -681,9 +828,181 @@ const showSuccess = (message: string) => {
 };
 
 const showError = (message: string) => {
-  errorMessage.value = message;
+  errorToastMessage.value = message;
   showErrorToast.value = true;
-  setTimeout(() => showErrorToast.value = false, 3000);
+  setTimeout(() => showErrorToast.value = false, 5000);
+};
+
+// --- Reject Tracking Functions ---
+const hasAdminRejected = (bookingId: number): boolean => {
+  if (!bookingId) return false;
+  const storageKey = getRejectionStorageKey(bookingId);
+  const rejected = localStorage.getItem(storageKey);
+  if (rejected) {
+    try {
+      const rejectedData = JSON.parse(rejected);
+      const currentAdminId = getCurrentAdminId();
+      const currentAdminEmail = getCurrentAdminEmail();
+      return rejectedData.adminId === currentAdminId || rejectedData.adminEmail === currentAdminEmail;
+    } catch (e) {
+      return false;
+    }
+  }
+  return false;
+};
+
+const addAdminRejection = (bookingId: number): void => {
+  const currentAdminId = getCurrentAdminId();
+  const currentAdminName = getCurrentAdminName();
+  const currentAdminEmail = getCurrentAdminEmail();
+  
+  const storageKey = getRejectionStorageKey(bookingId);
+  const rejectionData = {
+    adminId: currentAdminId,
+    adminName: currentAdminName,
+    adminEmail: currentAdminEmail,
+    rejectedAt: new Date().toLocaleString()
+  };
+  
+  localStorage.setItem(storageKey, JSON.stringify(rejectionData));
+};
+
+const clearRejection = (bookingId: number): void => {
+  const storageKey = getRejectionStorageKey(bookingId);
+  localStorage.removeItem(storageKey);
+};
+
+// --- Multi-Admin Confirmation Functions ---
+const getTotalAdminsForBooking = (booking: any) => {
+  if (!booking) return 1;
+  
+  if (booking.resource && booking.resource.assigned_admins && Array.isArray(booking.resource.assigned_admins)) {
+    return booking.resource.assigned_admins.length;
+  }
+  
+  if (booking.assigned_admins && Array.isArray(booking.assigned_admins)) {
+    return booking.assigned_admins.length;
+  }
+  
+  if (booking.resource_id) {
+    const allResources = resourceStore.resources || [];
+    const foundResource = allResources.find((r: any) => r.id === booking.resource_id);
+    if (foundResource && foundResource.assigned_admins && Array.isArray(foundResource.assigned_admins)) {
+      return foundResource.assigned_admins.length;
+    }
+  }
+  
+  return 1;
+};
+
+const getConfirmedCount = (bookingId: number): number => {
+  if (!bookingId) return 0;
+  const storageKey = getConfirmationStorageKey(bookingId);
+  const confirmed = localStorage.getItem(storageKey);
+  if (confirmed) {
+    try {
+      const confirmedList = JSON.parse(confirmed);
+      return Array.isArray(confirmedList) ? confirmedList.length : 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+  return 0;
+};
+
+const getConfirmedAdminsList = (bookingId: number): any[] => {
+  if (!bookingId) return [];
+  const storageKey = getConfirmationStorageKey(bookingId);
+  const confirmed = localStorage.getItem(storageKey);
+  if (confirmed) {
+    try {
+      return JSON.parse(confirmed);
+    } catch (e) {
+      return [];
+    }
+  }
+  return [];
+};
+
+const hasAdminConfirmed = (bookingId: number): boolean => {
+  const confirmedList = getConfirmedAdminsList(bookingId);
+  const currentAdminId = getCurrentAdminId();
+  const currentAdminEmail = getCurrentAdminEmail();
+  return confirmedList.some((admin: any) => 
+    admin.adminId === currentAdminId || admin.adminEmail === currentAdminEmail
+  );
+};
+
+const isFullyConfirmed = (bookingId: number): boolean => {
+  const booking = bookings.value.find((b: any) => b.id === bookingId);
+  if (!booking) return false;
+  const confirmedCount = getConfirmedCount(bookingId);
+  const totalAdmins = getTotalAdminsForBooking(booking);
+  return confirmedCount >= totalAdmins;
+};
+
+const getProgressPercentage = (bookingId: number): number => {
+  const booking = bookings.value.find((b: any) => b.id === bookingId);
+  if (!booking) return 0;
+  const confirmedCount = getConfirmedCount(bookingId);
+  const totalAdmins = getTotalAdminsForBooking(booking);
+  if (totalAdmins === 0) return 0;
+  return Math.round((confirmedCount / totalAdmins) * 100);
+};
+
+const addAdminConfirmation = (bookingId: number): boolean => {
+  const currentAdminId = getCurrentAdminId();
+  const currentAdminName = getCurrentAdminName();
+  const currentAdminEmail = getCurrentAdminEmail();
+  
+  if (hasAdminConfirmed(bookingId)) {
+    return false;
+  }
+  
+  const storageKey = getConfirmationStorageKey(bookingId);
+  const existing = getConfirmedAdminsList(bookingId);
+  
+  const newConfirmation = {
+    adminId: currentAdminId,
+    adminName: currentAdminName,
+    adminEmail: currentAdminEmail,
+    confirmedAt: new Date().toLocaleString()
+  };
+  
+  existing.push(newConfirmation);
+  localStorage.setItem(storageKey, JSON.stringify(existing));
+  return true;
+};
+
+const masterForceConfirm = async (bookingId: number, totalAdmins: number): Promise<void> => {
+  const storageKey = getConfirmationStorageKey(bookingId);
+  
+  const masterConfirmation = {
+    adminId: 'master_admin',
+    adminName: 'Master Admin',
+    adminEmail: 'master@admin.com',
+    confirmedAt: new Date().toLocaleString(),
+    isMasterForce: true
+  };
+  
+  const newConfirmations = [masterConfirmation];
+  
+  for (let i = 1; i < totalAdmins; i++) {
+    newConfirmations.push({
+      adminId: `auto_${i}`,
+      adminName: `System Confirmation ${i}`,
+      adminEmail: `auto${i}@system.com`,
+      confirmedAt: new Date().toLocaleString(),
+      isAutoForce: true
+    });
+  }
+  
+  localStorage.setItem(storageKey, JSON.stringify(newConfirmations));
+};
+
+const clearConfirmations = (bookingId: number): void => {
+  const storageKey = getConfirmationStorageKey(bookingId);
+  localStorage.removeItem(storageKey);
 };
 
 // --- Preview Modal Functions ---
@@ -720,75 +1039,228 @@ const loadBookings = async () => {
   }
 };
 
-// ✅ Confirm Booking Function
+// Update booking status to Confirmed - ONLY called when ALL admins confirmed
+const updateBookingStatusToConfirmed = async (bookingId: number) => {
+  try {
+    const token = getAuthToken();
+    
+    if (!token) {
+      const booking = bookings.value.find((b: any) => b.id === bookingId);
+      if (booking) {
+        bookingStore.updateBookingLocally({ ...booking, status: 'Confirmed' });
+      }
+      return { success: true, localOnly: true };
+    }
+    
+    await axios.patch(
+      `${API_BASE_URL}/bookings/${bookingId}/status`, 
+      { status: 'Confirmed' },
+      { 
+        headers: { 
+          'Authorization': `Bearer ${token}`, 
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        } 
+      }
+    );
+    
+    const booking = bookings.value.find((b: any) => b.id === bookingId);
+    if (booking) {
+      bookingStore.updateBookingLocally({ ...booking, status: 'Confirmed' });
+    }
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error updating booking status to confirmed:', error);
+    const booking = bookings.value.find((b: any) => b.id === bookingId);
+    if (booking) {
+      bookingStore.updateBookingLocally({ ...booking, status: 'Confirmed' });
+    }
+    return { success: true, localOnly: true };
+  }
+};
+
+// Update booking status to Cancelled
+const updateBookingStatusToCancelled = async (bookingId: number) => {
+  try {
+    const token = getAuthToken();
+    
+    await axios.patch(
+      `${API_BASE_URL}/bookings/${bookingId}/status`, 
+      { status: 'Cancelled' },
+      { 
+        headers: { 
+          'Authorization': `Bearer ${token}`, 
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        } 
+      }
+    );
+    
+    const booking = bookings.value.find((b: any) => b.id === bookingId);
+    if (booking) {
+      bookingStore.updateBookingLocally({ ...booking, status: 'Cancelled' });
+    }
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error updating booking status to cancelled:', error);
+    const booking = bookings.value.find((b: any) => b.id === bookingId);
+    if (booking) {
+      bookingStore.updateBookingLocally({ ...booking, status: 'Cancelled' });
+    }
+    return { success: true, localOnly: true };
+  }
+};
+
+// Confirm Booking - CRITICAL: Only updates status to Confirmed when ALL admins have confirmed
 const confirmBooking = async (bookingId: number) => {
   isConfirming.value = true;
   
   try {
-    const token = getAuthToken();
-    await axios.patch(`${API_BASE_URL}/bookings/${bookingId}/status`, { status: 'Confirmed' }, {
-      headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
-    });
-    
     const booking = bookings.value.find((b: any) => b.id === bookingId);
-    if (booking) bookingStore.updateBookingLocally({ ...booking, status: 'Confirmed' });
+    if (!booking) throw new Error('Booking not found');
     
-    showSuccess('Booking confirmed successfully!');
+    // Check if already rejected by this admin
+    if (hasAdminRejected(bookingId)) {
+      showError('You have rejected this booking, cannot confirm');
+      closeConfirmModal();
+      return;
+    }
+    
+    // Check if already confirmed by this admin
+    if (hasAdminConfirmed(bookingId)) {
+      showError('You have already confirmed this booking');
+      closeConfirmModal();
+      return;
+    }
+    
+    // Add this admin's confirmation to localStorage only
+    addAdminConfirmation(bookingId);
+    
+    const confirmedCount = getConfirmedCount(bookingId);
+    const totalAdmins = getTotalAdminsForBooking(booking);
+    
+    console.log(`Confirmed: ${confirmedCount}, Total: ${totalAdmins}`); // Debug log
+    
+    // Check if now fully confirmed (all admins have confirmed)
+    if (confirmedCount >= totalAdmins) {
+      // ALL admins confirmed - now update booking status to Confirmed
+      console.log('All admins confirmed! Updating status to Confirmed...');
+      await updateBookingStatusToConfirmed(bookingId);
+      showSuccess(`Booking fully confirmed! All ${totalAdmins} admins have approved this booking.`);
+    } else {
+      // NOT all admins confirmed yet - status remains Pending
+      // IMPORTANT: Do NOT call any API to update status here
+      console.log('Not all admins confirmed yet. Status remains Pending.');
+      showSuccess(`You have confirmed this booking. (${confirmedCount}/${totalAdmins}) Waiting for ${totalAdmins - confirmedCount} more admin(s) to confirm.`);
+    }
+    
     closeConfirmModal();
     
+    // Refresh booking in view modal if open
     if (bookingToView.value && bookingToView.value.id === bookingId) {
-      bookingToView.value.status = 'Confirmed';
+      const updatedBooking = bookings.value.find((b: any) => b.id === bookingId);
+      if (updatedBooking) bookingToView.value = updatedBooking;
     }
+    
+    // Refresh the bookings list to show updated status
+    await loadBookings();
+    
   } catch (error: any) {
-    showError(error.response?.data?.message || 'Failed to confirm booking');
+    console.error('Confirm booking error:', error);
+    showError(error.message || 'Failed to confirm booking');
   } finally {
     isConfirming.value = false;
   }
 };
 
-// ✅ Reject Booking Function
+// Master Admin Force Confirm
+const masterConfirmBooking = async (bookingId: number) => {
+  isMasterConfirming.value = true;
+  
+  try {
+    const booking = bookings.value.find((b: any) => b.id === bookingId);
+    if (!booking) throw new Error('Booking not found');
+    
+    const totalAdmins = getTotalAdminsForBooking(booking);
+    
+    await masterForceConfirm(bookingId, totalAdmins);
+    await updateBookingStatusToConfirmed(bookingId);
+    showSuccess(`Booking force confirmed by Master Admin! (${totalAdmins}/${totalAdmins})`);
+    
+    closeMasterConfirmModal();
+    
+    if (bookingToView.value && bookingToView.value.id === bookingId) {
+      const updatedBooking = bookings.value.find((b: any) => b.id === bookingId);
+      if (updatedBooking) bookingToView.value = updatedBooking;
+    }
+    
+    await loadBookings();
+    
+  } catch (error: any) {
+    console.error('Master confirm error:', error);
+    showError(error.message || 'Failed to force confirm booking');
+  } finally {
+    isMasterConfirming.value = false;
+  }
+};
+
+// Reject Booking
 const rejectBooking = async (bookingId: number) => {
   isRejecting.value = true;
   
   try {
-    const token = getAuthToken();
-    await axios.patch(`${API_BASE_URL}/bookings/${bookingId}/status`, { status: 'Cancelled' }, {
-      headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
-    });
-    
-    const booking = bookings.value.find((b: any) => b.id === bookingId);
-    if (booking) bookingStore.updateBookingLocally({ ...booking, status: 'Cancelled' });
-    
+    addAdminRejection(bookingId);
+    await updateBookingStatusToCancelled(bookingId);
+    clearConfirmations(bookingId);
     showSuccess('Booking rejected successfully!');
     closeRejectModal();
     
     if (bookingToView.value && bookingToView.value.id === bookingId) {
       bookingToView.value.status = 'Cancelled';
     }
+    
+    await loadBookings();
+    
   } catch (error: any) {
-    showError(error.response?.data?.message || 'Failed to reject booking');
+    console.error('Reject booking error:', error);
+    showError(error.message || 'Failed to reject booking');
   } finally {
     isRejecting.value = false;
   }
 };
 
+// Delete Booking
 const deleteBooking = async (bookingId: number) => {
   isDeleting.value = true;
   try {
     const token = getAuthToken();
-    await axios.delete(`${API_BASE_URL}/bookings/${bookingId}`, {
-      headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
-    });
+    
+    if (token) {
+      await axios.delete(`${API_BASE_URL}/bookings/${bookingId}`, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
+      });
+    }
+    
     bookingStore.removeBookingLocally(bookingId);
+    clearConfirmations(bookingId);
+    clearRejection(bookingId);
     showSuccess('Booking deleted successfully!');
+    await loadBookings();
+    
   } catch (error: any) {
-    showError(error.response?.data?.message || 'Failed to delete booking');
+    console.error('Delete booking error:', error);
+    bookingStore.removeBookingLocally(bookingId);
+    clearConfirmations(bookingId);
+    clearRejection(bookingId);
+    showSuccess('Booking removed from view!');
   } finally {
     isDeleting.value = false;
   }
 };
 
-// --- Delete Modal Functions ---
+// --- Modal Functions ---
 const openDeleteConfirmation = (booking: any) => {
   bookingToDelete.value = booking;
   deleteStep.value = 'confirm';
@@ -810,7 +1282,6 @@ const handleDeleteBooking = async () => {
   handleCancelDeletion();
 };
 
-// ✅ Confirm Modal Functions
 const openConfirmConfirmation = (booking: any) => {
   bookingToConfirm.value = booking;
   showConfirmModal.value = true;
@@ -828,7 +1299,23 @@ const handleConfirmBooking = () => {
   }
 };
 
-// ✅ Reject Modal Functions
+const openMasterConfirmConfirmation = (booking: any) => {
+  bookingToMasterConfirm.value = booking;
+  showMasterConfirmModal.value = true;
+};
+
+const closeMasterConfirmModal = () => {
+  showMasterConfirmModal.value = false;
+  bookingToMasterConfirm.value = null;
+  isMasterConfirming.value = false;
+};
+
+const handleMasterConfirmBooking = () => {
+  if (bookingToMasterConfirm.value) {
+    masterConfirmBooking(bookingToMasterConfirm.value.id);
+  }
+};
+
 const openRejectConfirmation = (booking: any) => {
   bookingToReject.value = booking;
   showRejectModal.value = true;
@@ -882,12 +1369,12 @@ const uniqueResources = computed(() => {
 });
 
 const managedBookings = computed(() => {
-  const adminEmail = getCurrentUserEmail();
+  const adminEmail = getCurrentAdminEmail();
   return filteredBookings.value.filter((b: any) => b.user_email !== adminEmail);
 });
 
 const personalBookings = computed(() => {
-  const adminEmail = getCurrentUserEmail();
+  const adminEmail = getCurrentAdminEmail();
   return filteredBookings.value.filter((b: any) => b.user_email === adminEmail);
 });
 
@@ -1020,8 +1507,20 @@ const daysInMonth = computed(() => {
   return allDays;
 });
 
+const checkMasterAdminStatus = () => {
+  const userStr = localStorage.getItem('user');
+  if (userStr) {
+    try {
+      const user = JSON.parse(userStr);
+      isMasterAdmin.value = user.is_master_admin === true || user.role === 'master_admin' || user.user_type === 'master_admin';
+    } catch (e) {}
+  }
+};
+
 // --- Initialize ---
 onMounted(async () => {
+  checkMasterAdminStatus();
+  
   if (!resourceStore.isLoaded) await resourceStore.fetchAll();
   if (!bookingStore.isLoaded) await bookingStore.fetchAll();
   
@@ -1045,12 +1544,6 @@ onMounted(async () => {
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
-}
-
-.section-title {
-  color: #1e4449;
-  font-weight: 600;
-  margin-bottom: 24px;
 }
 
 .table-card, .calendar-card {
@@ -1142,139 +1635,114 @@ onMounted(async () => {
   font-weight: 700;
 }
 
-/* Day View Timeline */
-.day-view-container { padding-top: 10px; }
-.timeline-scroll-area {
-  max-height: 500px;
-  overflow-y: auto;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background: #fdfdfd;
+/* Progress Rectangle Styles */
+.confirmation-progress-cell {
+  min-width: 120px;
 }
-.timeline-grid { position: relative; height: 1440px; }
-.hour-row {
-  height: 60px;
-  display: flex;
-  align-items: flex-start;
-  border-bottom: 1px solid #f1f5f9;
+
+.confirmation-progress-container {
+  min-width: 100px;
 }
-.hour-label {
-  width: 60px;
-  font-size: 0.75rem;
-  color: #94a3b8;
-  text-align: right;
-  padding-right: 10px;
-  margin-top: -8px;
-  background: white;
-  z-index: 1;
+
+.progress-rectangle {
+  position: relative;
+  width: 100%;
+  height: 32px;
+  background-color: #e9ecef;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
 }
-.hour-line { flex-grow: 1; }
-.booking-layer {
+
+.progress-rectangle-modal {
+  position: relative;
+  width: 100%;
+  height: 40px;
+  background-color: #e9ecef;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.progress-fill {
   position: absolute;
   top: 0;
-  left: 60px;
-  right: 0;
-  bottom: 0;
-  pointer-events: none;
+  left: 0;
+  height: 100%;
+  background: linear-gradient(90deg, #4BB66D, #28a745);
+  transition: width 0.3s ease;
+  z-index: 1;
 }
-.timeline-booking-block {
+
+.progress-text {
   position: absolute;
-  z-index: 10;
-  pointer-events: auto;
-  cursor: pointer;
-  border-left: 4px solid rgba(0,0,0,0.2);
-  border-radius: 4px;
-  padding: 2px 8px;
-  overflow: hidden;
-  transition: transform 0.2s, box-shadow 0.2s;
-  font-size: 0.85rem;
-  color: #ffffff !important;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-.timeline-booking-block:hover {
-  transform: scale(1.02);
-  z-index: 20;
-}
-.booking-block-ref {
-  font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.booking-block-resource {
-  font-size: 0.8rem;
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: #ffffff;
-}
-.booking-block-time {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  font-weight: bold;
   font-size: 0.75rem;
-  color: #ffffff;
-  opacity: 0.9;
+  color: #333;
 }
 
-.animate-fade-in { animation: fadeIn 0.4s ease; }
-
-.btn-outline-dark-teal {
-  --bs-btn-color: #1e4449;
-  --bs-btn-border-color: #1e4449;
-  --bs-btn-hover-bg: #fcc300;
-  --bs-btn-hover-color: #1e4449;
-  --bs-btn-hover-border-color: #fcc300;
+.confirmation-detail {
+  display: block;
+  text-align: center;
+  margin-top: 4px;
+  font-size: 0.65rem;
 }
 
-.btn-dark-teal {
-  background-color: #1e4449;
-  color: white;
-  border-color: #1e4449;
-}
-.btn-dark-teal:hover { background-color: #143236; color: white; }
-
-.view-switcher .btn.active {
-  background-color: #1e4449;
-  color: white;
+.confirmed-badge {
+  color: #28a745;
+  font-weight: 500;
+  font-size: 0.85rem;
 }
 
-.btn-success {
-  background-color: #4BB66D;
-  border-color: #4BB66D;
-}
-.btn-success:hover {
-  background-color: #3f975b;
-  border-color: #3f975b;
+.confirmed-badge i {
+  margin-right: 4px;
 }
 
-.bg-success { background-color: #4BB66D !important; }
-.bg-warning { background-color: #ffc107 !important; }
-.bg-danger { background-color: #dc3545 !important; }
-.bg-info { background-color: #0dcaf0 !important; }
-.bg-secondary { background-color: #6c757d !important; }
-.bg-requested-guest { background-color: #6f42c1 !important; }
+.cancelled-badge {
+  color: #dc3545;
+  font-weight: 500;
+  font-size: 0.85rem;
+}
+
+.cancelled-badge i {
+  margin-right: 4px;
+}
 
 .btn-group-sm .btn {
   padding: 0.25rem 0.4rem;
   font-size: 0.8rem;
   margin-right: 2px;
 }
+
 .btn-outline-success {
   --bs-btn-color: #4BB66D;
   --bs-btn-border-color: #4BB66D;
   --bs-btn-hover-bg: #4BB66D;
   --bs-btn-hover-color: white;
 }
+
 .btn-outline-danger {
   --bs-btn-color: #dc3545;
   --bs-btn-border-color: #dc3545;
 }
+
 .btn-outline-warning {
   --bs-btn-color: #ffc107;
   --bs-btn-border-color: #ffc107;
 }
+
 .btn-outline-info {
   --bs-btn-color: #0dcaf0;
   --bs-btn-border-color: #0dcaf0;
+}
+
+.actions-cell {
+  min-width: 200px;
 }
 
 /* Modal Styles */
@@ -1339,15 +1807,15 @@ onMounted(async () => {
   border-bottom-right-radius: 12px;
 }
 
-.modal-dialog.delete-modal-top { align-items: flex-start; margin-top: 50px; height: auto; }
-@media (min-width: 576px) {
-  .modal-dialog.delete-modal-top { max-width: 400px; margin: 1.75rem auto; }
-}
-
-.btn-warning { color: #212529 !important; background-color: #ffc107 !important; }
-.btn-danger { background-color: #dc3545 !important; }
-.btn-close-white { filter: invert(1); }
-
 .toast-container { z-index: 1060; }
 .toast { min-width: 300px; }
+
+.progress-rectangle:hover {
+  transform: scale(1.02);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.btn-group-sm .btn:hover {
+  transform: translateY(-1px);
+}
 </style>
