@@ -1,4 +1,3 @@
-
 <template>
   <GuestLayout>
     <div class="section">
@@ -30,7 +29,7 @@
                   <li class="breadcrumb-item active" aria-current="page">{{ resource.name }}</li>
                 </ol>
               </nav>
-              <h2 class="mb-0 fw-bold text-dark-teal">Secure Reservation</h2>
+              <h2 class="mb-0 fw-bold text-dark-teal">Secure Reservation hhh</h2>
               <p class="text-muted mb-0">Complete the form below to request access to this facility.</p>
             </div>
             <div class="text-end d-none d-md-block">
@@ -65,7 +64,7 @@
               </div>
             </div>
 
-            <!-- Booking History Section - FIXED -->
+            <!-- Booking History Section -->
             <div class="card shadow-sm border-0 mb-4">
               <div class="card-header bg-light d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">Booking History</h5>
@@ -81,7 +80,6 @@
                 </div>
               </div>
               <div class="card-body">
-                <!-- Loading State for Bookings -->
                 <div v-if="isLoadingBookings" class="text-center py-4">
                   <div class="spinner-border spinner-border-sm text-primary" role="status">
                     <span class="visually-hidden">Loading...</span>
@@ -89,13 +87,11 @@
                   <p class="mt-2 text-muted small">Loading booking history...</p>
                 </div>
 
-                <!-- No Bookings Found -->
                 <div v-else-if="bookings.length === 0" class="text-center py-5 text-muted">
                   <i class="bi bi-calendar-x" style="font-size: 2rem;"></i>
                   <p class="mt-2 mb-0">No bookings found for this resource</p>
                 </div>
 
-                <!-- Bookings Table -->
                 <div v-else class="table-responsive">
                   <table class="table table-hover">
                     <thead class="table-light">
@@ -212,16 +208,19 @@
 
                 <form @submit.prevent="createBookingAndSendOTP">
                   
+                  <!-- Resource Unavailable Message -->
                   <div v-if="isResourceUnavailable" class="alert alert-warning py-2 mb-3 small d-flex align-items-center">
                     <i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>
-                    <span>This resource is not available on the selected date.</span>
+                    <span>Resource is UNAVAILABLE on this day. (Check weekly schedule)</span>
                   </div>
 
+                  <!-- Booking Conflict Message - FIXED like Admin page -->
                   <div v-if="isBookingConflict" class="alert alert-danger py-2 mb-3 small d-flex align-items-center">
                     <i class="bi bi-calendar-x-fill me-2 fs-5"></i>
-                    <span>This time slot is already reserved. Please try another time.</span>
+                    <span>Slot UNAVAILABLE: This time is already booked and confirmed.</span>
                   </div>
 
+                  <!-- Invalid Range Message -->
                   <div v-if="bookingForm.startTime && bookingForm.endTime && bookingForm.startTime >= bookingForm.endTime" class="alert alert-danger py-2 mb-3 small d-flex align-items-center">
                     <i class="bi bi-clock-fill me-2 fs-5"></i>
                     <span>Invalid Time: End time must be after start time.</span>
@@ -229,7 +228,7 @@
 
                   <!-- Email Input -->
                   <div class="mb-3">
-                    <label class="form-label small fw-bold text-dark-teal">Confirm Email Address</label>
+                    <label class="form-label small fw-bold text-dark-teal">Email Address</label>
                     <div class="input-group">
                       <span class="input-group-text bg-light border-end-0"><i class="bi bi-envelope text-teal"></i></span>
                       <input type="email" class="form-control border-start-0" v-model="bookingForm.email" placeholder="name@example.com" required>
@@ -247,7 +246,7 @@
                     <div class="form-text x-small">Used for booking verification.</div>
                   </div>
 
-                  <!-- 1. Reservation Details -->
+                  <!-- Reservation Details -->
                   <div class="mb-3">
                     <label class="form-label small fw-bold text-dark-teal">Select Date</label>
                     <div class="input-group">
@@ -258,95 +257,243 @@
 
                   <div class="row g-2 mb-3">
                     <div class="col-6">
-                      <label class="form-label small fw-bold text-dark-teal">Start Time</label>
-                      <div class="d-flex gap-1">
+                      <label class="form-label small fw-bold text-dark-teal">Start Time (24h)</label>
+                      <div class="d-flex gap-1 align-items-center">
                         <select v-model="startHour" class="form-select form-select-sm">
                           <option v-for="h in hourOptions" :key="h" :value="h">{{ h }}</option>
                         </select>
-                        <span class="fw-bold align-self-center">:</span>
+                        <span class="fw-bold">:</span>
                         <select v-model="startMin" class="form-select form-select-sm">
                           <option v-for="m in minuteOptions" :key="m" :value="m">{{ m }}</option>
                         </select>
                       </div>
                     </div>
                     <div class="col-6">
-                      <label class="form-label small fw-bold text-dark-teal">End Time</label>
-                      <div class="d-flex gap-1">
+                      <label class="form-label small fw-bold text-dark-teal">End Time (24h)</label>
+                      <div class="d-flex gap-1 align-items-center">
                         <select v-model="endHour" class="form-select form-select-sm">
                           <option v-for="h in hourOptions" :key="h" :value="h">{{ h }}</option>
                         </select>
-                        <span class="fw-bold align-self-center">:</span>
+                        <span class="fw-bold">:</span>
                         <select v-model="endMin" class="form-select form-select-sm">
                           <option v-for="m in minuteOptions" :key="m" :value="m">{{ m }}</option>
                         </select>
                       </div>
                     </div>
                   </div>
+                  
+                  <div class="mt-3">
+                    <p class="mb-1">
+                      <strong>Resource Cost:</strong> 
+                      <span v-if="calculatedCost">Rs. {{ calculatedCost }}</span>
+                      <span v-else class="text-muted">--</span>
+                    </p>
+                    <small class="text-muted">Base Price: Rs. {{ resource.base_price }}/hour</small>
+                  </div>
 
-                  <!-- 2. Booking Equipment Section with Quantity -->
-                  <div class="mb-4">
-                    <label class="form-label small fw-bold text-dark-teal mb-2">Add Equipment (Optional)</label>
-                    <div class="equipment-box p-3 rounded border border-light-subtle bg-light-teal-hint">
-                      <div class="input-group input-group-sm mb-2">
-                        <span class="input-group-text bg-white"><i class="bi bi-search text-teal"></i></span>
-                        <input type="text" class="form-control shadow-none" placeholder="Search equipment..." v-model="equipmentSearch" @input="searchEquipment" @focus="searchEquipment">
+                  <!-- Equipment Section -->
+                  <div class="booking-equipment-section mb-4 pb-3 border-bottom">
+                    <h6 class="border-bottom pb-2 mb-3">Add Equipment/Accessories (Optional)</h6>
+                    
+                    <div class="mb-3">
+                      <label class="form-label">Search Equipment</label>
+                      <div class="input-group">
+                        <input
+                          type="text"
+                          class="form-control"
+                          placeholder="Search equipment by name..."
+                          v-model="equipmentSearch"
+                          @input="searchEquipment"
+                          @focus="searchEquipment"
+                        >
+                        <button
+                          class="btn btn-outline-secondary"
+                          type="button"
+                          @click="clearEquipmentSearch"
+                        >
+                          <i class="bi bi-x"></i>
+                        </button>
                       </div>
-
-                      <div v-if="showEquipmentDropdown && filteredEquipment.length > 0" class="equipment-dropdown shadow-sm rounded border">
-                        <div v-for="item in filteredEquipment" :key="item.id" @click="addEquipmentItem(item)" class="p-2 border-bottom hover-bg-teal-light small cursor-pointer">
-                          <div class="d-flex justify-content-between">
-                            <span class="fw-medium">{{ item.name }}</span>
-                            <span class="text-teal">LKR {{ item.price_per_hour }}/hr</span>
-                          </div>
-                          <div class="x-small text-muted">Available: {{ item.available_quantity }}</div>
-                        </div>
-                      </div>
-
-                      <div v-if="selectedEquipment.length > 0" class="mt-2">
-                        <div v-for="(item, index) in selectedEquipment" :key="item.id" class="d-flex justify-content-between align-items-center mb-2 small bg-white p-2 rounded shadow-xs">
-                          <div class="flex-grow-1">
-                            <span class="fw-medium">{{ item.name }}</span>
-                            <div class="x-small text-muted">LKR {{ item.price_per_hour }}/hr</div>
-                          </div>
-                          <div class="d-flex align-items-center gap-2">
-                            <div class="input-group input-group-sm" style="width: 100px;">
-                              <button class="btn btn-outline-secondary btn-sm" type="button" @click="decreaseQuantity(index)" :disabled="item.quantity <= 1">-</button>
-                              <input type="number" class="form-control text-center form-control-sm" v-model.number="item.quantity" min="1" :max="item.available_quantity" style="width: 45px;">
-                              <button class="btn btn-outline-secondary btn-sm" type="button" @click="increaseQuantity(index)" :disabled="item.quantity >= item.available_quantity">+</button>
+                      
+                      <div v-if="showEquipmentDropdown && filteredEquipment.length > 0" class="equipment-dropdown mt-2 border rounded">
+                        <div 
+                          v-for="item in filteredEquipment" 
+                          :key="item.id"
+                          class="equipment-dropdown-item p-2 border-bottom"
+                          @click="addEquipmentItem(item)"
+                        >
+                          <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                              <strong>{{ item.name }}</strong>
+                              <div class="small text-muted">{{ item.description }}</div>
                             </div>
-                            <button type="button" @click="removeEquipmentItem(index)" class="btn btn-sm text-danger p-0 border-0"><i class="bi bi-trash"></i></button>
+                            <div class="text-end">
+                              <div class="fw-bold">Rs. {{ item.price_per_hour }}/hr</div>
+                              <div class="small text-muted">Available: {{ item.available_quantity }}</div>
+                            </div>
                           </div>
                         </div>
                       </div>
-                      <div v-else class="text-center py-2 text-muted x-small">
-                        No equipment selected.
+                      
+                      <div v-if="equipmentSearch && filteredEquipment.length === 0" class="text-muted small mt-2">
+                        No equipment found matching "{{ equipmentSearch }}"
+                      </div>
+                    </div>
+                    
+                    <div v-if="selectedEquipment.length > 0" class="selected-equipment-list">
+                      <h6 class="mb-2">Selected Equipment:</h6>
+                      <div class="list-group">
+                        <div 
+                          v-for="(item, index) in selectedEquipment" 
+                          :key="item.id"
+                          class="list-group-item p-3 mb-2 border rounded"
+                        >
+                          <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div>
+                              <strong>{{ item.name }}</strong>
+                              <div class="small text-muted">Rs. {{ item.price_per_hour }}/hr</div>
+                            </div>
+                            <button
+                              type="button"
+                              class="btn btn-sm btn-outline-danger"
+                              @click="removeEquipmentItem(index)"
+                            >
+                              <i class="bi bi-trash"></i>
+                            </button>
+                          </div>
+                          
+                          <div class="row align-items-center">
+                            <div class="col-6">
+                              <label class="form-label small mb-1">Quantity</label>
+                              <div class="input-group input-group-sm">
+                                <button
+                                  class="btn btn-outline-secondary"
+                                  type="button"
+                                  @click="decreaseQuantity(index)"
+                                  :disabled="item.quantity <= 1"
+                                >
+                                  <i class="bi bi-dash"></i>
+                                </button>
+                                <input
+                                  type="number"
+                                  class="form-control text-center"
+                                  v-model.number="item.quantity"
+                                  min="1"
+                                  :max="item.available_quantity"
+                                  @change="validateQuantity(index)"
+                                >
+                                <button
+                                  class="btn btn-outline-secondary"
+                                  type="button"
+                                  @click="increaseQuantity(index)"
+                                  :disabled="item.quantity >= item.available_quantity"
+                                >
+                                  <i class="bi bi-plus"></i>
+                                </button>
+                              </div>
+                            </div>
+                            <div class="col-6 text-end">
+                              <div class="small text-muted mb-1">Max: {{ item.available_quantity }}</div>
+                              <div class="fw-bold text-success">
+                                Rs. {{ calculateEquipmentItemCost(item) }}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div class="mt-3 p-2 bg-light rounded">
+                        <div class="d-flex justify-content-between align-items-center">
+                          <span class="fw-medium">Equipment Total:</span>
+                          <span class="fw-bold text-primary">
+                            Rs. {{ equipmentTotalCost }}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div v-else class="text-center text-muted py-3 border rounded">
+                      <i class="bi bi-tools" style="font-size: 1.5rem;"></i>
+                      <p class="mt-2 mb-0">No equipment added yet</p>
+                      <small>Search and add equipment from above</small>
+                    </div>
+                  </div>
+
+                  <!-- Cost Summary -->
+                  <div class="cost-summary mb-4">
+                    <h6 class="border-bottom pb-2">Cost Summary</h6>
+                    <div class="cost-breakdown">
+                      <div class="d-flex justify-content-between mb-2">
+                        <span>Resource Cost:</span>
+                        <span>Rs. {{ calculatedCost || 0 }}</span>
+                      </div>
+                      <div class="d-flex justify-content-between mb-2">
+                        <span>Equipment Cost:</span>
+                        <span>Rs. {{ equipmentTotalCost }}</span>
+                      </div>
+                      <div class="d-flex justify-content-between mb-2 border-top pt-2">
+                        <span class="fw-bold">Total Cost:</span>
+                        <span class="fw-bold fs-5 text-success">
+                          Rs. {{ totalBookingCost }}
+                        </span>
                       </div>
                     </div>
                   </div>
 
-                  <!-- 3. Cost Summary -->
-                  <div class="pricing-summary rounded p-3 mb-4 border border-teal-subtle bg-white shadow-sm">
-                    <div class="d-flex justify-content-between small mb-2">
-                      <span class="text-muted">Resource Fee</span>
-                      <span class="fw-bold">LKR {{ calculatedCost.toLocaleString() }}</span>
+                  <!-- Weekly Availability (Beautiful UI) -->
+                  <div class="schedule-details mb-4 pb-3 border-bottom">
+                    <h6 class="text-muted fw-bold mb-3">Weekly Availability</h6>
+                    
+                    <div v-if="!resource.availability || resource.availability.length === 0" class="text-muted small">
+                        No schedule defined.
                     </div>
-                    <div class="d-flex justify-content-between small mb-2 pb-2 border-bottom">
-                      <span class="text-muted">Equipment Fee</span>
-                      <span class="fw-bold">LKR {{ equipmentTotalCost.toLocaleString() }}</span>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center mt-2">
-                      <span class="text-dark-teal fw-bold">Total Cost</span>
-                      <span class="fs-4 fw-bold text-teal">LKR {{ totalBookingCost.toLocaleString() }}</span>
+                    
+                    <div v-else class="availability-list">
+                      <div v-for="day in sortedAvailability" :key="day.day_name" class="day-availability mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                          <span class="fw-medium text-dark">{{ day.day_name }}</span>
+                          <span :class="day.is_available ? 'badge bg-success' : 'badge bg-secondary'">
+                            {{ day.is_available ? 'Available' : 'Not Available' }}
+                          </span>
+                        </div>
+                        
+                        <div v-if="day.is_available && day.slots && day.slots.length > 0">
+                          <div class="time-slots-container ms-2">
+                            <div v-for="(slot, idx) in day.slots" :key="idx" class="time-slot mb-2">
+                              <div class="d-flex align-items-center">
+                                <i class="bi bi-clock text-dark-teal me-2"></i>
+                                <span class="slot-time">
+                                  {{ formatTime(slot.start_time) }} - {{ formatTime(slot.end_time) }}
+                                </span>
+                                <span v-if="day.slots.length > 1" class="badge bg-light text-dark border ms-2">
+                                  Slot {{ idx + 1 }}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div v-else-if="day.is_available" class="text-muted small ms-2">
+                          <i class="bi bi-info-circle me-1"></i> No specific time slots (available all day)
+                        </div>
+                        
+                        <div v-else class="text-muted small ms-2">
+                          <i class="bi bi-x-circle me-1"></i> Not available on this day
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  <div class="d-grid mt-4">
-                    <button type="submit" class="btn btn-teal-modern py-3 shadow-sm rounded-3" :disabled="isCreatingBooking || isResourceUnavailable || isBookingConflict || (bookingForm.startTime >= bookingForm.endTime) || !bookingForm.email || !bookingForm.phone">
-                      <span v-if="isCreatingBooking" class="spinner-border spinner-border-sm me-2"></span>
-                      <i v-else class="bi bi-check2-circle me-2"></i>
-                      {{ isCreatingBooking ? 'Creating Booking...' : 'Book Now & Verify OTP' }}
-                    </button>
-                  </div>
+                  <!-- Submit Button -->
+                  <button 
+                    type="submit" 
+                    class="btn btn-success w-100"
+                    :disabled="isCreatingBooking || isResourceUnavailable || isBookingConflict || (bookingForm.startTime >= bookingForm.endTime)"
+                  >
+                    <span v-if="isCreatingBooking" class="spinner-border spinner-border-sm me-2"></span>
+                    <i class="bi bi-send-check me-2"></i>
+                    {{ isCreatingBooking ? 'Creating Booking...' : 'Book Now & Verify OTP' }}
+                  </button>
                 </form>
               </div>
             </div>
@@ -482,9 +629,6 @@
             </div>
           </div>
           <div class="modal-footer justify-content-center">
-            <button type="button" class="btn btn-success" @click="redirectToResources">
-              <i class="bi bi-grid-3x3-gap-fill me-2"></i>Browse More Resources
-            </button>
             <button type="button" class="btn btn-outline-success" @click="closeSuccessModal">
               <i class="bi bi-calendar-plus me-2"></i>Book Another
             </button>
@@ -642,7 +786,7 @@ const API_BASE_URL = 'http://localhost:8000/api';
 // Helper to get auth token
 const getAuthToken = () => localStorage.getItem('token') || '';
 
-// 🔥 FIXED: bookings computed property - Same as Master Admin
+// Bookings computed property
 const bookings = computed(() => {
   if (!resource.value) return [];
   const currentResourceId = resource.value.id;
@@ -650,6 +794,38 @@ const bookings = computed(() => {
     return b.details && b.details.some((detail: any) => 
       detail.item_type === 'resource' && Number(detail.item_id) === Number(currentResourceId)
     );
+  });
+});
+
+// 🔥 FIXED: isBookingConflict - Same as Admin page
+const isBookingConflict = computed(() => {
+  if (!resource.value || !bookingForm.value.date || !bookingForm.value.startTime || !bookingForm.value.endTime) return false;
+  
+  const selectedDateStr = bookingForm.value.date;
+  const selectedStart = bookingForm.value.startTime.substring(0, 5);
+  const selectedEnd = bookingForm.value.endTime.substring(0, 5);
+  
+  return bookings.value.some((b: any) => {
+    const status = (b.status || '').toLowerCase();
+    // Only check confirmed or approved bookings (not pending or cancelled)
+    if (status !== 'confirmed' && status !== 'approved') return false;
+    
+    let bDateStr = '';
+    if (b.booking_date) {
+      const bDate = new Date(b.booking_date);
+      bDateStr = bDate.toISOString().split('T')[0];
+    }
+    
+    if (bDateStr !== selectedDateStr) return false;
+    
+    const bStart = (b.start_time || '').substring(0, 5);
+    const bEnd = (b.end_time || '').substring(0, 5);
+    
+    if (!bStart || !bEnd) return false;
+    
+    // Check for time overlap
+    const overlap = (selectedStart < bEnd) && (bStart < selectedEnd);
+    return overlap;
   });
 });
 
@@ -661,26 +837,34 @@ const sortedAvailability = computed(() => {
   );
 });
 
-const minDate = computed(() => new Date().toISOString().split('T')[0]);
-
-const isResourceUnavailable = computed(() => {
-  if (!resource.value || !bookingForm.value.date) return false;
-  const dayName = new Date(bookingForm.value.date).toLocaleDateString('en-US', { weekday: 'long' });
-  const dayAvail = resource.value.availability?.find((a: any) => a.day_name === dayName);
-  return dayAvail ? !dayAvail.is_available : true;
+const minDate = computed(() => {
+  const today = new Date();
+  return today.toISOString().split('T')[0];
 });
 
-const isBookingConflict = computed(() => {
-  if (!bookings.value || !bookingForm.value.date || !bookingForm.value.startTime || !bookingForm.value.endTime) return false;
+const isResourceUnavailable = computed(() => {
+  if (!resource.value || !bookingForm.value.date || !bookingForm.value.startTime || !bookingForm.value.endTime) return false;
   
-  const selectedDate = bookingForm.value.date;
-  const selectedStart = bookingForm.value.startTime;
-  const selectedEnd = bookingForm.value.endTime;
-
-  return bookings.value.some(b => {
-    if (b.booking_date !== selectedDate || b.status === 'cancelled') return false;
-    return (selectedStart < b.end_time && selectedEnd > b.start_time);
-  });
+  const selectedDate = new Date(bookingForm.value.date);
+  const selectedDayName = selectedDate.toLocaleDateString('en-US', { weekday: 'long' });
+  const dayAvailability = resource.value.availability?.find(
+    (day: any) => day.day_name.toLowerCase() === selectedDayName.toLowerCase()
+  );
+  
+  if (!dayAvailability || !dayAvailability.is_available) return true;
+  
+  if (dayAvailability.slots && dayAvailability.slots.length > 0) {
+    const selectedStart = bookingForm.value.startTime.substring(0, 5);
+    const selectedEnd = bookingForm.value.endTime.substring(0, 5);
+    
+    return !dayAvailability.slots.some((slot: any) => {
+      const slotStart = slot.start_time.substring(0, 5);
+      const slotEnd = slot.end_time.substring(0, 5);
+      return selectedStart >= slotStart && selectedEnd <= slotEnd;
+    });
+  }
+  
+  return false;
 });
 
 const otpExpired = computed(() => otpTimer.value <= 0);
@@ -763,7 +947,7 @@ const bookingForm = ref({
   phone: '',
   date: new Date().toISOString().split('T')[0],
   startTime: '08:00',
-  endTime: '09:00',
+  endTime: '10:00',
   purpose: ''
 });
 
@@ -772,7 +956,7 @@ const hourOptions = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2
 const minuteOptions = ['00', '15', '30', '45'];
 const startHour = ref('08');
 const startMin = ref('00');
-const endHour = ref('09');
+const endHour = ref('10');
 const endMin = ref('00');
 
 // Sync time selects with bookingForm
@@ -808,6 +992,12 @@ const formatDateTime = (dateString: string): string => {
 const formatTimeShort = (time: string) => {
   if (!time) return '';
   return time.substring(0, 5);
+};
+
+const formatCountdownTimer = () => {
+  const m = Math.floor(otpTimer.value / 60);
+  const s = otpTimer.value % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
 };
 
 const calculateDuration = (startTime: string, endTime: string): string => {
@@ -861,7 +1051,23 @@ const loadResourceDetails = async () => {
     const res = await axios.get(`${API_BASE_URL}/resources/${route.params.id}`, { headers });
     resource.value = res.data.resource || res.data;
     
-    // 🔥 Fetch bookings for this resource
+    // Process availability data
+    if (resource.value.availability) {
+      resource.value.availability = resource.value.availability.map((day: any) => {
+        if (day.slots && Array.isArray(day.slots)) {
+          return day;
+        }
+        const slots = [];
+        if (day.start_time && day.end_time) {
+          slots.push({
+            start_time: day.start_time,
+            end_time: day.end_time
+          });
+        }
+        return { ...day, slots };
+      });
+    }
+    
     await bookingStore.fetchByResource(resource.value.id);
   } catch (e) {
     errorMessage.value = "Could not load resource details.";
@@ -886,18 +1092,20 @@ const loadBookings = async () => {
   }
 };
 
-// Create Booking Logic
-const createBookingAndSendOTP = async () => {
-  if (!bookingForm.value.email || !bookingForm.value.phone) {
-    errorMessage.value = "Email and Phone Number are required.";
-    return;
+const createBooking = async () => {
+  if (!resource.value) {
+    throw new Error('Resource not loaded');
   }
-
-  isCreatingBooking.value = true;
-  errorMessage.value = '';
+  
+  // Check for booking conflict before creating
+  if (isBookingConflict.value) {
+    throw new Error('This time slot is already booked and confirmed. Please choose another time.');
+  }
   
   try {
-    const payload = {
+    const token = getAuthToken();
+    
+    const bookingPayload: any = {
       user_id: 0,
       user_email: bookingForm.value.email,
       phone: bookingForm.value.phone,
@@ -905,30 +1113,130 @@ const createBookingAndSendOTP = async () => {
       start_time: bookingForm.value.startTime,
       end_time: bookingForm.value.endTime,
       notes: bookingForm.value.purpose || 'Guest Reservation',
-      resources: [{ resource_id: Number(route.params.id) }],
-      booking_items: selectedEquipment.value.map(item => ({
-        item_id: item.id,
-        quantity: item.quantity
-      }))
+      total_amount: totalBookingCost.value,
+      resources: [
+        {
+          resource_id: resource.value.id
+        }
+      ],
+      booking_items: []
     };
+    
+    if (selectedEquipment.value.length > 0) {
+      selectedEquipment.value.forEach(item => {
+        bookingPayload.booking_items.push({
+          item_id: item.id,
+          item_type: 'equipment',
+          quantity: item.quantity,
+          price_per_hour: item.price_per_hour
+        });
+      });
+    }
+    
+    const response = await axios.post(`${API_BASE_URL}/bookings`, bookingPayload, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    const data = response.data;
+    if (data.booking) {
+      pendingBookingId.value = data.booking.id;
+      bookingStore.updateBookingLocally(data.booking);
+    } else if (data.booking_id) {
+      pendingBookingId.value = data.booking_id;
+    } else if (data.id) {
+      pendingBookingId.value = data.id;
+      bookingStore.updateBookingLocally(data);
+    }
+    
+    return response.data;
+    
+  } catch (error: any) {
+    console.error('Error creating booking:', error);
+    
+    if (error.response?.status === 422) {
+      const errors = error.response.data.errors;
+      if (errors) {
+        throw new Error(Object.values(errors).flat().join(', '));
+      } else if (error.response.data.message) {
+        throw new Error(error.response.data.message);
+      }
+    } else if (error.response?.data?.message) {
+      throw new Error(error.response.data.message);
+    }
+    throw error;
+  }
+};
 
-    const token = getAuthToken();
-    const headers: any = { 'Accept': 'application/json' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
+const createBookingAndSendOTP = async () => {
+  if (!bookingForm.value.email || !bookingForm.value.phone) {
+    errorMessage.value = "Email and Phone Number are required.";
+    return;
+  }
+  
+  if (!bookingForm.value.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+    errorMessage.value = 'Please enter a valid email address';
+    return;
+  }
+  
+  if (bookingForm.value.startTime >= bookingForm.value.endTime) {
+    errorMessage.value = 'End time must be after start time';
+    return;
+  }
+  
+  // Check for past dates
+  const selectedDate = new Date(bookingForm.value.date);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  if (selectedDate < today) {
+    errorMessage.value = 'Cannot book for past dates';
+    return;
+  }
+  
+  // Check resource availability
+  if (isResourceUnavailable.value) {
+    errorMessage.value = 'Resource is not available during the selected time';
+    return;
+  }
+  
+  // Check for booking conflict
+  if (isBookingConflict.value) {
+    alert("This time slot is already booked and confirmed for this resource. Please choose another time.");
+    errorMessage.value = 'Time slot is already booked and confirmed.';
+    return;
+  }
+  
+  // Check equipment quantities
+  for (const item of selectedEquipment.value) {
+    if (item.quantity > item.available_quantity) {
+      errorMessage.value = `Quantity for ${item.name} exceeds available quantity (${item.available_quantity})`;
+      return;
+    }
+  }
 
-    const response = await axios.post(`${API_BASE_URL}/bookings`, payload, { headers });
-
-    if (response.data.booking_id || response.data.id) {
-      pendingBookingId.value = response.data.booking_id || response.data.id;
+  isCreatingBooking.value = true;
+  errorMessage.value = '';
+  
+  try {
+    await createBooking();
+    
+    if (pendingBookingId.value) {
+      otpSentSuccess.value = true;
       showOTPModal.value = true;
       startOTPTimer();
-      otpSentSuccess.value = true;
+      otpDigits.value = Array(6).fill('');
       
       await nextTick();
       if (otpInputs.value[0]) otpInputs.value[0].focus();
     }
+    
   } catch (error: any) {
-    errorMessage.value = error.response?.data?.message || 'Failed to initiate booking.';
+    console.error('Error in booking flow:', error);
+    errorMessage.value = error.message || 'Failed to create booking. Please try again.';
   } finally {
     isCreatingBooking.value = false;
   }
@@ -1008,12 +1316,6 @@ const startOTPTimer = () => {
   }, 1000);
 };
 
-const formatCountdownTimer = () => {
-  const m = Math.floor(otpTimer.value / 60);
-  const s = otpTimer.value % 60;
-  return `${m}:${s.toString().padStart(2, '0')}`;
-};
-
 const resendOTP = async () => {
   if (!pendingBookingId.value) return;
   isResendingOTP.value = true;
@@ -1051,11 +1353,6 @@ const closeSuccessModal = () => {
   router.push('/guest-resources');
 };
 
-const redirectToResources = () => {
-  closeSuccessModal();
-  router.push('/guest-resources');
-};
-
 // Equipment Functions
 const loadAvailableEquipment = async () => {
   isLoadingEquipment.value = true;
@@ -1080,6 +1377,8 @@ const loadAvailableEquipment = async () => {
       availableEquipment.value = equipmentData.filter((item: any) => 
         item.status === 'Available' && item.available_quantity > 0
       );
+    } else {
+      availableEquipment.value = [];
     }
   } catch (error) {
     console.error('Error loading equipment:', error);
@@ -1130,6 +1429,21 @@ const decreaseQuantity = (index: number) => {
   if (selectedEquipment.value[index].quantity > 1) {
     selectedEquipment.value[index].quantity--;
   }
+};
+
+const validateQuantity = (index: number) => {
+  const item = selectedEquipment.value[index];
+  if (item.quantity < 1) {
+    selectedEquipment.value[index].quantity = 1;
+  } else if (item.quantity > item.available_quantity) {
+    selectedEquipment.value[index].quantity = item.available_quantity;
+    alert(`Maximum available quantity is ${item.available_quantity}`);
+  }
+};
+
+const calculateEquipmentItemCost = (item: any): number => {
+  const hours = calculateBookingDuration();
+  return Math.round(item.price_per_hour * item.quantity * hours);
 };
 
 // Helper Functions
@@ -1311,6 +1625,10 @@ onMounted(() => {
   border-radius: 4px;
   border-left: 3px solid #4BB66D;
   margin-bottom: 5px;
+}
+
+.time-slot:last-child {
+  margin-bottom: 0;
 }
 
 .slot-time {
