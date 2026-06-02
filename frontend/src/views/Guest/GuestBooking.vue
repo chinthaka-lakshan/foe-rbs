@@ -29,7 +29,7 @@
                   <li class="breadcrumb-item active" aria-current="page">{{ resource.name }}</li>
                 </ol>
               </nav>
-              <h2 class="mb-0 fw-bold text-dark-teal">Secure Reservation hhh</h2>
+              <h2 class="mb-0 fw-bold text-dark-teal">Secure Reservation</h2>
               <p class="text-muted mb-0">Complete the form below to request access to this facility.</p>
             </div>
             <div class="text-end d-none d-md-block">
@@ -134,7 +134,7 @@
                             {{ formatDateTime(booking.created_at) }}
                           </small>
                         </td>
-                        <td>
+                        <td class="actions-cell">
                           <div class="btn-group btn-group-sm" role="group">
                             <button 
                               class="btn btn-outline-info"
@@ -208,25 +208,21 @@
 
                 <form @submit.prevent="createBookingAndSendOTP">
                   
-                  <!-- Resource Unavailable Message -->
                   <div v-if="isResourceUnavailable" class="alert alert-warning py-2 mb-3 small d-flex align-items-center">
                     <i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>
                     <span>Resource is UNAVAILABLE on this day. (Check weekly schedule)</span>
                   </div>
 
-                  <!-- Booking Conflict Message - FIXED like Admin page -->
                   <div v-if="isBookingConflict" class="alert alert-danger py-2 mb-3 small d-flex align-items-center">
                     <i class="bi bi-calendar-x-fill me-2 fs-5"></i>
                     <span>Slot UNAVAILABLE: This time is already booked and confirmed.</span>
                   </div>
 
-                  <!-- Invalid Range Message -->
                   <div v-if="bookingForm.startTime && bookingForm.endTime && bookingForm.startTime >= bookingForm.endTime" class="alert alert-danger py-2 mb-3 small d-flex align-items-center">
                     <i class="bi bi-clock-fill me-2 fs-5"></i>
                     <span>Invalid Time: End time must be after start time.</span>
                   </div>
 
-                  <!-- Email Input -->
                   <div class="mb-3">
                     <label class="form-label small fw-bold text-dark-teal">Email Address</label>
                     <div class="input-group">
@@ -236,7 +232,6 @@
                     <div class="form-text x-small">Notification will be sent to this email.</div>
                   </div>
 
-                  <!-- Phone Input -->
                   <div class="mb-3">
                     <label class="form-label small fw-bold text-dark-teal">Phone Number</label>
                     <div class="input-group">
@@ -246,7 +241,6 @@
                     <div class="form-text x-small">Used for booking verification.</div>
                   </div>
 
-                  <!-- Reservation Details -->
                   <div class="mb-3">
                     <label class="form-label small fw-bold text-dark-teal">Select Date</label>
                     <div class="input-group">
@@ -291,7 +285,6 @@
                     <small class="text-muted">Base Price: Rs. {{ resource.base_price }}/hour</small>
                   </div>
 
-                  <!-- Equipment Section -->
                   <div class="booking-equipment-section mb-4 pb-3 border-bottom">
                     <h6 class="border-bottom pb-2 mb-3">Add Equipment/Accessories (Optional)</h6>
                     
@@ -419,7 +412,6 @@
                     </div>
                   </div>
 
-                  <!-- Cost Summary -->
                   <div class="cost-summary mb-4">
                     <h6 class="border-bottom pb-2">Cost Summary</h6>
                     <div class="cost-breakdown">
@@ -440,7 +432,6 @@
                     </div>
                   </div>
 
-                  <!-- Weekly Availability (Beautiful UI) -->
                   <div class="schedule-details mb-4 pb-3 border-bottom">
                     <h6 class="text-muted fw-bold mb-3">Weekly Availability</h6>
                     
@@ -484,7 +475,6 @@
                     </div>
                   </div>
 
-                  <!-- Submit Button -->
                   <button 
                     type="submit" 
                     class="btn btn-success w-100"
@@ -636,131 +626,177 @@
         </div>
       </div>
 
-      <!-- Booking Details Modal -->
-      <div v-if="selectedBooking" class="modal-overlay">
-        <div class="modal-content" style="max-width: 700px;">
-          <div class="modal-header bg-info text-white">
-            <h5 class="modal-title">
-              <i class="bi bi-calendar-check me-2"></i>Booking Details
+      <!-- Booking Details Modal - WITH SCROLL -->
+      <div v-if="selectedBooking" class="modal-overlay" @click.self="selectedBooking = null">
+        <div class="modal-container booking-details-modal">
+          <!-- Fixed Header -->
+          <div class="modal-header-custom">
+            <h5 class="modal-title-custom">
+              <i class="bi bi-calendar-check-fill me-2"></i> Booking Details
             </h5>
-            <button type="button" class="btn-close btn-close-white" @click="selectedBooking = null"></button>
+            <button type="button" class="btn-close-custom" @click="selectedBooking = null">×</button>
           </div>
-          <div class="modal-body">
-            <div class="row">
-              <div class="col-md-6">
-                <h6 class="fw-bold mb-3">Booking Information</h6>
-                <table class="table table-sm table-borderless">
-                  <tbody>
-                    <tr>
-                      <th width="40%">Reference:</th>
-                      <td>{{ selectedBooking.booking_reference || 'N/A' }}</td>
-                    </tr>
-                    <tr>
-                      <th>Status:</th>
-                      <td>
-                        <span class="badge" :class="getBookingStatusClass(selectedBooking.status)">
-                          {{ getBookingStatusText(selectedBooking.status) }}
-                        </span>
-                      </td>
-                    </tr>
-                    <tr>
-                      <th>Date:</th>
-                      <td>{{ formatDate(selectedBooking.booking_date) }}</td>
-                    </tr>
-                    <tr>
-                      <th>Time:</th>
-                      <td>{{ formatTime(selectedBooking.start_time) }} - {{ formatTime(selectedBooking.end_time) }}</td>
-                    </tr>
-                    <tr>
-                      <th>Duration:</th>
-                      <td>{{ calculateDuration(selectedBooking.start_time, selectedBooking.end_time) }} hours</td>
-                    </tr>
-                    <tr>
-                      <th>Amount:</th>
-                      <td class="fw-bold text-success">
-                        Rs. {{ calculateBookingAmount(selectedBooking) }}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              
-              <div class="col-md-6">
-                <h6 class="fw-bold mb-3">Customer Information</h6>
-                <table class="table table-sm table-borderless">
-                  <tbody>
-                    <tr>
-                      <th width="40%">Name:</th>
-                      <td>{{ selectedBooking.user?.name || 'N/A' }}</td>
-                    </tr>
-                    <tr>
-                      <th>Email:</th>
-                      <td>{{ selectedBooking.user?.email || selectedBooking.user_email || 'N/A' }}</td>
-                    </tr>
-                    <tr>
-                      <th>Phone:</th>
-                      <td>{{ selectedBooking.phone || selectedBooking.user?.phone || 'N/A' }}</td>
-                    </tr>
-                  </tbody>
-                </table>
+          
+          <!-- Scrollable Body - This is where scroll works -->
+          <div class="modal-body-custom">
+            <!-- Status Badge -->
+            <div class="status-badge-wrapper mb-4">
+              <span class="status-badge" :class="getBookingStatusClass(selectedBooking.status)">
+                <i class="bi" :class="getStatusIcon(selectedBooking.status)"></i>
+                {{ getBookingStatusText(selectedBooking.status) }}
+              </span>
+            </div>
 
-                <h6 class="fw-bold mb-3 mt-4">Resource Details</h6>
-                <table class="table table-sm table-borderless">
-                  <tbody>
-                    <tr>
-                      <th width="40%">Resource:</th>
-                      <td>{{ resource?.name }}</td>
-                    </tr>
-                    <tr>
-                      <th>Category:</th>
-                      <td>{{ resource?.category?.name || 'N/A' }}</td>
-                    </tr>
-                    <tr>
-                      <th>Rate:</th>
-                      <td>Rs. {{ resource?.base_price }}/hour</td>
-                    </tr>
-                  </tbody>
-                </table>
+            <!-- Booking Reference -->
+            <div class="info-card mb-4">
+              <div class="info-label">
+                <i class="bi bi-upc-scan"></i> Booking Reference
+              </div>
+              <div class="info-value reference-value">
+                {{ selectedBooking.booking_reference || 'N/A' }}
               </div>
             </div>
 
-            <div v-if="selectedBooking.notes" class="mt-4">
-              <h6 class="fw-bold mb-2">Notes</h6>
-              <div class="alert alert-light border">
+            <div class="row g-4">
+              <!-- Left Column - Booking Info -->
+              <div class="col-md-6">
+                <div class="info-section">
+                  <h6 class="section-title">
+                    <i class="bi bi-info-circle-fill"></i> Booking Information
+                  </h6>
+                  <div class="info-card">
+                    <div class="info-row">
+                      <div class="info-label"><i class="bi bi-calendar-date"></i> Date</div>
+                      <div class="info-value">{{ formatDate(selectedBooking.booking_date) }}</div>
+                    </div>
+                    <div class="info-row">
+                      <div class="info-label"><i class="bi bi-clock-history"></i> Time Slot</div>
+                      <div class="info-value">{{ formatTime(selectedBooking.start_time) }} - {{ formatTime(selectedBooking.end_time) }}</div>
+                    </div>
+                    <div class="info-row">
+                      <div class="info-label"><i class="bi bi-hourglass-split"></i> Duration</div>
+                      <div class="info-value">{{ calculateDuration(selectedBooking.start_time, selectedBooking.end_time) }} hours</div>
+                    </div>
+                    <div class="info-row">
+                      <div class="info-label"><i class="bi bi-cash-stack"></i> Amount</div>
+                      <div class="info-value amount-value">Rs. {{ calculateBookingAmount(selectedBooking) }}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Right Column - Customer Info -->
+              <div class="col-md-6">
+                <div class="info-section">
+                  <h6 class="section-title">
+                    <i class="bi bi-person-badge"></i> Customer Information
+                  </h6>
+                  <div class="info-card">
+                    <div class="info-row">
+                      <div class="info-label"><i class="bi bi-person-circle"></i> Name</div>
+                      <div class="info-value">{{ selectedBooking.user?.name || 'Guest User' }}</div>
+                    </div>
+                    <div class="info-row">
+                      <div class="info-label"><i class="bi bi-envelope-at"></i> Email</div>
+                      <div class="info-value">{{ selectedBooking.user?.email || selectedBooking.user_email || 'N/A' }}</div>
+                    </div>
+                    <div class="info-row">
+                      <div class="info-label"><i class="bi bi-telephone"></i> Phone</div>
+                      <div class="info-value">{{ selectedBooking.phone || selectedBooking.user?.phone || 'N/A' }}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Resource Details -->
+            <div class="info-section mt-4">
+              <h6 class="section-title">
+                <i class="bi bi-building"></i> Resource Details
+              </h6>
+              <div class="info-card">
+                <div class="info-row">
+                  <div class="info-label"><i class="bi bi-box-seam"></i> Resource</div>
+                  <div class="info-value resource-name">{{ resource?.name }}</div>
+                </div>
+                <div class="info-row">
+                  <div class="info-label"><i class="bi bi-tag"></i> Category</div>
+                  <div class="info-value">{{ resource?.category?.name || 'N/A' }}</div>
+                </div>
+                <div class="info-row">
+                  <div class="info-label"><i class="bi bi-currency-rupee"></i> Rate</div>
+                  <div class="info-value">Rs. {{ resource?.base_price }}/hour</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Equipment Items if any -->
+            <div v-if="selectedBooking.details && selectedBooking.details.filter(d => d.item_type === 'equipment').length > 0" class="info-section mt-4">
+              <h6 class="section-title">
+                <i class="bi bi-tools"></i> Equipment Items
+              </h6>
+              <div class="equipment-list">
+                <div v-for="item in selectedBooking.details.filter(d => d.item_type === 'equipment')" :key="item.id" class="equipment-item">
+                  <div class="equipment-info">
+                    <span class="equipment-name">{{ item.item_name || 'Equipment' }}</span>
+                    <span class="equipment-qty">x{{ item.quantity }}</span>
+                  </div>
+                  <div class="equipment-price">Rs. {{ item.subtotal }}</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Notes -->
+            <div v-if="selectedBooking.notes" class="info-section mt-4">
+              <h6 class="section-title">
+                <i class="bi bi-chat-text"></i> Additional Notes
+              </h6>
+              <div class="notes-box">
                 {{ selectedBooking.notes }}
               </div>
             </div>
 
-            <div class="mt-4">
-              <h6 class="fw-bold mb-3">Booking Timeline</h6>
+            <!-- Booking Timeline -->
+            <div class="info-section mt-4">
+              <h6 class="section-title">
+                <i class="bi bi-clock-history"></i> Booking Timeline
+              </h6>
               <div class="timeline">
                 <div class="timeline-item">
-                  <div class="timeline-marker bg-success"></div>
+                  <div class="timeline-icon bg-success">
+                    <i class="bi bi-check-lg"></i>
+                  </div>
                   <div class="timeline-content">
-                    <h6 class="mb-1">Booking Created & Confirmed</h6>
-                    <p class="text-muted small mb-0">{{ formatDateTime(selectedBooking.created_at) }}</p>
+                    <div class="timeline-title">Booking Created</div>
+                    <div class="timeline-date">{{ formatDateTime(selectedBooking.created_at) }}</div>
                   </div>
                 </div>
                 <div v-if="selectedBooking.confirmed_at" class="timeline-item">
-                  <div class="timeline-marker bg-primary"></div>
+                  <div class="timeline-icon bg-primary">
+                    <i class="bi bi-check2-circle"></i>
+                  </div>
                   <div class="timeline-content">
-                    <h6 class="mb-1">Booking Confirmed via OTP</h6>
-                    <p class="text-muted small mb-0">{{ formatDateTime(selectedBooking.confirmed_at) }}</p>
+                    <div class="timeline-title">Booking Confirmed</div>
+                    <div class="timeline-date">{{ formatDateTime(selectedBooking.confirmed_at) }}</div>
                   </div>
                 </div>
                 <div v-if="selectedBooking.cancelled_at" class="timeline-item">
-                  <div class="timeline-marker bg-danger"></div>
+                  <div class="timeline-icon bg-danger">
+                    <i class="bi bi-x-lg"></i>
+                  </div>
                   <div class="timeline-content">
-                    <h6 class="mb-1">Booking Cancelled</h6>
-                    <p class="text-muted small mb-0">{{ formatDateTime(selectedBooking.cancelled_at) }}</p>
+                    <div class="timeline-title">Booking Cancelled</div>
+                    <div class="timeline-date">{{ formatDateTime(selectedBooking.cancelled_at) }}</div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" @click="selectedBooking = null">
-              Close
+          
+          <!-- Fixed Footer -->
+          <div class="modal-footer-custom">
+            <button type="button" class="btn-close-modal" @click="selectedBooking = null">
+              <i class="bi bi-x-lg me-1"></i> Close
             </button>
           </div>
         </div>
@@ -797,7 +833,18 @@ const bookings = computed(() => {
   });
 });
 
-// 🔥 FIXED: isBookingConflict - Same as Admin page
+// Get status icon for modal
+const getStatusIcon = (status: string) => {
+  switch (status) {
+    case 'pending': return 'bi-clock-history';
+    case 'confirmed': return 'bi-check-circle-fill';
+    case 'cancelled': return 'bi-x-circle-fill';
+    case 'completed': return 'bi-check2-all';
+    default: return 'bi-question-circle';
+  }
+};
+
+// Booking Conflict Validation
 const isBookingConflict = computed(() => {
   if (!resource.value || !bookingForm.value.date || !bookingForm.value.startTime || !bookingForm.value.endTime) return false;
   
@@ -807,7 +854,6 @@ const isBookingConflict = computed(() => {
   
   return bookings.value.some((b: any) => {
     const status = (b.status || '').toLowerCase();
-    // Only check confirmed or approved bookings (not pending or cancelled)
     if (status !== 'confirmed' && status !== 'approved') return false;
     
     let bDateStr = '';
@@ -823,7 +869,6 @@ const isBookingConflict = computed(() => {
     
     if (!bStart || !bEnd) return false;
     
-    // Check for time overlap
     const overlap = (selectedStart < bEnd) && (bStart < selectedEnd);
     return overlap;
   });
@@ -1051,7 +1096,6 @@ const loadResourceDetails = async () => {
     const res = await axios.get(`${API_BASE_URL}/resources/${route.params.id}`, { headers });
     resource.value = res.data.resource || res.data;
     
-    // Process availability data
     if (resource.value.availability) {
       resource.value.availability = resource.value.availability.map((day: any) => {
         if (day.slots && Array.isArray(day.slots)) {
@@ -1097,7 +1141,6 @@ const createBooking = async () => {
     throw new Error('Resource not loaded');
   }
   
-  // Check for booking conflict before creating
   if (isBookingConflict.value) {
     throw new Error('This time slot is already booked and confirmed. Please choose another time.');
   }
@@ -1187,7 +1230,6 @@ const createBookingAndSendOTP = async () => {
     return;
   }
   
-  // Check for past dates
   const selectedDate = new Date(bookingForm.value.date);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -1197,20 +1239,17 @@ const createBookingAndSendOTP = async () => {
     return;
   }
   
-  // Check resource availability
   if (isResourceUnavailable.value) {
     errorMessage.value = 'Resource is not available during the selected time';
     return;
   }
   
-  // Check for booking conflict
   if (isBookingConflict.value) {
     alert("This time slot is already booked and confirmed for this resource. Please choose another time.");
     errorMessage.value = 'Time slot is already booked and confirmed.';
     return;
   }
   
-  // Check equipment quantities
   for (const item of selectedEquipment.value) {
     if (item.quantity > item.available_quantity) {
       errorMessage.value = `Quantity for ${item.name} exceeds available quantity (${item.available_quantity})`;
@@ -1529,6 +1568,7 @@ onMounted(() => {
     overflow-y: auto;
 }
 
+/* Modal Overlay */
 .modal-overlay {
     position: fixed;
     top: 0;
@@ -1543,6 +1583,400 @@ onMounted(() => {
     padding: 20px;
 }
 
+/* Booking Details Modal Styles - WITH SCROLL */
+.modal-container {
+  background: white;
+  border-radius: 20px;
+  width: 90%;
+  max-width: 800px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modalSlideIn 0.3s ease;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.booking-details-modal {
+  border: none;
+}
+
+.modal-header-custom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 1.5rem;
+  background: linear-gradient(135deg, #1e4449 0%, #2a5a60 100%);
+  border-bottom: none;
+  flex-shrink: 0;
+}
+
+.modal-title-custom {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: white;
+  display: flex;
+  align-items: center;
+}
+
+.modal-title-custom i {
+  font-size: 1.35rem;
+}
+
+.btn-close-custom {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  color: white;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.btn-close-custom:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: rotate(90deg);
+}
+
+/* Scrollable Body */
+.modal-body-custom {
+  padding: 1.5rem;
+  background: #f8fafc;
+  overflow-y: auto;
+  flex: 1;
+  max-height: calc(90vh - 120px);
+}
+
+/* Custom Scrollbar for modal body */
+.modal-body-custom::-webkit-scrollbar {
+  width: 6px;
+}
+
+.modal-body-custom::-webkit-scrollbar-track {
+  background: #e2e8f0;
+  border-radius: 10px;
+}
+
+.modal-body-custom::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 10px;
+}
+
+.modal-body-custom::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+.modal-footer-custom {
+  padding: 1rem 1.5rem;
+  background: white;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.btn-close-modal {
+  background: #e2e8f0;
+  border: none;
+  padding: 0.5rem 1.25rem;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #475569;
+  transition: all 0.2s ease;
+}
+
+.btn-close-modal:hover {
+  background: #cbd5e1;
+  color: #1e293b;
+}
+
+/* Status Badge */
+.status-badge-wrapper {
+  text-align: center;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 20px;
+  border-radius: 50px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  background: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.status-badge i {
+  font-size: 1rem;
+}
+
+.status-badge.status-pending {
+  background: #fef3c7;
+  color: #d97706;
+  border: 1px solid #fde68a;
+}
+
+.status-badge.status-confirmed {
+  background: #d1fae5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.status-badge.status-cancelled {
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+/* Reference Value */
+.reference-value {
+  font-family: 'Courier New', monospace;
+  font-size: 1rem;
+  letter-spacing: 1px;
+  background: #f1f5f9;
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 8px;
+}
+
+/* Info Section */
+.info-section {
+  margin-bottom: 0.5rem;
+}
+
+.section-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #64748b;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-title i {
+  font-size: 1rem;
+  color: #1e4449;
+}
+
+/* Info Card */
+.info-card {
+  background: white;
+  border-radius: 16px;
+  padding: 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e2e8f0;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.info-label i {
+  font-size: 0.85rem;
+  color: #1e4449;
+}
+
+.info-value {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #1e293b;
+}
+
+.amount-value {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #059669;
+}
+
+.resource-name {
+  font-weight: 600;
+  color: #1e4449;
+}
+
+/* Equipment List */
+.equipment-list {
+  background: white;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+.equipment-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.equipment-item:last-child {
+  border-bottom: none;
+}
+
+.equipment-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.equipment-name {
+  font-weight: 500;
+  color: #1e293b;
+}
+
+.equipment-qty {
+  font-size: 0.75rem;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
+.equipment-price {
+  font-weight: 600;
+  color: #059669;
+}
+
+/* Notes Box */
+.notes-box {
+  background: #fffbeb;
+  border-left: 4px solid #f59e0b;
+  padding: 1rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  color: #78350f;
+  line-height: 1.5;
+}
+
+/* Timeline */
+.timeline {
+  position: relative;
+  padding-left: 1.5rem;
+}
+
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #e2e8f0;
+}
+
+.timeline-item {
+  position: relative;
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.timeline-item:last-child {
+  margin-bottom: 0;
+}
+
+.timeline-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.timeline-icon.bg-success { background: #10b981; }
+.timeline-icon.bg-primary { background: #3b82f6; }
+.timeline-icon.bg-danger { background: #ef4444; }
+
+.timeline-content {
+  flex: 1;
+  padding-bottom: 0.25rem;
+}
+
+.timeline-title {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #1e293b;
+  margin-bottom: 0.25rem;
+}
+
+.timeline-date {
+  font-size: 0.7rem;
+  color: #94a3b8;
+}
+
+/* Actions Cell */
+.actions-cell {
+  white-space: nowrap;
+}
+
+.btn-group-sm .btn {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  border-radius: 6px;
+  margin: 0 2px;
+  transition: all 0.2s ease;
+}
+
+.btn-group-sm .btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn-outline-info {
+  border-color: #0dcaf0;
+  color: #0dcaf0;
+}
+
+.btn-outline-info:hover {
+  background: #0dcaf0;
+  color: white;
+}
+
+.btn-outline-warning {
+  border-color: #ffc107;
+  color: #ffc107;
+}
+
+.btn-outline-warning:hover {
+  background: #ffc107;
+  color: white;
+}
+
+/* Modal Content */
 .modal-content {
     background: white;
     border-radius: 12px;
@@ -1655,5 +2089,16 @@ onMounted(() => {
 @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 </style>
