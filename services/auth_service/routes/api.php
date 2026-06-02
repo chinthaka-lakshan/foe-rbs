@@ -37,7 +37,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // ADMIN & MASTER ADMIN: General Management
-    Route::middleware('role:Master Admin,Admin,User')->group(function () {
+    Route::middleware('role:Master Admin,Admin,User,Guest')->group(function () {
         Route::get('/users', [UserController::class, 'index']);
         Route::post('/users', [UserController::class, 'store']);
         Route::put('/users/{user}', [UserController::class, 'update']);

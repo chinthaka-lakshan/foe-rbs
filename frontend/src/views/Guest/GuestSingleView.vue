@@ -67,7 +67,20 @@
                       <div class="me-3 fs-3 text-teal"><i class="bi bi-people"></i></div>
                       <div>
                         <div class="x-small text-muted text-uppercase fw-bold">Assigned Admin</div>
-                        <div class="fw-bold text-dark-teal">Amin ID:{{ resource.assigned_admin_id || 'Not Specified' }} </div>
+                        <div v-if="assignedAdminNames.length > 0">
+                            <div v-for="name in assignedAdminNames" :key="name" class="fw-bold text-dark-teal">
+                                <i class="bi bi-person-fill text-teal me-1"></i>{{ name }}
+                            </div>
+                        </div>
+                        <div v-else-if="isLoadingAdmins">
+                            <div class="fw-bold text-muted small">Loading admin names...</div>
+                        </div>
+                        <div v-else-if="resource.assigned_admin_id || (resource.assigned_admin_ids && resource.assigned_admin_ids.length > 0)">
+                            <div class="fw-bold text-muted small">Loading admin details...</div>
+                        </div>
+                        <div v-else>
+                            <div class="fw-bold text-muted small">Unassigned</div>
+                        </div>
                       </div>
                    </div>
                 </div>
@@ -191,6 +204,8 @@ const router = useRouter();
 const resource = ref<any>(null);
 const isLoading = ref(true);
 const errorMessage = ref('');
+const assignedAdminNames = ref<string[]>([]);
+const isLoadingAdmins = ref(false);
 
 const API_BASE_URL = 'http://localhost:8000/api';
 
@@ -206,9 +221,66 @@ onMounted(() => {
   loadResourceDetails();
 });
 
+const fetchAdminDetails = async (adminIds: number[]) => {
+    if (!adminIds || adminIds.length === 0) return;
+    
+    isLoadingAdmins.value = true;
+    assignedAdminNames.value = [];
+    
+    try {
+        const token = localStorage.getItem('authToken');
+        const headers: any = { 'Accept': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        // Try users endpoint first
+        let allUsers: any[] = [];
+        try {
+            const response = await axios.get(`${API_BASE_URL}/users`, { headers });
+            allUsers = response.data.users || response.data || [];
+        } catch (usersError) {
+            console.log('Users endpoint not available, trying individual admins fetch...');
+        }
+
+        const names: string[] = [];
+
+        for (const adminId of adminIds) {
+            const adminUser = allUsers.find((user: any) => user.id === adminId);
+            if (adminUser) {
+                const name = adminUser.name || 
+                             (adminUser.first_name && adminUser.last_name ? `${adminUser.first_name} ${adminUser.last_name}` : '') ||
+                             adminUser.username || 
+                             adminUser.email || 
+                             `Admin ID: ${adminId}`;
+                names.push(name);
+            } else {
+                try {
+                    const response = await axios.get(`${API_BASE_URL}/admins/${adminId}`, { headers });
+                    const adminData = response.data.admin || response.data;
+                    const name = adminData.name || 
+                                 (adminData.first_name && adminData.last_name ? `${adminData.first_name} ${adminData.last_name}` : '') ||
+                                 adminData.username || 
+                                 `Admin ID: ${adminId}`;
+                    names.push(name);
+                } catch (adminsError) {
+                    console.error(`Failed to fetch admin details for ID ${adminId}`);
+                    names.push(`Admin ID: ${adminId}`);
+                }
+            }
+        }
+        
+        assignedAdminNames.value = names;
+    } catch (error: any) {
+        console.error('Error fetching admin details:', error);
+        assignedAdminNames.value = adminIds.map(id => `Admin ID: ${id}`);
+    } finally {
+        isLoadingAdmins.value = false;
+    }
+};
+
 const loadResourceDetails = async () => {
     isLoading.value = true;
     errorMessage.value = '';
+    assignedAdminNames.value = [];
     try {
         const id = route.params.id;
         const token = localStorage.getItem('authToken');
@@ -217,7 +289,17 @@ const loadResourceDetails = async () => {
 
         const response = await axios.get(`${API_BASE_URL}/resources/${id}`, { headers });
 
-        resource.value = response.data.resource || response.data;
+        const fetchedResource = response.data.resource || response.data;
+        resource.value = fetchedResource;
+
+        // Fetch admin names if admin IDs exist
+        const adminIds = fetchedResource.assigned_admin_ids && fetchedResource.assigned_admin_ids.length > 0
+            ? fetchedResource.assigned_admin_ids
+            : (fetchedResource.assigned_admin_id ? [fetchedResource.assigned_admin_id] : []);
+
+        if (adminIds.length > 0) {
+            await fetchAdminDetails(adminIds);
+        }
     } catch (err: any) {
         console.error('Error loading resource details:', err);
         errorMessage.value = err.response?.data?.message || 'Failed to load resource details.';
