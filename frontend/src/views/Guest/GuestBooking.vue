@@ -1420,7 +1420,29 @@ const searchEquipment = () => {
     const nameMatch = item.name.toLowerCase().includes(searchTerm);
     return !searchTerm || nameMatch;
   });
+  
+  // Reset dropdown position
   showEquipmentDropdown.value = true;
+  
+  // Ensure dropdown appears above other content
+  nextTick(() => {
+    const dropdown = document.querySelector('.equipment-dropdown');
+    if (dropdown) {
+      const rect = dropdown.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      if (rect.bottom > viewportHeight - 50) {
+        dropdown.style.top = 'auto';
+        dropdown.style.bottom = '100%';
+        dropdown.style.marginTop = '0';
+        dropdown.style.marginBottom = '5px';
+      } else {
+        dropdown.style.top = '100%';
+        dropdown.style.bottom = 'auto';
+        dropdown.style.marginTop = '5px';
+        dropdown.style.marginBottom = '0';
+      }
+    }
+  });
 };
 
 const clearEquipmentSearch = () => {
@@ -1584,20 +1606,20 @@ onMounted(() => {
 
 .modal-header-otp {
     background: linear-gradient(135deg, #1e4449 0%, #2a6b6b 100%);
-    padding: 1.75rem 1.5rem 1.5rem;
+    padding: 1.25rem 1.25rem 1rem;  /* 1.75rem 1.5rem 1.5rem සිට */
     text-align: center;
     position: relative;
 }
 
 .header-icon {
-    width: 64px;
-    height: 64px;
+    width: 52px;
+    height: 52px;
     background: rgba(255, 255, 255, 0.2);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin: 0 auto 1rem;
+    margin: 0 auto 0.75rem;
 }
 
 .header-icon i {
@@ -1636,12 +1658,12 @@ onMounted(() => {
 }
 
 .modal-body-otp {
-    padding: 2rem 1.75rem;
+    padding: 1.25rem 1.5rem;
 }
 
 .otp-info-section {
     text-align: center;
-    margin-bottom: 2rem;
+    margin-bottom: 1rem;
 }
 
 .info-icon {
@@ -1703,13 +1725,13 @@ onMounted(() => {
 
 .otp-rectangle-field {
     width: 100%;
-    padding: 1rem 1.25rem;
-    font-size: 1.5rem;
+    padding: 0.8rem 1rem;  
+    font-size: 1.35rem;    
     font-weight: 600;
-    letter-spacing: 0.5rem;
+    letter-spacing: 0.4rem; 
     text-align: center;
     border: 2px solid #e2e8f0;
-    border-radius: 16px;
+    border-radius: 14px;    
     background: white;
     transition: all 0.2s ease;
     font-family: 'Courier New', monospace;
@@ -1760,11 +1782,11 @@ onMounted(() => {
 .timer-circle {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 0.5rem 1.25rem;
+    gap: 6px;
+    padding: 0.35rem 1rem;  
     background: #f1f5f9;
     border-radius: 50px;
-    font-size: 1rem;
+    font-size: 0.9rem;     
     font-weight: 600;
     color: #1e4449;
 }
@@ -1794,7 +1816,7 @@ onMounted(() => {
 
 /* Modal Footer */
 .modal-footer-otp {
-    padding: 1rem 1.75rem 1.75rem;
+    padding: 0.85rem 1.5rem 1.25rem;
     background: #ffffff;
     border-top: 1px solid #e2e8f0;
 }
@@ -1828,11 +1850,12 @@ onMounted(() => {
 
 .btn-cancel-otp {
     flex: 1;
-    padding: 0.75rem;
+    padding: 0.6rem;    
     background: #f1f5f9;
     border: none;
-    border-radius: 14px;
+    border-radius: 12px;
     font-weight: 600;
+    font-size: 0.85rem;
     color: #475569;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -1844,11 +1867,12 @@ onMounted(() => {
 
 .btn-verify-otp {
     flex: 1.5;
-    padding: 0.75rem;
+    padding: 0.6rem;    
     background: linear-gradient(135deg, #1e4449 0%, #2a6b6b 100%);
     border: none;
-    border-radius: 14px;
+    border-radius: 12px;
     font-weight: 600;
+    font-size: 0.85rem;
     color: white;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -2364,4 +2388,123 @@ onMounted(() => {
     transform: scale(1) translateY(0);
   }
 }
+
+/* Equipment Section Container - Make it position relative but allow overflow */
+.booking-equipment-section {
+    position: relative;
+    margin-top: 1.5rem;
+}
+
+/* Equipment Box - Allow overflow for dropdown */
+.equipment-box {
+    position: relative;
+    overflow: visible !important;
+    z-index: 100;
+}
+
+/* Equipment Dropdown - Make it appear outside/frame */
+.equipment-dropdown {
+    position: absolute;
+    z-index: 1050;
+    background: white;
+    width: calc(100% - 0px);
+    max-height: 250px;
+    overflow-y: auto;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e2e8f0;
+    margin-top: 0;
+    left: 0;
+    right: 0;
+}
+
+/* Ensure dropdown items are clickable */
+.equipment-dropdown-item {
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.equipment-dropdown-item:last-child {
+    border-bottom: none;
+}
+
+.equipment-dropdown-item:hover {
+    background: linear-gradient(135deg, #f0fdf4 0%, #e5f4de 100%);
+    transform: translateX(4px);
+}
+
+/* Make sure search input container has proper z-index */
+.booking-equipment-section .input-group {
+    position: relative;
+    z-index: 1;
+}
+
+/* Ensure parent card doesn't clip the dropdown */
+.card-body {
+    overflow: visible !important;
+}
+
+.card {
+    overflow: visible !important;
+}
+
+/* Fix for sticky positioning */
+.sticky-top {
+    overflow: visible !important;
+}
+
+/* Equipment dropdown item styling enhancement */
+.equipment-dropdown-item .fw-bold {
+    color: #1e4449;
+}
+
+.equipment-dropdown-item .small.text-muted {
+    font-size: 0.7rem;
+}
+
+/* Search input focus effect */
+.booking-equipment-section .input-group input:focus {
+    border-color: #1e4449;
+    box-shadow: 0 0 0 3px rgba(30, 68, 73, 0.1);
+}
+
+/* Selected equipment list styling */
+.selected-equipment-list {
+    margin-top: 1rem;
+}
+
+.selected-equipment-list .list-group-item {
+    border-radius: 12px !important;
+    transition: all 0.2s ease;
+}
+
+.selected-equipment-list .list-group-item:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    border-color: #4BB66D;
+}
+
+/* Equipment quantity input styling */
+.selected-equipment-list .input-group-sm .btn {
+    padding: 0.25rem 0.6rem;
+    font-size: 0.75rem;
+}
+
+.selected-equipment-list input[type="number"] {
+    -moz-appearance: textfield;
+}
+
+.selected-equipment-list input[type="number"]::-webkit-inner-spin-button,
+.selected-equipment-list input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* Equipment total section */
+.selected-equipment-list .bg-light.rounded {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border-radius: 12px !important;
+}
+
 </style>
