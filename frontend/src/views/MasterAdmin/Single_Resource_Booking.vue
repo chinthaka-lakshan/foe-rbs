@@ -135,12 +135,8 @@
                   <tbody>
                     <tr v-for="(booking, index) in bookings" :key="booking.id">
                       <td>{{ index + 1 }}</td>
-                      <td>
-                        {{ formatDate(booking.booking_date) }}
-                      </td>
-                      <td>
-                        {{ formatTime(booking.start_time) }} - {{ formatTime(booking.end_time) }}
-                      </td>
+                      <td>{{ formatDate(booking.booking_date) }}</td>
+                      <td>{{ formatTime(booking.start_time) }} - {{ formatTime(booking.end_time) }}</td>
                       <td>
                         <div class="d-flex align-items-center">
                           <i class="bi bi-person-circle me-2"></i>
@@ -164,10 +160,10 @@
                           {{ formatDateTime(booking.created_at) }}
                         </small>
                       </td>
-                      <td>
+                      <td class="actions-cell">
                         <div class="btn-group btn-group-sm" role="group">
                           <button 
-                            class="btn btn-outline-info"
+                            class="btn-preview"
                             @click="viewBookingDetails(booking)"
                             title="View Details"
                           >
@@ -175,7 +171,7 @@
                           </button>
                           <button 
                             v-if="booking.status === 'pending' || booking.status === 'confirmed'"
-                            class="btn btn-outline-warning"
+                            class="btn-cancel"
                             @click="cancelBooking(booking)"
                             title="Cancel Booking"
                           >
@@ -340,12 +336,12 @@
                   <h6 class="border-bottom pb-2 mb-3">2. Add Equipment/Accessories (Optional)</h6>
                   
                   <!-- Equipment Search and Add -->
-                  <div class="mb-3">
+                  <div class="equipment-search-wrapper">
                     <label class="form-label">Search Equipment</label>
                     <div class="input-group">
                       <input
                         type="text"
-                        class="form-control"
+                        class="form-control equipment-search-input"
                         placeholder="Search equipment by name..."
                         v-model="equipmentSearch"
                         @input="searchEquipment"
@@ -361,11 +357,11 @@
                     </div>
                     
                     <!-- Equipment Dropdown -->
-                    <div v-if="showEquipmentDropdown && filteredEquipment.length > 0" class="equipment-dropdown mt-2 border rounded">
+                    <div v-if="showEquipmentDropdown && filteredEquipment.length > 0" class="equipment-dropdown-custom">
                       <div 
                         v-for="item in filteredEquipment" 
                         :key="item.id"
-                        class="equipment-dropdown-item p-2 border-bottom"
+                        class="equipment-dropdown-item-custom"
                         @click="addEquipmentItem(item)"
                       >
                         <div class="d-flex justify-content-between align-items-center">
@@ -374,7 +370,7 @@
                             <div class="small text-muted">{{ item.description }}</div>
                           </div>
                           <div class="text-end">
-                            <div class="fw-bold">Rs. {{ item.price_per_hour }}/hr</div>
+                            <div class="fw-bold text-success">Rs. {{ item.price_per_hour }}/hr</div>
                             <div class="small text-muted">Available: {{ item.available_quantity }}</div>
                           </div>
                         </div>
@@ -387,7 +383,7 @@
                   </div>
                   
                   <!-- Selected Equipment List -->
-                  <div v-if="selectedEquipment.length > 0" class="selected-equipment-list">
+                  <div v-if="selectedEquipment.length > 0" class="selected-equipment-list mt-3">
                     <h6 class="mb-2">Selected Equipment:</h6>
                     <div class="list-group">
                       <div 
@@ -556,279 +552,332 @@
     </div>
   </div>
 
-  <!-- OTP Verification Modal -->
-  <div v-if="showOTPModal" class="modal-overlay">
-    <div class="modal-content">
-      <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title">
-          <i class="bi bi-shield-lock me-2"></i>OTP Verification
-        </h5>
-        <button type="button" class="btn-close btn-close-white" @click="closeOTPModal"></button>
+  <!-- ✅ OTP Verification Modal - Rectangle Input Version (Fixed CSS) -->
+  <div v-if="showOTPModal" class="modal-overlay-otp">
+    <div class="modal-container-otp">
+      <div class="modal-header-otp">
+        <div class="header-icon">
+          <i class="bi bi-shield-check"></i>
+        </div>
+        <h3 class="modal-title-otp">Verify Your Identity</h3>
+        <button type="button" class="btn-close-otp" @click="closeOTPModal">
+          <i class="bi bi-x-lg"></i>
+        </button>
       </div>
-      <div class="modal-body">
-        <div class="text-center mb-4">
-          <div class="otp-icon mb-3">
-            <i class="bi bi-envelope-check" style="font-size: 3rem; color: #4BB66D;"></i>
+
+      <div class="modal-body-otp">
+        <div class="otp-info-section">
+          <div class="info-icon">
+            <i class="bi bi-envelope-paper"></i>
           </div>
-          <h6 class="fw-bold">Verify Your Email</h6>
-          <p class="text-muted small">
-            We've sent a 6-digit OTP to:<br>
+          <p class="info-text">
+            We've sent a verification code to<br>
             <strong>{{ bookingForm.email }}</strong>
           </p>
-          <div v-if="otpSentSuccess" class="alert alert-success alert-sm py-2">
-            <i class="bi bi-check-circle me-1"></i>OTP sent successfully! Please check your email.
+          <div v-if="otpSentSuccess" class="alert-success-otp">
+            <i class="bi bi-check-circle-fill"></i> OTP sent successfully!
           </div>
         </div>
-        
-        <!-- OTP Input -->
-        <div class="otp-input-container mb-4">
-          <div class="d-flex justify-content-center gap-2">
+
+        <!-- SINGLE RECTANGLE OTP INPUT FIELD -->
+        <div class="otp-rectangle-container">
+          <label class="otp-label">Enter Verification Code</label>
+          <div class="otp-rectangle-input">
             <input
-              v-for="n in 6"
-              :key="n"
               type="text"
-              maxlength="1"
-              class="otp-digit"
-              v-model="otpDigits[n-1]"
-              @input="onOtpInput(n-1, $event)"
-              @keydown="onOtpKeydown(n-1, $event)"
-              :ref="el => { if (el) otpInputs[n-1] = el as any }"
+              class="otp-rectangle-field"
+              v-model="otpCode"
+              maxlength="6"
+              placeholder="••••••"
+              @input="onOtpRectangleInput"
               :disabled="isVerifyingOTP"
+              autofocus
             />
+            <div class="otp-rectangle-highlight"></div>
           </div>
-          <div v-if="otpError" class="text-danger text-center mt-2 small">
-            <i class="bi bi-exclamation-triangle me-1"></i>{{ otpError }}
+          <p class="otp-hint">Enter the 6-digit code sent to your email</p>
+        </div>
+
+        <!-- Timer -->
+        <div class="otp-timer-section">
+          <div class="timer-circle" :class="{ 'timer-expired': otpExpired }">
+            <i class="bi bi-clock-history"></i>
+            <span>{{ formatCountdownTimer() }}</span>
           </div>
         </div>
-        
-        <!-- Countdown Timer -->
-        <div class="text-center mb-3">
-          <small class="text-muted">
-            OTP expires in: 
-            <span class="fw-bold" :class="otpExpired ? 'text-danger' : 'text-success'">
-              {{ formatCountdownTimer() }}
-            </span>
-          </small>
-        </div>
-        
-        <!-- Resend OTP -->
-        <div class="text-center">
-          <button 
-            class="btn btn-link btn-sm text-decoration-none"
-            @click="resendOTP"
-            :disabled="!otpExpired || isResendingOTP"
-          >
-            <span v-if="isResendingOTP" class="spinner-border spinner-border-sm me-1"></span>
-            <span v-else><i class="bi bi-arrow-clockwise me-1"></i></span>
-            Resend OTP
-          </button>
+
+        <!-- Error Message -->
+        <div v-if="otpError" class="error-message-otp">
+          <i class="bi bi-exclamation-triangle-fill"></i>
+          {{ otpError }}
         </div>
       </div>
-      <div class="modal-footer">
+
+      <div class="modal-footer-otp">
         <button 
           type="button" 
-          class="btn btn-secondary" 
-          @click="closeOTPModal"
-          :disabled="isVerifyingOTP"
+          class="btn-resend-otp"
+          @click="resendOTP"
+          :disabled="!otpExpired || isResendingOTP"
         >
-          Cancel
+          <i class="bi bi-arrow-repeat" :class="{ 'fa-spin': isResendingOTP }"></i>
+          {{ isResendingOTP ? 'Sending...' : 'Resend Code' }}
         </button>
-        <button 
-          type="button" 
-          class="btn btn-success" 
-          @click="verifyOTPAndConfirmBooking"
-          :disabled="!isOtpComplete || isVerifyingOTP"
-        >
-          <span v-if="isVerifyingOTP" class="spinner-border spinner-border-sm me-2"></span>
-          <i class="bi bi-check-circle me-2"></i>
-          {{ isVerifyingOTP ? 'Verifying...' : 'Verify & Confirm Booking' }}
-        </button>
+        <div class="footer-buttons">
+          <button 
+            type="button" 
+            class="btn-cancel-otp"
+            @click="closeOTPModal"
+            :disabled="isVerifyingOTP"
+          >
+            Cancel
+          </button>
+          <button 
+            type="button" 
+            class="btn-verify-otp"
+            @click="verifyOTPAndConfirmBooking"
+            :disabled="!isOtpComplete || isVerifyingOTP"
+          >
+            <span v-if="isVerifyingOTP" class="spinner-border spinner-border-sm me-2"></span>
+            <i v-else class="bi bi-check2-circle me-2"></i>
+            {{ isVerifyingOTP ? 'Verifying...' : 'Verify & Confirm' }}
+          </button>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Success Modal -->
-  <div v-if="showSuccessModal" class="modal-overlay">
-    <div class="modal-content">
-      <div class="modal-header bg-success text-white">
-        <h5 class="modal-title">
-          <i class="bi bi-check-circle-fill me-2"></i>Booking Confirmed Successfully!
-        </h5>
-      </div>
-      <div class="modal-body text-center">
-        <div class="success-icon mb-3">
-          <i class="bi bi-check-circle" style="font-size: 4rem; color: #4BB66D;"></i>
+  <!-- ✅ Success Modal - FIXED CENTER POSITION -->
+  <div v-if="showSuccessModal" class="modal-overlay-success">
+    <div class="modal-container-success">
+      <div class="modal-header-success">
+        <div class="success-icon-header">
+          <i class="bi bi-check-circle-fill"></i>
         </div>
-        <h6 class="fw-bold mb-3">Your booking has been confirmed!</h6>
-        
-        <div class="booking-details bg-light p-3 rounded mb-3">
-          <p class="mb-2"><strong>Resource:</strong> {{ resource?.name }}</p>
-          <p class="mb-2"><strong>Date:</strong> {{ bookingForm.date }}</p>
-          <p class="mb-2"><strong>Time:</strong> {{ bookingForm.startTime }} - {{ bookingForm.endTime }}</p>
-          <div v-if="selectedEquipment.length > 0" class="mb-2">
-            <strong>Equipment:</strong>
-            <ul class="mb-0 ps-3 small">
-              <li v-for="item in selectedEquipment" :key="item.id">
-                {{ item.name }} (Qty: {{ item.quantity }})
-              </li>
-            </ul>
+        <h5 class="modal-title-success">Booking Confirmed Successfully!</h5>
+        <button type="button" class="btn-close-success" @click="closeSuccessModal">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+
+      <div class="modal-body-success">
+        <div class="success-animation">
+          <div class="checkmark-circle">
+            <i class="bi bi-check-lg"></i>
           </div>
-          <p class="mb-0">
-            <strong>Total Cost:</strong> 
-            <span :class="isInternalUser ? 'text-success' : 'text-success'">
+        </div>
+        
+        <h6 class="fw-bold mb-3 text-success">Your booking has been confirmed!</h6>
+        
+        <div class="booking-details-success">
+          <div class="detail-row">
+            <span class="detail-label"><i class="bi bi-box-seam"></i> Resource:</span>
+            <span class="detail-value">{{ resource?.name }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label"><i class="bi bi-calendar-date"></i> Date:</span>
+            <span class="detail-value">{{ bookingForm.date }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label"><i class="bi bi-clock"></i> Time:</span>
+            <span class="detail-value">{{ bookingForm.startTime }} - {{ bookingForm.endTime }}</span>
+          </div>
+          <div v-if="selectedEquipment.length > 0" class="detail-row equipment-list-success">
+            <span class="detail-label"><i class="bi bi-tools"></i> Equipment:</span>
+            <div class="equipment-items">
+              <span v-for="item in selectedEquipment" :key="item.id" class="equipment-badge">
+                {{ item.name }} (x{{ item.quantity }})
+              </span>
+            </div>
+          </div>
+          <div class="detail-row total-row">
+            <span class="detail-label fw-bold"><i class="bi bi-cash-stack"></i> Total Cost:</span>
+            <span class="detail-value fw-bold text-success fs-5">
               {{ isInternalUser ? 'FREE (Internal User Benefit)' : 'Rs. ' + totalBookingCost }}
             </span>
-          </p>
+          </div>
+          <div v-if="confirmedBookingReference" class="reference-box">
+            <i class="bi bi-upc-scan"></i>
+            <span>Booking Reference: <strong>{{ confirmedBookingReference }}</strong></span>
+          </div>
         </div>
         
-        <p class="text-muted small">
+        <p class="email-notice">
+          <i class="bi bi-envelope-check"></i>
           A confirmation email has been sent to <strong>{{ bookingForm.email }}</strong>
         </p>
-        <div v-if="confirmedBookingReference" class="alert alert-info mt-3">
-          <i class="bi bi-info-circle me-2"></i>
-          Booking Reference: <strong>{{ confirmedBookingReference }}</strong>
-          <br>
-          <small>Status: <span class="badge status-confirmed">Confirmed</span></small>
-        </div>
       </div>
-      <div class="modal-footer justify-content-center">
-        <button type="button" class="btn btn-success" @click="redirectToBookings">
+
+      <div class="modal-footer-success">
+        <button type="button" class="btn-view-bookings" @click="redirectToBookings">
           <i class="bi bi-list-check me-2"></i>View My Bookings
         </button>
-        <button type="button" class="btn btn-outline-success" @click="closeSuccessModal">
+        <button type="button" class="btn-book-another" @click="closeSuccessModal">
           <i class="bi bi-calendar-plus me-2"></i>Book Another
         </button>
       </div>
     </div>
   </div>
 
-  <!-- Booking Details Modal -->
-  <div v-if="selectedBooking" class="modal-overlay">
-    <div class="modal-content" style="max-width: 700px;">
-      <div class="modal-header bg-info text-white">
-        <h5 class="modal-title">
-          <i class="bi bi-calendar-check me-2"></i>Booking Details
+  <!-- ✅ Booking Details Modal - FIXED CENTER POSITION -->
+  <div v-if="selectedBooking" class="modal-overlay-details" @click.self="selectedBooking = null">
+    <div class="modal-container-details">
+      <div class="modal-header-details">
+        <h5 class="modal-title-details">
+          <i class="bi bi-calendar-check-fill me-2"></i> Booking Details
         </h5>
-        <button type="button" class="btn-close btn-close-white" @click="selectedBooking = null"></button>
+        <button type="button" class="btn-close-details" @click="selectedBooking = null">×</button>
       </div>
-      <div class="modal-body">
-        <div class="row">
-          <div class="col-md-6">
-            <h6 class="fw-bold mb-3">Booking Information</h6>
-            <table class="table table-sm table-borderless">
-              <tbody>
-                <tr>
-                  <th width="40%">Reference:</th>
-                  <td>{{ selectedBooking.booking_reference || 'N/A' }}</td>
-                </tr>
-                <tr>
-                  <th>Status:</th>
-                  <td>
-                    <span class="badge" :class="getBookingStatusClass(selectedBooking.status)">
-                      {{ getBookingStatusText(selectedBooking.status) }}
-                    </span>
-                  </td>
-                </tr>
-                <tr>
-                  <th>Date:</th>
-                  <td>{{ formatDate(selectedBooking.booking_date) }}</td>
-                </tr>
-                <tr>
-                  <th>Time:</th>
-                  <td>{{ formatTime(selectedBooking.start_time) }} - {{ formatTime(selectedBooking.end_time) }}</td>
-                </tr>
-                <tr>
-                  <th>Duration:</th>
-                  <td>{{ calculateDuration(selectedBooking.start_time, selectedBooking.end_time) }} hours</td>
-                </tr>
-                <tr>
-                  <th>Amount:</th>
-                  <td class="fw-bold" :class="getAmountColorClassForBooking(selectedBooking)">
-                    {{ formatAmountWithUserType(selectedBooking) }}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          
-          <div class="col-md-6">
-            <h6 class="fw-bold mb-3">Customer Information</h6>
-            <table class="table table-sm table-borderless">
-              <tbody>
-                <tr>
-                  <th width="40%">Name:</th>
-                  <td>{{ selectedBooking.user?.name || 'N/A' }}</td>
-                </tr>
-                <tr>
-                  <th>Email:</th>
-                  <td>{{ selectedBooking.user?.email || selectedBooking.user_email || 'N/A' }}</td>
-                </tr>
-                <tr>
-                  <th>Phone:</th>
-                  <td>{{ selectedBooking.phone || selectedBooking.user?.phone || 'N/A' }}</td>
-                </tr>
-              </tbody>
-            </table>
+      <div class="modal-body-details">
+        <!-- Status Badge -->
+        <div class="status-badge-wrapper-details mb-4">
+          <span class="status-badge-details" :class="getBookingStatusClass(selectedBooking.status)">
+            <i class="bi" :class="getStatusIcon(selectedBooking.status)"></i>
+            {{ getBookingStatusText(selectedBooking.status) }}
+          </span>
+        </div>
 
-            <h6 class="fw-bold mb-3 mt-4">Resource Details</h6>
-            <table class="table table-sm table-borderless">
-              <tbody>
-                <tr>
-                  <th width="40%">Resource:</th>
-                  <td>{{ resource?.name }}</td>
-                </tr>
-                <tr>
-                  <th>Category:</th>
-                  <td>{{ resource?.category?.name || 'N/A' }}</td>
-                </tr>
-                <tr>
-                  <th>Rate:</th>
-                  <td>Rs. {{ resource?.base_price }}/hour</td>
-                </tr>
-              </tbody>
-            </table>
+        <div class="info-card-details mb-4">
+          <div class="info-label-details">
+            <i class="bi bi-upc-scan"></i> Booking Reference
+          </div>
+          <div class="info-value-details reference-value-details">
+            {{ selectedBooking.booking_reference || 'N/A' }}
           </div>
         </div>
 
-        <!-- Booking Notes -->
-        <div v-if="selectedBooking.notes" class="mt-4">
-          <h6 class="fw-bold mb-2">Notes</h6>
-          <div class="alert alert-light border">
+        <div class="row g-4">
+          <div class="col-md-6">
+            <div class="info-section-details">
+              <h6 class="section-title-details">
+                <i class="bi bi-info-circle-fill"></i> Booking Information
+              </h6>
+              <div class="info-card-details">
+                <div class="info-row-details">
+                  <div class="info-label-details"><i class="bi bi-calendar-date"></i> Date</div>
+                  <div class="info-value-details">{{ formatDate(selectedBooking.booking_date) }}</div>
+                </div>
+                <div class="info-row-details">
+                  <div class="info-label-details"><i class="bi bi-clock-history"></i> Time Slot</div>
+                  <div class="info-value-details">{{ formatTime(selectedBooking.start_time) }} - {{ formatTime(selectedBooking.end_time) }}</div>
+                </div>
+                <div class="info-row-details">
+                  <div class="info-label-details"><i class="bi bi-hourglass-split"></i> Duration</div>
+                  <div class="info-value-details">{{ calculateDuration(selectedBooking.start_time, selectedBooking.end_time) }} hours</div>
+                </div>
+                <div class="info-row-details">
+                  <div class="info-label-details"><i class="bi bi-cash-stack"></i> Amount</div>
+                  <div class="info-value-details amount-value-details">{{ formatAmountWithUserType(selectedBooking) }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="col-md-6">
+            <div class="info-section-details">
+              <h6 class="section-title-details">
+                <i class="bi bi-person-badge"></i> Customer Information
+              </h6>
+              <div class="info-card-details">
+                <div class="info-row-details">
+                  <div class="info-label-details"><i class="bi bi-person-circle"></i> Name</div>
+                  <div class="info-value-details">{{ selectedBooking.user?.name || 'Guest User' }}</div>
+                </div>
+                <div class="info-row-details">
+                  <div class="info-label-details"><i class="bi bi-envelope-at"></i> Email</div>
+                  <div class="info-value-details">{{ selectedBooking.user?.email || selectedBooking.user_email || 'N/A' }}</div>
+                </div>
+                <div class="info-row-details">
+                  <div class="info-label-details"><i class="bi bi-telephone"></i> Phone</div>
+                  <div class="info-value-details">{{ selectedBooking.phone || selectedBooking.user?.phone || 'N/A' }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="info-section-details mt-4">
+          <h6 class="section-title-details">
+            <i class="bi bi-building"></i> Resource Details
+          </h6>
+          <div class="info-card-details">
+            <div class="info-row-details">
+              <div class="info-label-details"><i class="bi bi-box-seam"></i> Resource</div>
+              <div class="info-value-details resource-name-details">{{ resource?.name }}</div>
+            </div>
+            <div class="info-row-details">
+              <div class="info-label-details"><i class="bi bi-tag"></i> Category</div>
+              <div class="info-value-details">{{ resource?.category?.name || 'N/A' }}</div>
+            </div>
+            <div class="info-row-details">
+              <div class="info-label-details"><i class="bi bi-currency-rupee"></i> Rate</div>
+              <div class="info-value-details">Rs. {{ resource?.base_price }}/hour</div>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="selectedBooking.details && selectedBooking.details.filter(d => d.item_type === 'equipment').length > 0" class="info-section-details mt-4">
+          <h6 class="section-title-details">
+            <i class="bi bi-tools"></i> Equipment Items
+          </h6>
+          <div class="equipment-list-details">
+            <div v-for="item in selectedBooking.details.filter(d => d.item_type === 'equipment')" :key="item.id" class="equipment-item-details">
+              <div class="equipment-info-details">
+                <span class="equipment-name-details">{{ item.item_name || 'Equipment' }}</span>
+                <span class="equipment-qty-details">x{{ item.quantity }}</span>
+              </div>
+              <div class="equipment-price-details">Rs. {{ item.subtotal }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="selectedBooking.notes" class="info-section-details mt-4">
+          <h6 class="section-title-details">
+            <i class="bi bi-chat-text"></i> Additional Notes
+          </h6>
+          <div class="notes-box-details">
             {{ selectedBooking.notes }}
           </div>
         </div>
 
-        <!-- Booking Timeline -->
-        <div class="mt-4">
-          <h6 class="fw-bold mb-3">Booking Timeline</h6>
-          <div class="timeline">
-            <div class="timeline-item">
-              <div class="timeline-marker bg-success"></div>
-              <div class="timeline-content">
-                <h6 class="mb-1">Booking Created & Confirmed</h6>
-                <p class="text-muted small mb-0">{{ formatDateTime(selectedBooking.created_at) }}</p>
+        <div class="info-section-details mt-4">
+          <h6 class="section-title-details">
+            <i class="bi bi-clock-history"></i> Booking Timeline
+          </h6>
+          <div class="timeline-details">
+            <div class="timeline-item-details">
+              <div class="timeline-icon-details bg-success">
+                <i class="bi bi-check-lg"></i>
+              </div>
+              <div class="timeline-content-details">
+                <div class="timeline-title-details">Booking Created</div>
+                <div class="timeline-date-details">{{ formatDateTime(selectedBooking.created_at) }}</div>
               </div>
             </div>
-            <div v-if="selectedBooking.confirmed_at" class="timeline-item">
-              <div class="timeline-marker bg-primary"></div>
-              <div class="timeline-content">
-                <h6 class="mb-1">Booking Confirmed via OTP</h6>
-                <p class="text-muted small mb-0">{{ formatDateTime(selectedBooking.confirmed_at) }}</p>
+            <div v-if="selectedBooking.confirmed_at" class="timeline-item-details">
+              <div class="timeline-icon-details bg-primary">
+                <i class="bi bi-check2-circle"></i>
+              </div>
+              <div class="timeline-content-details">
+                <div class="timeline-title-details">Booking Confirmed</div>
+                <div class="timeline-date-details">{{ formatDateTime(selectedBooking.confirmed_at) }}</div>
               </div>
             </div>
-            <div v-if="selectedBooking.cancelled_at" class="timeline-item">
-              <div class="timeline-marker bg-danger"></div>
-              <div class="timeline-content">
-                <h6 class="mb-1">Booking Cancelled</h6>
-                <p class="text-muted small mb-0">{{ formatDateTime(selectedBooking.cancelled_at) }}</p>
+            <div v-if="selectedBooking.cancelled_at" class="timeline-item-details">
+              <div class="timeline-icon-details bg-danger">
+                <i class="bi bi-x-lg"></i>
+              </div>
+              <div class="timeline-content-details">
+                <div class="timeline-title-details">Booking Cancelled</div>
+                <div class="timeline-date-details">{{ formatDateTime(selectedBooking.cancelled_at) }}</div>
               </div>
             </div>
           </div>
         </div>
       </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" @click="selectedBooking = null">
-          Close
+      <div class="modal-footer-details">
+        <button type="button" class="btn-close-details-modal" @click="selectedBooking = null">
+          <i class="bi bi-x-lg me-1"></i> Close
         </button>
       </div>
     </div>
@@ -870,39 +919,45 @@ const getUserRoleId = () => {
   const roleId = localStorage.getItem('role_id') || 
                  localStorage.getItem('roleId') || 
                  localStorage.getItem('user_role_id') || 
-                 '4'; // Default to guest (4)
+                 '4';
   return parseInt(roleId as string);
 };
 
-// 🔥 CRITICAL FIX: Check if user is internal based on email domain or role
-// Internal users: role_id = 1 (Master Admin), 2 (Admin), 3 (User)
-// External users: role_id = 4 (Guest)
+// OTP Code - Single rectangle input
+const otpCode = ref('');
+
+// Get status icon for modal
+const getStatusIcon = (status: string) => {
+  switch (status) {
+    case 'pending': return 'bi-clock-history';
+    case 'confirmed': return 'bi-check-circle-fill';
+    case 'cancelled': return 'bi-x-circle-fill';
+    case 'completed': return 'bi-check2-all';
+    default: return 'bi-question-circle';
+  }
+};
+
+// OTP Rectangle Input Handler
+const onOtpRectangleInput = (event: any) => {
+  const value = event.target.value.replace(/\D/g, '').slice(0, 6);
+  otpCode.value = value;
+};
+
 const isInternalUser = computed(() => {
   const roleId = getUserRoleId();
-  // role_id 1, 2, 3 are internal users
   const isInternalByRole = roleId === 1 || roleId === 2 || roleId === 3;
   
-  // Also check by email domain as fallback
   const email = getLoggedInUserEmail().toLowerCase();
   const isInternalByEmail = email.includes('@university.edu') || 
                             email.includes('@staff.edu') || 
                             email.includes('@student.edu');
   
-  console.log('User Role ID:', roleId);
-  console.log('User Email:', email);
-  console.log('Is Internal User (by role):', isInternalByRole);
-  console.log('Is Internal User (by email):', isInternalByEmail);
-  
-  // If role_id is not set properly, use email domain as fallback
-  // But primary method is role_id
   if (roleId === 4) {
-    return isInternalByEmail; // If guest but has internal email, treat as internal
+    return isInternalByEmail;
   }
-  
   return isInternalByRole;
 });
 
-// Get user type string for display
 const getUserType = computed(() => {
   const roleId = getUserRoleId();
   if (roleId === 1) return 'Master Admin';
@@ -911,19 +966,16 @@ const getUserType = computed(() => {
   return 'External User (Guest)';
 });
 
-// Calculate amount based on user type - INTERNAL USERS GET 0, GUESTS PAY
 const calculateAmountWithUserType = (baseAmount: number): number => {
   if (isInternalUser.value) {
-    return 0; // Internal users (role_id 1,2,3) get free booking
+    return 0;
   }
-  return baseAmount; // External users (role_id 4) pay full amount
+  return baseAmount;
 };
 
-// Format amount with user type
 const formatAmountWithUserType = (booking: any): string => {
   const roleId = booking.user?.role_id || getUserRoleId();
   
-  // Internal users (role_id 1,2,3) get free booking
   if (roleId === 1 || roleId === 2 || roleId === 3) {
     return 'Rs. 0.00 (Internal User - Free)';
   }
@@ -932,7 +984,6 @@ const formatAmountWithUserType = (booking: any): string => {
   return `Rs. ${amount}`;
 };
 
-// Calculate booking amount for a booking object
 const calculateBookingAmountForBooking = (booking: any): number => {
   if (booking.total_amount !== undefined && booking.total_amount !== null) {
     return booking.total_amount;
@@ -952,7 +1003,6 @@ const calculateBookingAmountForBooking = (booking: any): number => {
   return Math.round(hours * resource.value.base_price);
 };
 
-// Formatting Functions
 const formatTime = (time: string | null): string => {
     if (!time) return '00:00';
     return time.substring(0, 5); 
@@ -986,99 +1036,6 @@ const calculateDuration = (startTime: string, endTime: string): string => {
   return hours.toFixed(1);
 };
 
-// Interfaces
-interface Resource {
-  id: number;
-  name: string;
-  location_name?: string;
-  category_id: number;
-  category: ResourceCategory;
-  base_price: number;
-  department:string;
-  description?: string;
-  status: 'Active' | 'Inactive' | 'Maintenance';
-  capacity?: number;
-  availability: ResourceAvailability[]; 
-  images?: Array<{
-    file_path: string;
-    file_name: string;
-  }>;
-}
-
-interface TimeSlot {
-    start_time: string;
-    end_time: string;
-}
-
-interface ResourceAvailability {
-    id: number;
-    day_name: string;
-    day_of_week: number;
-    is_available: boolean;
-    slots: TimeSlot[];
-}
-
-interface ResourceCategory {
-    id: number;
-    name: string;
-}
-
-interface BookingEquipment {
-    id: number;
-    name: string;
-    description: string;
-    price_per_hour: number;
-    available_quantity: number;
-    status: 'Available' | 'Unavailable' | 'Maintenance';
-}
-
-interface SelectedEquipmentItem extends BookingEquipment {
-    quantity: number;
-}
-
-interface BookingForm {
-  email: string;
-  phone: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  purpose?: string;
-}
-
-interface Booking {
-  id: number;
-  booking_reference: string;
-  user_id: number;
-  user_email: string;
-  booking_date: string;
-  start_time: string;
-  end_time: string;
-  total_amount: number;
-  status: string;
-  notes: string;
-  created_at: string;
-  updated_at: string;
-  confirmed_at: string | null;
-  cancelled_at: string | null;
-  details: BookingDetail[];
-  user?: {
-    id: number;
-    name: string;
-    email: string;
-    phone?: string;
-    role_id?: number;
-  };
-}
-
-interface BookingDetail {
-  id: number;
-  item_type: string;
-  item_id: number;
-  quantity: number;
-  unit_price: number;
-  subtotal: number;
-}
-
 // State
 const resource = ref<Resource | null>(null);
 const bookings = computed(() => {
@@ -1103,11 +1060,9 @@ const equipmentSearch = ref('');
 const isLoadingEquipment = ref(false);
 const showEquipmentDropdown = ref(false);
 
-// OTP State
+// OTP & Modals
 const showOTPModal = ref(false);
 const showSuccessModal = ref(false);
-const otpDigits = ref<string[]>(Array(6).fill(''));
-const otpInputs = ref<(HTMLInputElement | null)[]>(Array(6).fill(null));
 const otpError = ref('');
 const isVerifyingOTP = ref(false);
 const isCreatingBooking = ref(false);
@@ -1215,7 +1170,7 @@ const isBookingConflict = computed(() => {
 });
 
 const isOtpComplete = computed(() => {
-  return otpDigits.value.every(digit => digit.length === 1);
+  return otpCode.value.length === 6;
 });
 
 const otpExpired = computed(() => {
@@ -1240,7 +1195,6 @@ const startMin = ref('00');
 const endHour = ref('10');
 const endMin = ref('00');
 
-// Color class for amount based on user type
 const getAmountColorClassForBooking = (booking: any) => {
   const roleId = booking.user?.role_id || getUserRoleId();
   if (roleId === 1 || roleId === 2 || roleId === 3) {
@@ -1386,7 +1340,6 @@ const loadAvailableEquipment = async () => {
 
 const searchEquipment = () => {
   const searchTerm = equipmentSearch.value.toLowerCase().trim();
-  
   filteredEquipment.value = availableEquipment.value.filter(item => {
     const nameMatch = item.name.toLowerCase().includes(searchTerm);
     const descMatch = item.description?.toLowerCase().includes(searchTerm) || false;
@@ -1398,6 +1351,26 @@ const searchEquipment = () => {
   });
   
   showEquipmentDropdown.value = true;
+  
+  // Ensure dropdown appears above other content
+  nextTick(() => {
+    const dropdown = document.querySelector('.equipment-dropdown-custom');
+    if (dropdown) {
+      const rect = dropdown.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      if (rect.bottom > viewportHeight - 50) {
+        dropdown.style.top = 'auto';
+        dropdown.style.bottom = '100%';
+        dropdown.style.marginTop = '0';
+        dropdown.style.marginBottom = '5px';
+      } else {
+        dropdown.style.top = '100%';
+        dropdown.style.bottom = 'auto';
+        dropdown.style.marginTop = '5px';
+        dropdown.style.marginBottom = '0';
+      }
+    }
+  });
 };
 
 const clearEquipmentSearch = () => {
@@ -1632,7 +1605,6 @@ const createBooking = async () => {
     const userId = currentUser.id || 0;
     const roleId = getUserRoleId();
     
-    // Calculate final amount based on user type
     let finalAmount = totalBookingCost.value;
     if (isInternalUser.value) {
       finalAmount = 0;
@@ -1775,16 +1747,13 @@ const createBookingAndSendOTP = async () => {
     
     if (pendingBookingId.value) {
       otpSentSuccess.value = true;
+      otpCode.value = '';
       showOTPModal.value = true;
       startOTPTimer();
-      otpDigits.value = Array(6).fill('');
       
       nextTick(() => {
-        const firstInput = otpInputs.value[0];
-        if (firstInput) {
-          firstInput.focus();
-          firstInput.value = '';
-        }
+        const rectangleInput = document.querySelector('.otp-rectangle-field') as HTMLInputElement;
+        if (rectangleInput) rectangleInput.focus();
       });
     }
     
@@ -1797,7 +1766,7 @@ const createBookingAndSendOTP = async () => {
 };
 
 const verifyOTPAndConfirmBooking = async () => {
-  const enteredOTP = otpDigits.value.join('');
+  const enteredOTP = otpCode.value;
   
   if (enteredOTP.length !== 6) {
     otpError.value = 'Please enter complete 6-digit OTP';
@@ -1848,13 +1817,10 @@ const verifyOTPAndConfirmBooking = async () => {
       otpError.value = 'Failed to verify OTP. Please try again.';
     }
     
-    otpDigits.value = Array(6).fill('');
+    otpCode.value = '';
     nextTick(() => {
-      const firstInput = otpInputs.value[0];
-      if (firstInput) {
-        firstInput.focus();
-        firstInput.value = '';
-      }
+      const rectangleInput = document.querySelector('.otp-rectangle-field') as HTMLInputElement;
+      if (rectangleInput) rectangleInput.focus();
     });
   } finally {
     isVerifyingOTP.value = false;
@@ -1883,16 +1849,13 @@ const resendOTP = async () => {
     });
     
     startOTPTimer();
-    otpDigits.value = Array(6).fill('');
+    otpCode.value = '';
     otpSentSuccess.value = true;
-    otpError.value = 'New OTP sent successfully!';
+    otpError.value = '';
     
     nextTick(() => {
-      const firstInput = otpInputs.value[0];
-      if (firstInput) {
-        firstInput.focus();
-        firstInput.value = '';
-      }
+      const rectangleInput = document.querySelector('.otp-rectangle-field') as HTMLInputElement;
+      if (rectangleInput) rectangleInput.focus();
     });
     
   } catch (error: any) {
@@ -1900,49 +1863,6 @@ const resendOTP = async () => {
     otpError.value = error.response?.data?.message || 'Failed to resend OTP. Please try again.';
   } finally {
     isResendingOTP.value = false;
-  }
-};
-
-const onOtpInput = (index: number, event: Event) => {
-  const input = event.target as HTMLInputElement;
-  const value = input.value;
-  
-  if (value.length === 6 && /^\d{6}$/.test(value)) {
-    const digits = value.split('');
-    digits.forEach((digit, i) => {
-      if (i < 6) {
-        otpDigits.value[i] = digit;
-      }
-    });
-    
-    nextTick(() => {
-      const lastInput = otpInputs.value[5];
-      if (lastInput) lastInput.focus();
-    });
-    return;
-  }
-  
-  if (value && !/^\d$/.test(value)) {
-    otpDigits.value[index] = '';
-    return;
-  }
-  
-  otpDigits.value[index] = value;
-  
-  if (value && index < 5) {
-    nextTick(() => {
-      const nextInput = otpInputs.value[index + 1];
-      if (nextInput) nextInput.focus();
-    });
-  }
-};
-
-const onOtpKeydown = (index: number, event: KeyboardEvent) => {
-  if (event.key === 'Backspace' && !otpDigits.value[index] && index > 0) {
-    nextTick(() => {
-      const prevInput = otpInputs.value[index - 1];
-      if (prevInput) prevInput.focus();
-    });
   }
 };
 
@@ -1965,10 +1885,7 @@ const startOTPTimer = () => {
 
 const closeOTPModal = () => {
   showOTPModal.value = false;
-  otpDigits.value = Array(6).fill('');
-  otpInputs.value.forEach(input => {
-    if (input) input.value = '';
-  });
+  otpCode.value = '';
   otpError.value = '';
   otpSentSuccess.value = false;
   isVerifyingOTP.value = false;
@@ -2068,11 +1985,9 @@ watch(
 );
 
 onMounted(() => {
-  // Auto-fill email from localStorage
   const userEmail = getLoggedInUserEmail();
   bookingForm.value.email = userEmail;
   
-  // Auto-fill phone from localStorage user profile if available
   const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
   if (currentUser.phone) {
     bookingForm.value.phone = currentUser.phone;
@@ -2138,264 +2053,1097 @@ onMounted(() => {
 
 .booking-equipment-section {
   margin-top: 1.5rem;
+  position: relative;
 }
 
-.equipment-dropdown {
-  max-height: 250px;
-  overflow-y: auto;
-  background-color: white;
-  z-index: 1000;
+/* Equipment Dropdown */
+.equipment-search-wrapper {
+  position: relative;
+}
+
+.equipment-search-input:focus {
+  border-color: #4BB66D;
+  box-shadow: 0 0 0 3px rgba(75, 182, 109, 0.1);
+}
+
+.equipment-dropdown-custom {
   position: absolute;
+  z-index: 1050;
+  background: white;
   width: 100%;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  border: 1px solid #dee2e6;
-  border-radius: 0.375rem;
-  margin-top: 0.25rem;
+  max-height: 280px;
+  overflow-y: auto;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
+  margin-top: 5px;
+  left: 0;
+  right: 0;
 }
 
-.equipment-dropdown-item {
+.equipment-dropdown-item-custom {
   cursor: pointer;
-  transition: background-color 0.2s;
-  padding: 0.75rem 1rem;
+  transition: all 0.2s ease;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid #f1f5f9;
 }
 
-.equipment-dropdown-item:hover {
-  background-color: #f8f9fa;
+.equipment-dropdown-item-custom:last-child {
+  border-bottom: none;
 }
 
+.equipment-dropdown-item-custom:hover {
+  background: linear-gradient(135deg, #f0fdf4 0%, #e5f4de 100%);
+  transform: translateX(4px);
+}
+
+.equipment-dropdown-item-custom .fw-bold {
+  color: #1e4449;
+}
+
+/* Selected Equipment List */
 .selected-equipment-list .list-group-item {
   transition: all 0.3s;
   border: 1px solid #dee2e6;
+  border-radius: 12px !important;
 }
 
 .selected-equipment-list .list-group-item:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   border-color: #4BB66D;
 }
 
-.input-group-sm .btn {
-  padding: 0.25rem 0.5rem;
-  font-size: 0.875rem;
+/* Actions Buttons */
+.actions-cell {
+  white-space: nowrap;
 }
 
-.cost-summary {
-  background-color: #f8f9fa;
+.btn-preview {
+  background: linear-gradient(135deg, #0dcaf0 0%, #0bb5d8 100%);
+  border: none;
   border-radius: 8px;
-  padding: 1rem;
-  border: 1px solid #e9ecef;
+  padding: 0.3rem 0.65rem;
+  color: white;
+  font-size: 0.8rem;
+  transition: all 0.2s ease;
+  margin-right: 4px;
+  cursor: pointer;
 }
 
-.cost-breakdown {
-  font-size: 0.95rem;
+.btn-preview:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(13, 202, 240, 0.3);
 }
 
-.badge {
-  padding: 0.35em 0.65em;
-  font-size: 0.75em;
-  font-weight: 600;
-  border-radius: 4px;
-}
-
-.table {
-  font-size: 0.85rem;
-}
-
-.table th, .table td {
-  padding: 0.6rem 0.5rem;
-  vertical-align: middle;
-}
-
-.btn-success {
-  background-color: #4BB66D;
-  border-color: #4BB66D;
-}
-
-.btn-success:hover {
-  background-color: #3f975b;
-  border-color: #3f975b;
-}
-
-.badge.status-pending {
-  background-color: #ffffff !important;
-  color: #8B8000 !important;
-  border: 1px solid #FFD700;
-  font-weight: 500;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.badge.status-confirmed {
-  background-color: #28a745 !important;
-  color: white !important;
-  font-weight: 500;
+.btn-cancel {
+  background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
   border: none;
-}
-
-.badge.status-cancelled {
-  background-color: #dc3545 !important;
-  color: white !important;
-  font-weight: 500;
-  border: none;
-}
-
-.badge.status-completed {
-  background-color: #17a2b8 !important;
-  color: white !important;
-  font-weight: 500;
-  border: none;
-}
-
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 9999;
-  padding: 20px;
-}
-
-.modal-content {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-  width: 100%;
-  max-width: 450px;
-  animation: modalSlideIn 0.3s ease;
-}
-
-.otp-digit {
-  width: 45px;
-  height: 55px;
-  text-align: center;
-  font-size: 1.5rem;
-  font-weight: 600;
-  border: 2px solid #dee2e6;
   border-radius: 8px;
-  transition: all 0.2s;
+  padding: 0.3rem 0.65rem;
+  color: white;
+  font-size: 0.8rem;
+  transition: all 0.2s ease;
+  cursor: pointer;
 }
 
-.otp-digit:focus {
-  border-color: #4BB66D;
-  box-shadow: 0 0 0 3px rgba(75, 182, 109, 0.1);
-  outline: none;
+.btn-cancel:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
 }
 
+/* ========== OTP MODAL STYLES (FIXED CENTER) ========== */
+.modal-overlay-otp {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    padding: 20px;
+}
+
+.modal-container-otp {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border-radius: 28px;
+    width: 100%;
+    max-width: 440px;
+    animation: modalSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+}
+
+.modal-header-otp {
+    background: linear-gradient(135deg, #1e4449 0%, #2a6b6b 100%);
+    padding: 1.25rem 1.25rem 1rem;
+    text-align: center;
+    position: relative;
+}
+
+.header-icon {
+    width: 52px;
+    height: 52px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 0.75rem;
+}
+
+.header-icon i {
+    font-size: 1.75rem;
+    color: white;
+}
+
+.modal-title-otp {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: white;
+    margin: 0;
+    letter-spacing: -0.5px;
+}
+
+.btn-close-otp {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    background: rgba(255, 255, 255, 0.15);
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: white;
+}
+
+.modal-body-otp {
+    padding: 1.25rem 1.5rem;
+}
+
+.otp-info-section {
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+.info-icon {
+    width: 40px;
+    height: 40px;
+    background: #e8f5e9;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 0.75rem;
+}
+
+.info-icon i {
+    font-size: 1.25rem;
+    color: #2e7d32;
+}
+
+.info-text {
+    color: #475569;
+    margin-bottom: 0.75rem;
+    line-height: 1.4;
+    font-size: 0.85rem;
+}
+
+.info-text strong {
+    color: #1e4449;
+    font-weight: 600;
+}
+
+.alert-success-otp {
+    background: #e8f5e9;
+    color: #2e7d32;
+    padding: 0.5rem 0.75rem;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 0.35rem;
+}
+
+/* RECTANGLE OTP INPUT FIELD */
+.otp-rectangle-container {
+    margin-bottom: 1rem;
+}
+
+.otp-label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #334155;
+    margin-bottom: 0.5rem;
+    text-align: center;
+}
+
+.otp-rectangle-input {
+    position: relative;
+}
+
+.otp-rectangle-field {
+    width: 100%;
+    padding: 0.8rem 1rem;
+    font-size: 1.35rem;
+    font-weight: 600;
+    letter-spacing: 0.4rem;
+    text-align: center;
+    border: 2px solid #e2e8f0;
+    border-radius: 14px;
+    background: white;
+    transition: all 0.2s ease;
+    font-family: 'Courier New', monospace;
+}
+
+.otp-rectangle-field:focus {
+    outline: none;
+    border-color: #1e4449;
+    box-shadow: 0 0 0 3px rgba(30, 68, 73, 0.1);
+}
+
+.otp-rectangle-field::placeholder {
+    letter-spacing: 0.25rem;
+    font-size: 1.1rem;
+    color: #cbd5e1;
+}
+
+.otp-rectangle-highlight {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #1e4449, #4BB66D);
+    transition: width 0.3s ease;
+    border-radius: 2px;
+}
+
+.otp-rectangle-field:focus + .otp-rectangle-highlight {
+    width: 70%;
+}
+
+.otp-hint {
+    font-size: 0.65rem;
+    color: #94a3b8;
+    text-align: center;
+    margin-top: 0.5rem;
+}
+
+/* Timer Section */
+.otp-timer-section {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1rem;
+}
+
+.timer-circle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0.35rem 1rem;
+    background: #f1f5f9;
+    border-radius: 40px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #1e4449;
+}
+
+.timer-circle i {
+    font-size: 0.85rem;
+}
+
+/* Error Message */
+.error-message-otp {
+    background: #fef2f2;
+    color: #dc2626;
+    padding: 0.5rem 0.75rem;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    justify-content: center;
+    margin-top: 0.75rem;
+}
+
+/* Modal Footer */
+.modal-footer-otp {
+    padding: 0.85rem 1.5rem 1.25rem;
+    background: #ffffff;
+    border-top: 1px solid #e2e8f0;
+}
+
+.btn-resend-otp {
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: #1e4449;
+    font-size: 0.8rem;
+    font-weight: 500;
+    padding: 0.35rem;
+    cursor: pointer;
+    margin-bottom: 0.75rem;
+    transition: all 0.2s ease;
+}
+
+.footer-buttons {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.btn-cancel-otp {
+    flex: 1;
+    padding: 0.6rem;
+    background: #f1f5f9;
+    border: none;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-verify-otp {
+    flex: 1.5;
+    padding: 0.6rem;
+    background: linear-gradient(135deg, #1e4449 0%, #2a6b6b 100%);
+    border: none;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+/* ========== SUCCESS MODAL (FIXED CENTER) ========== */
+.modal-overlay-success {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10001;
+    padding: 20px;
+}
+
+.modal-container-success {
+    background: white;
+    border-radius: 28px;
+    width: 100%;
+    max-width: 500px;
+    animation: modalSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+}
+
+.modal-header-success {
+    background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+    padding: 1.25rem 1.25rem 1rem;
+    text-align: center;
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.success-icon-header {
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.success-icon-header i {
+    font-size: 1.5rem;
+    color: white;
+}
+
+.modal-title-success {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: white;
+    margin: 0;
+    flex: 1;
+    text-align: center;
+}
+
+.btn-close-success {
+    background: rgba(255, 255, 255, 0.15);
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: white;
+}
+
+.btn-close-success:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: rotate(90deg);
+}
+
+.modal-body-success {
+    padding: 1.5rem;
+    text-align: center;
+    background: #f8fafc;
+}
+
+.success-animation {
+    margin-bottom: 1rem;
+}
+
+.checkmark-circle {
+    width: 70px;
+    height: 70px;
+    background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    animation: scaleIn 0.5s ease;
+}
+
+.checkmark-circle i {
+    font-size: 2.5rem;
+    color: white;
+}
+
+.booking-details-success {
+    background: white;
+    border-radius: 16px;
+    padding: 1rem;
+    text-align: left;
+    margin: 1rem 0;
+    border: 1px solid #e2e8f0;
+}
+
+.detail-row {
+    display: flex;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f1f5f9;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.detail-row:last-child {
+    border-bottom: none;
+}
+
+.detail-label {
+    font-weight: 600;
+    color: #475569;
+    min-width: 90px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.detail-label i {
+    font-size: 0.9rem;
+    color: #1e4449;
+}
+
+.detail-value {
+    color: #1e293b;
+    flex: 1;
+}
+
+.total-row {
+    background: #f0fdf4;
+    margin-top: 0.5rem;
+    padding: 0.75rem;
+    border-radius: 12px;
+    border-bottom: none;
+}
+
+.equipment-list-success {
+    flex-wrap: wrap;
+}
+
+.equipment-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    flex: 1;
+}
+
+.equipment-badge {
+    background: #f1f5f9;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    color: #475569;
+}
+
+.reference-box {
+    background: #e0f2fe;
+    padding: 0.75rem;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 0.75rem;
+}
+
+.reference-box i {
+    font-size: 1.2rem;
+    color: #0284c7;
+}
+
+.reference-box strong {
+    color: #0369a1;
+}
+
+.email-notice {
+    font-size: 0.75rem;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 0.75rem;
+}
+
+.modal-footer-success {
+    padding: 1rem 1.5rem;
+    background: white;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.btn-view-bookings {
+    flex: 1;
+    padding: 0.7rem;
+    background: linear-gradient(135deg, #1e4449 0%, #2a5a60 100%);
+    border: none;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-view-bookings:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(30, 68, 73, 0.3);
+}
+
+.btn-book-another {
+    flex: 1;
+    padding: 0.7rem;
+    background: #f1f5f9;
+    border: none;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-book-another:hover {
+    background: #e2e8f0;
+    transform: translateY(-2px);
+}
+
+/* ========== BOOKING DETAILS MODAL (FIXED CENTER) ========== */
+.modal-overlay-details {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10002;
+    padding: 20px;
+}
+
+.modal-container-details {
+    background: white;
+    border-radius: 28px;
+    width: 90%;
+    max-width: 850px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: modalSlideUp 0.35s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+    box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.4);
+}
+
+.modal-header-details {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem 1.75rem;
+    background: linear-gradient(135deg, #1e4449 0%, #2a5a60 100%);
+    flex-shrink: 0;
+}
+
+.modal-title-details {
+    margin: 0;
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: white;
+    display: flex;
+    align-items: center;
+}
+
+.btn-close-details {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    color: white;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.25s ease;
+}
+
+.btn-close-details:hover {
+    background: rgba(255, 255, 255, 0.35);
+    transform: rotate(90deg);
+}
+
+.modal-body-details {
+    padding: 1.75rem;
+    background: #f8fafc;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.modal-body-details::-webkit-scrollbar {
+    width: 6px;
+}
+
+.modal-body-details::-webkit-scrollbar-track {
+    background: #e2e8f0;
+    border-radius: 10px;
+}
+
+.modal-body-details::-webkit-scrollbar-thumb {
+    background: #94a3b8;
+    border-radius: 10px;
+}
+
+.modal-footer-details {
+    padding: 1rem 1.75rem;
+    background: white;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: flex-end;
+    flex-shrink: 0;
+}
+
+.btn-close-details-modal {
+    background: #e2e8f0;
+    border: none;
+    padding: 0.6rem 1.5rem;
+    border-radius: 12px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #475569;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.btn-close-details-modal:hover {
+    background: #cbd5e1;
+    color: #1e293b;
+}
+
+/* Status Badge */
+.status-badge-wrapper-details {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.status-badge-details {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 22px;
+    border-radius: 50px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    background: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.status-badge-details.status-pending {
+    background: #fef3c7;
+    color: #d97706;
+    border: 1px solid #fde68a;
+}
+
+.status-badge-details.status-confirmed {
+    background: #d1fae5;
+    color: #059669;
+    border: 1px solid #a7f3d0;
+}
+
+.status-badge-details.status-cancelled {
+    background: #fee2e2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+}
+
+/* Info Card */
+.info-card-details {
+    background: white;
+    border-radius: 18px;
+    padding: 1rem 1.25rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e2e8f0;
+}
+
+.info-row-details {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.7rem 0;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.info-row-details:last-child {
+    border-bottom: none;
+}
+
+.info-label-details {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.info-value-details {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #1e293b;
+}
+
+.amount-value-details {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #059669;
+}
+
+.resource-name-details {
+    font-weight: 700;
+    color: #1e4449;
+}
+
+/* Equipment List */
+.equipment-list-details {
+    background: white;
+    border-radius: 18px;
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
+}
+
+.equipment-item-details {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.85rem 1.25rem;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.equipment-item-details:last-child {
+    border-bottom: none;
+}
+
+.equipment-info-details {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.equipment-name-details {
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.equipment-qty-details {
+    font-size: 0.75rem;
+    color: #64748b;
+    background: #f1f5f9;
+    padding: 3px 10px;
+    border-radius: 20px;
+}
+
+.equipment-price-details {
+    font-weight: 700;
+    color: #059669;
+}
+
+/* Notes Box */
+.notes-box-details {
+    background: #fffbeb;
+    border-left: 4px solid #f59e0b;
+    padding: 1rem 1.25rem;
+    border-radius: 14px;
+    font-size: 0.85rem;
+    color: #78350f;
+    line-height: 1.5;
+}
+
+/* Timeline */
+.timeline-details {
+    position: relative;
+    padding-left: 1.8rem;
+}
+
+.timeline-details::before {
+    content: '';
+    position: absolute;
+    left: 9px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #e2e8f0;
+}
+
+.timeline-item-details {
+    position: relative;
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.timeline-item-details:last-child {
+    margin-bottom: 0;
+}
+
+.timeline-icon-details {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+}
+
+.timeline-icon-details.bg-success { background: #10b981; }
+.timeline-icon-details.bg-primary { background: #3b82f6; }
+.timeline-icon-details.bg-danger { background: #ef4444; }
+
+.timeline-content-details {
+    flex: 1;
+    padding-bottom: 0.25rem;
+}
+
+.timeline-title-details {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: #1e293b;
+    margin-bottom: 0.25rem;
+}
+
+.timeline-date-details {
+    font-size: 0.7rem;
+    color: #94a3b8;
+}
+
+/* Animations */
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 @keyframes modalSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+    from {
+        opacity: 0;
+        transform: scale(0.95) translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
 }
 
+@keyframes modalSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px) scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.5);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Existing utility classes */
 .extra-small {
-  font-size: 0.75rem;
+    font-size: 0.75rem;
 }
 
 .small {
-  font-size: 0.875rem;
+    font-size: 0.875rem;
 }
 
 .text-success {
-  color: #4BB66D !important;
+    color: #4BB66D !important;
 }
 
 .text-primary {
-  color: #1e4449 !important;
+    color: #1e4449 !important;
 }
 
 .text-muted {
-  color: #6c757d !important;
+    color: #6c757d !important;
 }
 
 .form-control:focus {
-  border-color: #4BB66D;
-  box-shadow: 0 0 0 0.2rem rgba(75, 182, 109, 0.25);
+    border-color: #4BB66D;
+    box-shadow: 0 0 0 0.2rem rgba(75, 182, 109, 0.25);
 }
 
 .alert-warning {
-  background-color: #fff3cd;
-  border-color: #ffeaa7;
-  color: #856404;
+    background-color: #fff3cd;
+    border-color: #ffeaa7;
+    color: #856404;
 }
 
 .alert-success {
-  background-color: #d1e7dd;
-  border-color: #badbcc;
-  color: #0f5132;
+    background-color: #d1e7dd;
+    border-color: #badbcc;
+    color: #0f5132;
 }
 
 .alert-info {
-  background-color: #d1ecf1;
-  border-color: #bee5eb;
-  color: #0c5460;
+    background-color: #d1ecf1;
+    border-color: #bee5eb;
+    color: #0c5460;
 }
 
 .availability-list {
-  max-height: 350px;
-  overflow-y: auto;
-  padding-right: 5px;
+    max-height: 350px;
+    overflow-y: auto;
+    padding-right: 5px;
 }
 
 .day-availability {
-  padding: 12px;
-  background-color: #ffffff;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-  border: 1px solid #f1f3f5;
-  border-left: 4px solid #1e4449;
-  margin-bottom: 12px;
+    padding: 12px;
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    border: 1px solid #f1f3f5;
+    border-left: 4px solid #1e4449;
+    margin-bottom: 12px;
 }
 
 .time-slots-container {
-  background-color: #f8f9fa;
-  padding: 8px;
-  border-radius: 6px;
-  border: 1px solid #e9ecef;
+    background-color: #f8f9fa;
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid #e9ecef;
 }
 
 .time-slot {
-  padding: 4px 8px;
-  background-color: white;
-  border-radius: 4px;
-  border-left: 3px solid #4BB66D;
-  margin-bottom: 5px;
+    padding: 4px 8px;
+    background-color: white;
+    border-radius: 4px;
+    border-left: 3px solid #4BB66D;
+    margin-bottom: 5px;
 }
 
 .time-slot:last-child {
-  margin-bottom: 0;
+    margin-bottom: 0;
 }
 
 .slot-time {
-  font-family: 'Courier New', Courier, monospace;
-  font-weight: 600;
-  color: #2c3e50;
-  font-size: 0.85rem;
+    font-family: 'Courier New', Courier, monospace;
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 0.85rem;
 }
 
 .availability-list::-webkit-scrollbar {
-  width: 4px;
+    width: 4px;
 }
 
 .availability-list::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 10px;
+    background: #f1f1f1;
+    border-radius: 10px;
 }
 
 .availability-list::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 10px;
+    background: #c1c1c1;
+    border-radius: 10px;
+}
+
+/* Parent containers should not clip */
+.card-body {
+    overflow: visible !important;
+}
+
+.card {
+    overflow: visible !important;
+}
+
+.sticky-top {
+    overflow: visible !important;
 }
 </style>
