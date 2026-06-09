@@ -255,19 +255,19 @@ const routes: Array<RouteRecordRaw> = [
     path: '/admin/resource',
     name: 'admin-resource',
     component: Resource,
-    meta: { requiresAuth: true, role: 'Admin' }
+    meta: { requiresAuth: true, role: 'Admin', permission: 'manage_resources' }
   },
    {
     path: '/admin/booking',
     name: 'admin-booking',
     component: Admin_Booking,
-    meta: { requiresAuth: true, role: 'Admin' }
+    meta: { requiresAuth: true, role: 'Admin', permission: 'manage_bookings' }
   },
    {
     path: '/admin/reports',
     name: 'admin-reports',
     component: Admin_Reports,
-    meta: { requiresAuth: true, role: 'Admin' }
+    meta: { requiresAuth: true, role: 'Admin', permission: 'view_reports' }
   },
    {
     path: '/admin/setting',
@@ -279,7 +279,7 @@ const routes: Array<RouteRecordRaw> = [
     path: '/admin/users',
     name: 'admin-user',
     component: Admin_Users,
-    meta: { requiresAuth: true, role: 'Admin' }
+    meta: { requiresAuth: true, role: 'Admin', permission: 'manage_users' }
   },
    {
     path: '/admin/add-resource',
@@ -316,6 +316,12 @@ const router = createRouter({
 router.beforeEach((to, _from, next) => {
   const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
   const userRole = localStorage.getItem('userRole');
+  let userPermissions: string[] = [];
+  try {
+    userPermissions = JSON.parse(localStorage.getItem('userPermissions') || '[]');
+  } catch (e) {
+    userPermissions = [];
+  }
 
   if (to.meta.requiresAuth && !isAuthenticated) {
     next('/login');
@@ -324,7 +330,20 @@ router.beforeEach((to, _from, next) => {
     if (!roles.includes(userRole)) {
       next('/login');
     } else {
-      next();
+      // Role is valid, check permission if specified
+      if (to.meta.permission) {
+        if (!userPermissions.includes(to.meta.permission as string) && !userPermissions.includes('*')) {
+          // If no permission, redirect to their dashboard
+          if (userRole === 'Admin') next('/admin/dashboard');
+          else if (userRole === 'Master Admin') next('/master-admin/dashboard');
+          else if (userRole === 'User') next('/user/dashboard');
+          else next('/login');
+        } else {
+          next();
+        }
+      } else {
+        next();
+      }
     }
   } else {
     next();

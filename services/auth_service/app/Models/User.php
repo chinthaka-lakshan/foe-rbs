@@ -62,7 +62,8 @@ class User extends Authenticatable
                 'manage_resources',
                 'manage_bookings',
                 'view_reports',
-                'manage_categories'
+                'manage_categories',
+                'manage_users'
             ],
             'User'  => [],
         ];
