@@ -145,7 +145,7 @@ const extractRoleName = (user: any): string => {
 
 // Process login success and save all necessary data
 const processLoginSuccess = (data: any) => {
-  const { user, token } = data;
+  const { user, token, permissions } = data;
   
   // Extract role information
   const roleId = extractRoleId(user);
@@ -169,7 +169,12 @@ const processLoginSuccess = (data: any) => {
   localStorage.setItem('email', user.email);
   localStorage.setItem('userId', user.id.toString());
   
-  // 3. 🔥 CRITICAL: Save role information in multiple formats for compatibility
+  // Save permissions
+  if (permissions) {
+      localStorage.setItem('userPermissions', JSON.stringify(permissions));
+  }
+  
+  // 3. CRITICAL: Save role information in multiple formats for compatibility
   localStorage.setItem('userRole', roleName);
   localStorage.setItem('role', roleName);
   localStorage.setItem('role_id', roleId.toString());

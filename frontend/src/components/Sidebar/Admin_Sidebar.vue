@@ -19,12 +19,12 @@
           <span>Dashboard</span>
         </router-link>
 
-        <router-link to="/admin/resource" class="nav-link" :class="{ active: isActive('/admin/resource') }">
+        <router-link v-if="hasPermission('manage_resources')" to="/admin/resource" class="nav-link" :class="{ active: isActive('/admin/resource') }">
           <div class="icon-box"><i class="bi bi-stack"></i></div>
           <span>Resources</span>
         </router-link>
 
-        <router-link to="/admin/booking" class="nav-link" :class="{ active: isActive('/admin/booking') }">
+        <router-link v-if="hasPermission('manage_bookings')" to="/admin/booking" class="nav-link" :class="{ active: isActive('/admin/booking') }">
           <div class="icon-box"><i class="bi bi-calendar-check-fill"></i></div>
           <span>Bookings</span>
         </router-link>
@@ -33,13 +33,13 @@
       <div class="nav-group mb-4">
         <span class="group-label">Management</span>
 
-         <router-link to="/admin/users" class="nav-link" :class="{ active: isActive('/admin/users') }">
+         <router-link v-if="hasPermission('manage_users')" to="/admin/users" class="nav-link" :class="{ active: isActive('/admin/users') }">
           <div class="icon-box"><i class="bi bi-people-fill"></i></div>
           <span>Users</span>
         </router-link>
         
 
-        <router-link to="/admin/reports" class="nav-link" :class="{ active: isActive('/admin/reports') }">
+        <router-link v-if="hasPermission('view_reports')" to="/admin/reports" class="nav-link" :class="{ active: isActive('/admin/reports') }">
           <div class="icon-box"><i class="bi bi-bar-chart-line-fill"></i></div>
           <span>Reports</span>
         </router-link>
@@ -68,16 +68,32 @@
 
 <script setup lang="ts">
 import { useRoute } from 'vue-router';
-import { onMounted } from 'vue';
+import { onMounted, ref } from 'vue';
 import { systemStore } from '../../store/systemSettings';
 
 const route = useRoute();
+const permissions = ref<string[]>([]);
 
 const isActive = (path: string): boolean => {
   return route.path === path;
 };
+
+const hasPermission = (slug: string): boolean => {
+  // If no permissions are explicitly loaded, default to false
+  // Master Admins would have ['*'], handle it if necessary (though this is Admin sidebar)
+  return permissions.value.includes(slug) || permissions.value.includes('*');
+};
+
 onMounted(() => {
   systemStore.loadSettings();
+  const storedPerms = localStorage.getItem('userPermissions');
+  if (storedPerms) {
+      try {
+          permissions.value = JSON.parse(storedPerms);
+      } catch (e) {
+          permissions.value = [];
+      }
+  }
 });
 </script>
 
