@@ -125,7 +125,7 @@
                     :id="'statusToggle-' + user.id"
                     :checked="user.status === 'active'"
                     @change="toggleUserStatus(user)"
-                    :disabled="isStatusUpdating"
+                    :disabled="isStatusUpdating || user.primaryRole.toLowerCase() === 'master admin'"
                   >
                   <label class="form-check-label ms-2" :for="'statusToggle-' + user.id">
                     <span class="badge" :class="user.status === 'active' ? 'bg-success' : 'bg-secondary'">
